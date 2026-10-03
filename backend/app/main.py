@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest, EdgeSyncRequest
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest, load_manifest
+from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
 from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
@@ -20,6 +21,7 @@ DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
 STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
+INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
 app.add_middleware(
@@ -98,6 +100,72 @@ def infrastructure_demo():
         "job_role": manifest["job_role"],
         "items": compare_manifest(manifest, observed),
     }
+
+
+
+
+@app.post("/api/process-infrastructure-video")
+def process_infrastructure_video(
+    file: UploadFile = File(...),
+    centre_id: str = Form("DEMO-KA-104"),
+    batch_id: str = Form("ELEC-DEMO-01"),
+    camera_id: str = Form("LAB-CAM-02"),
+    operability_item_id: str | None = Form("drill_machine"),
+    roi_x1: int | None = Form(None),
+    roi_y1: int | None = Form(None),
+    roi_x2: int | None = Form(None),
+    roi_y2: int | None = Form(None),
+):
+    """Stage-safe infrastructure pipeline using the demo manifest + cached detections.
+
+    The uploaded video supplies actual evidence and optional operability frames.
+    Equipment observations are currently sourced from the cached detector adapter;
+    GroundingDINO can replace that adapter without changing the case workflow.
+    """
+    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
+    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
+    manifest = load_manifest(manifest_path)
+    rows = json.loads(cached_path.read_text())
+
+    roi_values = (roi_x1, roi_y1, roi_x2, roi_y2)
+    if any(v is not None for v in roi_values) and not all(v is not None for v in roi_values):
+        raise HTTPException(status_code=400, detail="Provide all ROI coordinates or none")
+    roi = tuple(int(v) for v in roi_values) if all(v is not None for v in roi_values) else None
+
+    suffix = Path(file.filename or "video.avi").suffix or ".avi"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = Path(tmp.name)
+
+    try:
+        case = INFRA_PIPELINE.run(
+            video_path=tmp_path,
+            manifest=manifest,
+            detection_rows=rows,
+            centre_id=centre_id,
+            batch_id=batch_id,
+            camera_id=camera_id,
+            operability_item_id=operability_item_id if roi else None,
+            operability_roi=roi,
+        )
+        if not case:
+            return {
+                "created": False,
+                "banner": "Prototype — cached equipment detections; no persistent visual manifest exception",
+            }
+        STORE.save(case)
+        return {
+            "created": True,
+            "banner": (
+                "Prototype — uploaded video evidence with cached equipment detections; "
+                "not official live compliance data"
+            ),
+            "case": case.model_dump(mode="json"),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 @app.post("/api/operability-check")
