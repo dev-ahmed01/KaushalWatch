@@ -2,13 +2,12 @@ name: vision-benchmark
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["build/**"]
+  pull_request:
     paths:
       - ".github/vision-trigger"
 
 jobs:
-  epfl-person-count:
+  epfl-person-detection:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -29,13 +28,9 @@ jobs:
           python scripts/download_epfl_lab_c0_gt.py
           python scripts/download_openvino_person_model.py
 
-      - name: Derive real occupancy labels
-        run: |
-          python evaluation/convert_epfl_gt_to_counts.py             --input data/raw/epfl/laboratory6-c0-gt.txt             --output data/raw/epfl/laboratory6-c0-counts.csv             --fps 25             --step-frames 25
-
       - name: Benchmark HOG baseline
         run: |
-          python evaluation/benchmark_video_counts.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-counts.csv             --out-dir evaluation/output/epfl-hog             --detector hog
+          python evaluation/benchmark_epfl_detection.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-gt.txt             --out-dir evaluation/output/epfl-hog             --detector hog             --step-frames 25             --iou-threshold 0.5
 
       - name: Benchmark OpenVINO
         env:
@@ -43,7 +38,7 @@ jobs:
           KAUSHALWATCH_OPENVINO_DEVICE: CPU
           KAUSHALWATCH_PERSON_CONFIDENCE: "0.45"
         run: |
-          python evaluation/benchmark_video_counts.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-counts.csv             --out-dir evaluation/output/epfl-openvino             --detector openvino
+          python evaluation/benchmark_epfl_detection.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-gt.txt             --out-dir evaluation/output/epfl-openvino             --detector openvino             --step-frames 25             --iou-threshold 0.5
 
       - name: Compare detectors
         run: |
@@ -51,7 +46,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: epfl-person-count-benchmark
+          name: epfl-person-detection-benchmark
           path: |
             evaluation/output/epfl-hog/
             evaluation/output/epfl-openvino/
