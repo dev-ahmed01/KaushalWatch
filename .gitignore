@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+node_modules/
+.next/
+data/cases.json
+data/evidence/
+data/evidence_index.json
+evaluation/output/
