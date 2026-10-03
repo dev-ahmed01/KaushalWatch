@@ -73,3 +73,7 @@ class ProcessSummary(BaseModel):
 class ReviewRequest(BaseModel):
     action: CaseStatus
     note: str | None = None
+
+
+class EdgeSyncRequest(BaseModel):
+    events: list[dict[str, Any]]
