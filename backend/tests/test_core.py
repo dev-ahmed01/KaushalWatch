@@ -153,3 +153,47 @@ def test_case_review_history_is_appended(tmp_path):
     assert event["from_status"] == "open"
     assert event["to_status"] == "virtual_verification"
     assert event["note"] == "Needs remote officer check"
+
+
+def test_infrastructure_temporal_proof_ignores_transient_deficit():
+    manifest = {"items": [{
+        "id": "panel",
+        "label": "Training Panel",
+        "required": 4,
+        "verification_tier": "camera_verifiable",
+        "temporal_required_ratio": 0.8,
+    }]}
+    observed = {
+        "panel": {
+            "observed_count": 4,
+            "mean_confidence": 0.9,
+            "samples": 5,
+            "sample_counts": [4, 3, 4, 4, 3],
+            "sample_confidences": [0.9, 0.9, 0.9, 0.9, 0.9],
+        }
+    }
+    row = compare_manifest(manifest, observed)[0]
+    assert row["state"] == "COMPLIANT"
+    assert row["deficit_ratio"] == 0.4
+
+
+def test_infrastructure_temporal_proof_flags_persistent_deficit():
+    manifest = {"items": [{
+        "id": "panel",
+        "label": "Training Panel",
+        "required": 4,
+        "verification_tier": "camera_verifiable",
+        "temporal_required_ratio": 0.8,
+    }]}
+    observed = {
+        "panel": {
+            "observed_count": 2,
+            "mean_confidence": 0.9,
+            "samples": 5,
+            "sample_counts": [2, 2, 2, 2, 3],
+            "sample_confidences": [0.9, 0.9, 0.9, 0.9, 0.9],
+        }
+    }
+    row = compare_manifest(manifest, observed)[0]
+    assert row["state"] == "DISCREPANCY"
+    assert row["deficit_ratio"] == 1.0
