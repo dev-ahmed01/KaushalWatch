@@ -12,6 +12,7 @@ from scripts.check_demo_readiness import (
     check_operability_roi,
     final_mode_checks,
     inspect_video,
+    required_cache_labels,
 )
 
 
@@ -102,3 +103,14 @@ def test_final_mode_accepts_frozen_scenario(tmp_path):
         detector="openvino",
     )
     assert all(ok for _, ok, _ in checks)
+
+
+def test_officer_only_manifest_items_do_not_require_detector_cache_entries():
+    manifest = {
+        "items": [
+            {"id": "training_panel", "verification_tier": "camera_verifiable"},
+            {"id": "drill_machine", "verification_tier": "camera_partially_verifiable"},
+            {"id": "multimeter", "verification_tier": "officer_verification_required"},
+        ]
+    }
+    assert required_cache_labels(manifest) == {"training_panel", "drill_machine"}
