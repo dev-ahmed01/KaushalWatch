@@ -1,0 +1,6 @@
+sample_id,true_count,pred_count,true_issue,pred_issue
+A01,12,12,false,false
+A02,12,9,true,true
+A03,10,10,false,false
+A04,12,11,false,true
+A05,8,11,true,false
