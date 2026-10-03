@@ -7,7 +7,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 ## Implemented in the current build branch
 - FastAPI API skeleton and CORS.
 - Video upload vertical slice.
-- OpenCV HOG baseline person detector.
+- OpenCV HOG baseline person detector plus an optional OpenVINO detector adapter.
 - Occupancy smoothing and attendance-discrepancy logic.
 - Temporal persistence before a compliance case is created.
 - Camera-trust checks: dark, blur, frozen-frame and basic scene-shift signals.
@@ -29,11 +29,12 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Apparent operability means visual activity evidence only, never mechanical/electrical health.
 
 ## Next engineering milestones
-1. Run a selected **single-camera** EPFL sequence through the attendance pipeline.
-2. Replace HOG with the chosen lightweight person detector and measure count MAE / precision / recall.
+1. Download and run the selected **single-camera** EPFL Laboratory Camera 0 sequence through the benchmark harness.
+2. Validate the optional OpenVINO person detector on that sequence and compare its count MAE against HOG; keep the better lightweight backend for the SIH demo.
 3. **Browser E2E check:** launch backend + dashboard together and verify upload, live case refresh, manifest rendering, and case-review actions.
 4. Validate GroundingDINO separately; precompute the exact demo-video equipment detections as a stage-safe fallback.
 5. Connect infrastructure discrepancies and operability observations into the same persisted compliance-case/evidence workflow.
 6. Record/prepare a controlled mock training-centre clip for final compliance TP/FP/FN/TN measurement.
 7. Add offline event queue/sync and measure actual bandwidth reduction.
 8. Replace any remaining illustrative operational values with either sourced values or explicit demo labels.
+9. Keep runtime footage, model binaries, generated evidence and benchmark outputs outside git; follow CONTRIBUTING.md and docs/architecture.md.
