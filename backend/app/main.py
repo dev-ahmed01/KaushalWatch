@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest, EdgeSyncRequest
 from app.services.case_store import CaseStore
-from app.services.infrastructure import aggregate_cached_observations, compare_manifest, load_manifest
+from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
 from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
