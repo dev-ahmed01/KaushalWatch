@@ -56,6 +56,7 @@ class ComplianceCase(BaseModel):
     camera_trust: CameraTrust | None = None
     evidence: list[EvidenceRecord] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
+    review_history: list[dict[str, Any]] = Field(default_factory=list)
     created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
