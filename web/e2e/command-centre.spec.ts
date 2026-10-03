@@ -36,7 +36,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(page.getByText(/visual manifest exception/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('infrastructure compliance')).toBeVisible();
   await expect(
-    page.getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
+    page.locator('.infraResult').getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
   ).toBeVisible({ timeout: 10_000 });
 
   const infraCase = page.locator('.case').first();
