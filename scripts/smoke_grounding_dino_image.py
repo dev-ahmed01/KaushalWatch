@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from urllib.request import urlretrieve
+from urllib.request import Request, urlopen
+import shutil
 
 from PIL import Image
 import torch
@@ -32,7 +33,14 @@ def main() -> None:
     image_path = Path(args.image)
     if not image_path.exists():
         image_path.parent.mkdir(parents=True, exist_ok=True)
-        urlretrieve(args.image_url, image_path)
+        request = Request(
+            args.image_url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (compatible; KaushalWatch-SIH/1.0; research prototype)"
+            },
+        )
+        with urlopen(request, timeout=60) as response, image_path.open("wb") as out:
+            shutil.copyfileobj(response, out)
 
     image = Image.open(image_path).convert("RGB")
     labels = [x.strip() for x in args.prompts.split(",") if x.strip()]
