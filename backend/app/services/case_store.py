@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 from app.models import ComplianceCase, CaseStatus
 
@@ -24,9 +25,23 @@ class CaseStore:
     def get(self, case_id: str) -> ComplianceCase | None:
         return next((c for c in self.list() if c.case_id == case_id), None)
 
-    def update_status(self, case_id: str, status: CaseStatus) -> ComplianceCase | None:
+    def update_status(
+        self,
+        case_id: str,
+        status: CaseStatus,
+        note: str | None = None,
+        actor: str = "prototype_officer",
+    ) -> ComplianceCase | None:
         case = self.get(case_id)
         if not case:
             return None
+        previous = case.status.value
         case.status = status
+        case.review_history.append({
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "actor": actor,
+            "from_status": previous,
+            "to_status": status.value,
+            "note": note,
+        })
         return self.save(case)
