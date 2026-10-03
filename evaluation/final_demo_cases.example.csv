@@ -1,0 +1,7 @@
+sample_id,case_type,true_issue,pred_issue
+C01,attendance_discrepancy,true,true
+C02,attendance_discrepancy,false,false
+C03,infrastructure_compliance,true,true
+C04,infrastructure_compliance,false,true
+C05,camera_integrity,true,false
+C06,camera_integrity,false,false
