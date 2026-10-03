@@ -73,6 +73,11 @@ def compare_manifest(
         confidence = float(obs.get("mean_confidence", 0.0))
         sample_counts = [int(x) for x in obs.get("sample_counts", [])]
         sample_confidences = [float(x) for x in obs.get("sample_confidences", [])]
+        # Backward-compatible adapter behavior: an aggregate-only observation is
+        # treated as one temporal sample rather than becoming automatically uncertain.
+        if not sample_counts and int(obs.get("samples", 0)) > 0:
+            sample_counts = [count]
+            sample_confidences = [confidence]
 
         confident_counts = [
             c for c, conf in zip(sample_counts, sample_confidences)
