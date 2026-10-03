@@ -40,6 +40,17 @@ export default function Page() {
     } catch(err:any){setError(err.message||String(err));} finally {setBusy(false);}
   }
 
+  async function createInfrastructureCase(){
+    setError('');
+    const body = new FormData();
+    body.append('centre_id','DEMO-KA-104');
+    body.append('batch_id','ELEC-DEMO-01');
+    const r=await fetch(`${API}/api/demo/infrastructure/create-case`,{method:'POST',body});
+    const payload=await r.json();
+    if(!r.ok){setError(payload.detail||'Could not create infrastructure demo case');return;}
+    await refresh();
+  }
+
   async function review(caseId:string, action:CaseStatus){
     setError('');
     const r=await fetch(`${API}/api/cases/${caseId}/review`,{
@@ -91,7 +102,8 @@ export default function Page() {
           {priority.map(c=><div className="case" key={c.case_id}>
             <div><span className={`dot ${c.severity}`}></span><strong>{c.centre_id}</strong> · {c.case_id}</div>
             <p>{c.summary}</p>
-            <div className="caseMeta"><span>{c.status.replaceAll('_',' ')}</span><span>{c.discrepancy_pct??0}% mismatch</span></div>
+            <div className="caseMeta"><span>{c.status.replaceAll('_',' ')}</span><span>{c.case_type.replaceAll('_',' ')}</span></div>
+            {c.evidence?.[0]&&<a className="evidenceLink" href={`${API}/evidence/${c.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer">Open evidence</a>}
             {c.evidence?.[0]?.duplicate_of&&<div className="warning">Possible duplicate evidence of {c.evidence[0].duplicate_of}</div>}
             <div className="actions">
               <button className="ghost" onClick={()=>review(c.case_id,'under_review')}>Review</button>
@@ -106,6 +118,7 @@ export default function Page() {
 
     <section className="card infra">
       <div className="sectionHead"><div><h2>Construction Electrician · Visual Compliance Manifest</h2><p className="muted">Cached detections are a stage-safe fallback. Quantities below are demo configuration, not official sanctioned figures.</p></div><span className="tag">DEMO MANIFEST</span></div>
+      <div className="infraActions"><button className="ghost" onClick={createInfrastructureCase}>Create demo infrastructure case</button><span>Uses cached/simulated detections only.</span></div>
       <div className="table">
         <div className="tr th"><span>Item</span><span>Required</span><span>Observed</span><span>State</span></div>
         {infra.map(x=><div className="tr" key={x.id}><span>{x.label}</span><span>{x.required}</span><span>{x.observed??'Officer'}</span><span className={`state ${x.state.toLowerCase()}`}>{x.state.replaceAll('_',' ')}</span></div>)}
