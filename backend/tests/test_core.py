@@ -14,6 +14,7 @@ from app.services.person_detector import build_person_detector, HogPersonDetecto
 from app.services.compliance_cases import build_infrastructure_case, build_camera_integrity_case
 from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.person_detector import Detection
+from app.services.offline_queue import EdgeEventQueue, bandwidth_measurement
 
 
 def test_discrepancy():
@@ -108,3 +109,20 @@ def test_anonymous_tracker_discards_stale_tracks():
     assert len(tracker.tracks) == 1
     tracker.update([])
     assert tracker.tracks == []
+
+
+def test_edge_queue_round_trip(tmp_path):
+    queue = EdgeEventQueue(tmp_path / "edge-queue.json")
+    a = queue.enqueue("attendance_observation", {"occupancy": 9})
+    b = queue.enqueue("camera_health", {"trust": 98})
+    assert [x["event_id"] for x in queue.pending()] == [a["event_id"], b["event_id"]]
+    removed = queue.acknowledge([a["event_id"]])
+    assert removed == 1
+    assert [x["event_id"] for x in queue.pending()] == [b["event_id"]]
+
+
+def test_bandwidth_measurement_is_data_driven():
+    events = [{"event_id":"E1","occupancy":9}]
+    result = bandwidth_measurement(raw_video_bytes=1_000_000, events=events, evidence_bytes=10_000)
+    assert result["transmitted_bytes"] < result["raw_video_bytes"]
+    assert 0 < result["estimated_transfer_reduction_pct"] < 100
