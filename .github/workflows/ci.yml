@@ -16,6 +16,13 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: pip install -r backend/requirements.txt
       - run: pytest -q backend/tests
+      - name: Smoke-test final demo evaluator
+        run: |
+          python evaluation/evaluate_final_demo.py \
+            --attendance evaluation/final_demo_attendance.example.csv \
+            --equipment evaluation/final_demo_equipment.example.csv \
+            --operability evaluation/final_demo_operability.example.csv \
+            --out-dir /tmp/kaushalwatch-final-eval
 
   frontend:
     runs-on: ubuntu-latest
