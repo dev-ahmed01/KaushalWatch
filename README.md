@@ -18,7 +18,8 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 
 - FastAPI backend — **implemented; validation tracked in STATUS**.
 - CCTV/video upload endpoint — **implemented**.
-- OpenCV HOG person-detection baseline — **baseline only; not the final SIH detector**.
+- OpenCV HOG person-detection fallback — **development/CI only**.
+- OpenVINO person-detection-retail-0013 — **selected SIH attendance detector after EPFL benchmark**.
 - Median occupancy smoothing and reported-vs-observed discrepancy logic — **implemented**.
 - Temporal persistence gate before creating a case — **implemented**.
 - Camera trust checks for darkness, blur, frozen frames and viewpoint shift — **implemented**.
@@ -30,7 +31,7 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 - Executable demo compliance manifest — **implemented with explicitly synthetic quantities**.
 - Evaluation script — **implemented; example inputs are synthetic until replaced with annotated footage**.
 - Privacy-preserving design note — **written**.
-- Next.js monitoring UI scaffold — **source present; build/runtime verification is a named milestone in STATUS**.
+- Next.js monitoring command centre — **production build and browser E2E verified in GitHub Actions**.
 
 ## Core demo path
 
@@ -47,6 +48,10 @@ single-camera video
 ```
 
 Equipment presence, apparent operability and evidence-authenticity checks plug into the same case workflow rather than becoming separate demos.
+
+## Verified attendance benchmark
+
+On EPFL Laboratory Camera 0 (113 labelled frames, IoU 0.5), the selected OpenVINO detector achieved **91.45% precision, 89.95% recall, 90.69% F1 and 0.327-person occupancy MAE**. See [`docs/benchmarks.md`](docs/benchmarks.md) for methodology and limits.
 
 ## Run the backend
 
@@ -81,3 +86,14 @@ Use only measured values in the SIH deck. Do **not** invent accuracy numbers.
 ## Privacy
 
 Read [`docs/privacy-design.md`](docs/privacy-design.md). Core prototype rule: **track position, not identity**. No current compliance check in the prototype requires individual identification.
+
+
+## SIH demo vision profile
+
+```bash
+python -m pip install -r backend/requirements-vision.txt
+python scripts/download_openvino_person_model.py
+# copy/use backend/.env.demo.example values in your environment
+```
+
+HOG remains available as a zero-download fallback, but it is not the detector selected for the SIH demo.
