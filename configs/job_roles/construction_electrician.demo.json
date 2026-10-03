@@ -1,12 +1,15 @@
 {
-  "status": "DEMO QUANTITIES — job-role identity is sourced from NSDC, but item quantities below must not be presented as official sanctioned counts",
+  "status": "DEMO QUANTITIES — current job-role/item-type sources are recorded below; numeric quantities remain simulated and must not be presented as sanctioned counts",
   "job_role": "Construction Electrician - LV",
   "job_role_code": "CON/Q0603",
   "source": {
-    "authority": "National Skill Development Corporation (NSDC)",
-    "job_role_listing": "https://nsdcindia.org/nos-export-custom-data",
-    "lab_guideline_listing": "https://nsdcindia.org/node/42",
-    "note": "NSDC lists Construction Electrician - LV (CON/Q0603) and a PMKK Lab Specifications Electrician Construction guideline. Exact item quantities in this prototype remain simulated until the applicable specification table is verified."
+    "authority": "Construction Skill Development Council of India (CSDCI) / NSDC",
+    "current_role_status": "CSDCI lists Construction Electrician-LV (CON/Q0603) as Active and references V5 / Level 4 in 2026 trainer results.",
+    "current_qp_listing": "https://www.csdcindia.org/qualification-packs-model-curriculums/",
+    "current_v5_curriculum": "https://www.csdcindia.org/wp-content/uploads/2025/09/CON-Q0603.pdf",
+    "current_tot_2026": "https://www.csdcindia.org/tot-result-2026/",
+    "nsdc_pmkk_lab_guideline_listing": "https://nsdcindia.org/pmkk",
+    "note": "The current V5 curriculum explicitly names multiple tools/equipment types but does not provide item quantities in its module equipment lists. All required counts in this demo remain simulated."
   },
   "quantities_status": "simulated",
   "batch_capacity": 12,
@@ -18,7 +21,8 @@
       "verification_tier": "camera_verifiable",
       "presence_method": "open_vocabulary_detection",
       "operability_method": "not_applicable",
-      "temporal_required_ratio": 0.8
+      "temporal_required_ratio": 0.8,
+      "source_basis": "Legacy NSDC PMKK Electrician Construction lab-guideline concept; not used as a current numeric requirement."
     },
     {
       "id": "chair",
@@ -27,16 +31,18 @@
       "verification_tier": "camera_verifiable",
       "presence_method": "open_vocabulary_detection",
       "operability_method": "not_applicable",
-      "temporal_required_ratio": 0.8
+      "temporal_required_ratio": 0.8,
+      "source_basis": "SIH problem statement explicitly calls out seating as infrastructure to verify; quantity simulated."
     },
     {
       "id": "training_panel",
-      "label": "Electrical Training Panel",
+      "label": "Electrical Switchboard / Training Panel",
       "required": 4,
       "verification_tier": "camera_verifiable",
       "presence_method": "open_vocabulary_detection",
       "operability_method": "indicator_or_interaction_proxy",
-      "temporal_required_ratio": 0.8
+      "temporal_required_ratio": 0.8,
+      "source_basis": "Current CSDCI V5 curriculum lists electrical sockets, simple switchboard, mains breaker, ELCB and MCB; this demo groups visible panel/switchboard infrastructure into one camera class."
     },
     {
       "id": "drill_machine",
@@ -45,7 +51,8 @@
       "verification_tier": "camera_partially_verifiable",
       "presence_method": "open_vocabulary_detection",
       "operability_method": "roi_motion_proxy",
-      "temporal_required_ratio": 0.6
+      "temporal_required_ratio": 0.6,
+      "source_basis": "Current CSDCI V5 curriculum explicitly lists drilling machine; quantity simulated."
     },
     {
       "id": "multimeter",
@@ -54,7 +61,8 @@
       "verification_tier": "officer_verification_required",
       "presence_method": "manual",
       "operability_method": "manual",
-      "temporal_required_ratio": null
+      "temporal_required_ratio": null,
+      "source_basis": "Current CSDCI V5 curriculum explicitly lists Digital Multimeter; quantity simulated and camera verification intentionally not relied upon."
     }
   ]
 }
