@@ -1,0 +1,4 @@
+sample_id,item_id,true_state,pred_state
+O01,drill_machine,APPARENTLY_ACTIVE,APPARENTLY_ACTIVE
+O02,drill_machine,APPARENTLY_INACTIVE,UNCERTAIN
+O03,drill_machine,APPARENTLY_INACTIVE,APPARENTLY_INACTIVE

@@ -1,0 +1,4 @@
+# Optional offline equipment precompute environment. Not imported by the core API.
+# Install an appropriate PyTorch build first (CPU or GPU), then install this file.
+transformers>=5.0,<6
+pillow>=10,<13

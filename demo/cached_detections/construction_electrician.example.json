@@ -1,0 +1,77 @@
+[
+  {
+    "second": 0,
+    "detections": [
+      {
+        "label": "workbench",
+        "count": 4,
+        "confidence": 0.91
+      },
+      {
+        "label": "training_panel",
+        "count": 3,
+        "confidence": 0.88
+      },
+      {
+        "label": "drill_machine",
+        "count": 1,
+        "confidence": 0.84
+      },
+      {
+        "label": "chair",
+        "count": 12,
+        "confidence": 0.93
+      }
+    ]
+  },
+  {
+    "second": 10,
+    "detections": [
+      {
+        "label": "workbench",
+        "count": 4,
+        "confidence": 0.92
+      },
+      {
+        "label": "training_panel",
+        "count": 3,
+        "confidence": 0.86
+      },
+      {
+        "label": "drill_machine",
+        "count": 1,
+        "confidence": 0.83
+      },
+      {
+        "label": "chair",
+        "count": 12,
+        "confidence": 0.93
+      }
+    ]
+  },
+  {
+    "second": 20,
+    "detections": [
+      {
+        "label": "workbench",
+        "count": 4,
+        "confidence": 0.9
+      },
+      {
+        "label": "training_panel",
+        "count": 3,
+        "confidence": 0.89
+      },
+      {
+        "label": "drill_machine",
+        "count": 1,
+        "confidence": 0.85
+      },
+      {
+        "label": "chair",
+        "count": 12,
+        "confidence": 0.93
+      }
+    ]
+  }
+]

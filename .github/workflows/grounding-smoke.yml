@@ -1,0 +1,49 @@
+name: grounding-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/grounding-trigger"
+
+jobs:
+  grounding-dino-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install GroundingDINO smoke dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r backend/requirements-grounding.txt
+
+      - name: Run CC0 electrical-workroom smoke test
+        run: |
+          python scripts/smoke_grounding_dino_image.py \
+            --out /tmp/kaushalwatch-grounding-smoke.json
+
+      - name: Validate smoke output schema
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/tmp/kaushalwatch-grounding-smoke.json")
+          data = json.loads(p.read_text())
+          assert data["model"] == "IDEA-Research/grounding-dino-tiny"
+          assert data["source_license"] == "CC0 1.0"
+          assert isinstance(data["detections"], list)
+          print("detections:", len(data["detections"]))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grounding-dino-smoke
+          path: /tmp/kaushalwatch-grounding-smoke.json
+          if-no-files-found: error
+          retention-days: 7

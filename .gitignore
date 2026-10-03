@@ -1,0 +1,33 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+node_modules/
+.next/
+
+# Runtime / generated data
+data/cases.json
+data/evidence/
+data/evidence_index.json
+data/edge_events.json
+data/raw/
+data/videos/
+evaluation/output/
+artifacts/
+
+# Model binaries / caches
+models/openvino/**/FP*/
+*.onnx
+*.pt
+*.pth
+*.bin
+*.xml
+
+# Keep documentation placeholders
+!models/README.md
+!data/README.md
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
