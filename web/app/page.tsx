@@ -90,8 +90,8 @@ export default function Page() {
         <div className="brand">
           <div className="brandMark" aria-hidden="true"><Icon name="shield" /></div>
           <div>
-            <strong>KaushalWatch</strong>
-            <span>Command Centre</span>
+            <strong>KaushalWatch Command Centre</strong>
+            <span>Visual compliance operations</span>
           </div>
         </div>
 
