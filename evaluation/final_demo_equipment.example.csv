@@ -1,0 +1,7 @@
+sample_id,item_id,true_count,pred_count
+E01,workbench,4,4
+E01,training_panel,4,3
+E01,drill_machine,1,1
+E02,workbench,4,4
+E02,training_panel,4,4
+E02,drill_machine,1,0
