@@ -10,7 +10,7 @@ type Case = {
   details?:{apparent_operability?:{state?:string;activity_score?:number};[key:string]:any};
   review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null}[];
 };
-type Dashboard = {banner:string;centres_monitored:number;open_cases:number;camera_issues:number;cases:Case[]};
+type Dashboard = {banner:string;centres_monitored:number;open_cases:number;camera_issues:number;synced_edge_events:number;cases:Case[]};
 type InfraItem = {id:string;label:string;required:number;observed:number|null;state:string;confidence:number|null};
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -85,6 +85,7 @@ export default function Page() {
       <Metric label="Demo centres" value={data?.centres_monitored??'—'} />
       <Metric label="Open cases" value={data?.open_cases??'—'} />
       <Metric label="Camera issues" value={data?.camera_issues??'—'} />
+      <Metric label="Synced edge events" value={data?.synced_edge_events??'—'} />
       <Metric label="Privacy mode" value="Anonymous" />
     </section>
 
