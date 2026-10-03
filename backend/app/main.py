@@ -21,7 +21,7 @@ DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
 STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
-INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
+INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
 app.add_middleware(
