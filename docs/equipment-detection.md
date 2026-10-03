@@ -47,3 +47,9 @@ If GroundingDINO underperforms, the attendance, camera-trust, evidence and offic
 
 ## Important limitation
 A detection means only that the object was visually grounded with some confidence. It does not by itself prove official compliance, quantity completeness, or mechanical operability.
+
+
+## Verified isolated smoke
+GitHub Actions workflow `grounding-smoke` successfully installed the CPU-only model environment and ran `IDEA-Research/grounding-dino-tiny` inference against a CC0 electrical-workroom image.
+
+The smoke returned six prompt-grounded detections at threshold 0.30, including workbench/chair/panel/drill-related text prompts. This proves the model/inference wiring works in our reproducible environment. It **does not** establish equipment precision/recall; that must be measured on the exact controlled demo clip.
