@@ -89,3 +89,49 @@ def test_pipeline_persists_case_evidence_and_operability(tmp_path):
         "UNCERTAIN",
     }
     assert case.details["evidence_integrity"]["possible_duplicate"] is False
+
+
+def test_pipeline_clamps_evidence_to_available_video(tmp_path):
+    video = tmp_path / "short.avi"
+    _write_video(video)
+    manifest = {
+        "job_role": "Construction Electrician - LV",
+        "items": [
+            {
+                "id": "training_panel",
+                "label": "Training Panel",
+                "required": 4,
+                "verification_tier": "camera_verifiable",
+            }
+        ],
+    }
+    detections = [
+        {
+            "second": 10,
+            "detections": [
+                {"label": "training_panel", "count": 3, "confidence": 0.9},
+            ],
+        },
+        {
+            "second": 20,
+            "detections": [
+                {"label": "training_panel", "count": 3, "confidence": 0.9},
+            ],
+        },
+    ]
+
+    pipeline = InfrastructureCompliancePipeline(
+        tmp_path / "evidence",
+        tmp_path / "evidence-index.json",
+    )
+    case = pipeline.run(
+        video_path=video,
+        manifest=manifest,
+        detection_rows=detections,
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-DEMO-01",
+        camera_id="LAB-CAM-02",
+    )
+    assert case is not None
+    assert case.details["evidence_second"] == 0.0
+    assert len(case.evidence) == 1
