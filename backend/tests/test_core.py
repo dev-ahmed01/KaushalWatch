@@ -10,6 +10,7 @@ from app.services.evidence import dhash, hamming_hex
 from app.services.infrastructure import compare_manifest
 from app.services.occupancy import discrepancy_pct, OccupancySmoother
 from app.services.operability import apparent_motion_state
+from app.services.person_detector import build_person_detector, HogPersonDetector
 
 
 def test_discrepancy():
@@ -55,3 +56,8 @@ def test_manifest_compare():
     rows = compare_manifest(manifest, observed)
     assert rows[0]["state"] == "DISCREPANCY"
     assert rows[1]["state"] == "OFFICER_VERIFICATION_REQUIRED"
+
+
+def test_default_detector_factory(monkeypatch):
+    monkeypatch.delenv("KAUSHALWATCH_PERSON_DETECTOR", raising=False)
+    assert isinstance(build_person_detector(), HogPersonDetector)
