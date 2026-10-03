@@ -1,7 +1,14 @@
 {
-  "status": "DEMO CONFIGURATION — replace quantities with the applicable sanctioned specification before claiming official compliance",
-  "job_role": "Construction Electrician",
-  "job_role_code": "DEMO-CONSTRUCTION-ELECTRICIAN",
+  "status": "DEMO QUANTITIES — job-role identity is sourced from NSDC, but item quantities below must not be presented as official sanctioned counts",
+  "job_role": "Construction Electrician - LV",
+  "job_role_code": "CON/Q0603",
+  "source": {
+    "authority": "National Skill Development Corporation (NSDC)",
+    "job_role_listing": "https://nsdcindia.org/nos-export-custom-data",
+    "lab_guideline_listing": "https://nsdcindia.org/node/42",
+    "note": "NSDC lists Construction Electrician - LV (CON/Q0603) and a PMKK Lab Specifications Electrician Construction guideline. Exact item quantities in this prototype remain simulated until the applicable specification table is verified."
+  },
+  "quantities_status": "simulated",
   "batch_capacity": 12,
   "items": [
     {"id":"workbench","label":"Work Bench","required":4,"verification_tier":"camera_verifiable","presence_method":"open_vocabulary_detection","operability_method":"not_applicable","temporal_required_ratio":0.8},
