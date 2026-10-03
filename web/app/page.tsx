@@ -7,6 +7,8 @@ type Case = {
   case_id:string; centre_id:string; batch_id:string; case_type:string; severity:string; summary:string; status:CaseStatus;
   discrepancy_pct?:number; reported_attendance?:number; visual_occupancy?:number; persistence_ratio?:number;
   evidence?:{evidence_id:string; duplicate_of?:string|null; sha256:string}[];
+  details?:{apparent_operability?:{state?:string;activity_score?:number};[key:string]:any};
+  review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null}[];
 };
 type Dashboard = {banner:string;centres_monitored:number;open_cases:number;camera_issues:number;cases:Case[]};
 type InfraItem = {id:string;label:string;required:number;observed:number|null;state:string;confidence:number|null};
@@ -113,8 +115,13 @@ export default function Page() {
             <div><span className={`dot ${c.severity}`}></span><strong>{c.centre_id}</strong> · {c.case_id}</div>
             <p>{c.summary}</p>
             <div className="caseMeta"><span>{c.status.replaceAll('_',' ')}</span><span>{c.case_type.replaceAll('_',' ')}</span></div>
-            {c.evidence?.[0]&&<a className="evidenceLink" href={`${API}/evidence/${c.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer">Open evidence</a>}
+            {c.details?.apparent_operability?.state&&<div className="caseDetail"><strong>Apparent operability:</strong> {c.details.apparent_operability.state.replaceAll('_',' ')}</div>}
+            <div className="caseLinks">
+              {c.evidence?.[0]&&<a className="evidenceLink" href={`${API}/evidence/${c.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer">Open evidence</a>}
+              <a className="evidenceLink" href={`${API}/api/cases/${c.case_id}/evidence-pack`} target="_blank" rel="noreferrer">Evidence pack</a>
+            </div>
             {c.evidence?.[0]?.duplicate_of&&<div className="warning">Possible duplicate evidence of {c.evidence[0].duplicate_of}</div>}
+            {!!c.review_history?.length&&<div className="auditHint">Audit trail: {c.review_history.length} officer action{c.review_history.length===1?'':'s'}</div>}
             <div className="actions">
               <button className="ghost" onClick={()=>review(c.case_id,'under_review')}>Review</button>
               <button className="ghost" onClick={()=>review(c.case_id,'virtual_verification')}>Virtual verify</button>
@@ -127,7 +134,7 @@ export default function Page() {
     </section>
 
     <section className="card infra">
-      <div className="sectionHead"><div><h2>Construction Electrician · Visual Compliance Manifest</h2><p className="muted">Cached detections are a stage-safe fallback. Quantities below are demo configuration, not official sanctioned figures.</p></div><span className="tag">DEMO MANIFEST</span></div>
+      <div className="sectionHead"><div><h2>Construction Electrician - LV · Visual Compliance Manifest</h2><p className="muted">Cached detections are a stage-safe fallback. Quantities below are demo configuration, not official sanctioned figures.</p></div><span className="tag">DEMO MANIFEST</span></div>
       <form className="infraUpload" onSubmit={submitInfrastructure}>
         <label>Infrastructure demo video<input name="infra_file" type="file" accept="video/*,.avi" required /></label>
         <div className="three">
