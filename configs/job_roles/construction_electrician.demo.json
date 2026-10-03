@@ -11,9 +11,50 @@
   "quantities_status": "simulated",
   "batch_capacity": 12,
   "items": [
-    {"id":"workbench","label":"Work Bench","required":4,"verification_tier":"camera_verifiable","presence_method":"open_vocabulary_detection","operability_method":"not_applicable","temporal_required_ratio":0.8},
-    {"id":"training_panel","label":"Electrical Training Panel","required":4,"verification_tier":"camera_verifiable","presence_method":"open_vocabulary_detection","operability_method":"indicator_or_interaction_proxy","temporal_required_ratio":0.8},
-    {"id":"drill_machine","label":"Drill Machine","required":1,"verification_tier":"camera_partially_verifiable","presence_method":"open_vocabulary_detection","operability_method":"roi_motion_proxy","temporal_required_ratio":0.6},
-    {"id":"multimeter","label":"Digital Multimeter","required":6,"verification_tier":"officer_verification_required","presence_method":"manual","operability_method":"manual","temporal_required_ratio":null}
+    {
+      "id": "workbench",
+      "label": "Work Bench",
+      "required": 4,
+      "verification_tier": "camera_verifiable",
+      "presence_method": "open_vocabulary_detection",
+      "operability_method": "not_applicable",
+      "temporal_required_ratio": 0.8
+    },
+    {
+      "id": "chair",
+      "label": "Training Chair / Seat",
+      "required": 12,
+      "verification_tier": "camera_verifiable",
+      "presence_method": "open_vocabulary_detection",
+      "operability_method": "not_applicable",
+      "temporal_required_ratio": 0.8
+    },
+    {
+      "id": "training_panel",
+      "label": "Electrical Training Panel",
+      "required": 4,
+      "verification_tier": "camera_verifiable",
+      "presence_method": "open_vocabulary_detection",
+      "operability_method": "indicator_or_interaction_proxy",
+      "temporal_required_ratio": 0.8
+    },
+    {
+      "id": "drill_machine",
+      "label": "Drill Machine",
+      "required": 1,
+      "verification_tier": "camera_partially_verifiable",
+      "presence_method": "open_vocabulary_detection",
+      "operability_method": "roi_motion_proxy",
+      "temporal_required_ratio": 0.6
+    },
+    {
+      "id": "multimeter",
+      "label": "Digital Multimeter",
+      "required": 6,
+      "verification_tier": "officer_verification_required",
+      "presence_method": "manual",
+      "operability_method": "manual",
+      "temporal_required_ratio": null
+    }
   ]
 }
