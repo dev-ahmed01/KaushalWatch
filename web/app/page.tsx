@@ -104,7 +104,7 @@ export default function Page() {
           </div>
         </div>
 
-        <nav className="navList">
+        <nav className="navList" aria-label="Primary navigation">
           {navItems.map(item=><a href={item.href} key={item.label}>
             <Icon name={item.icon} />
             <span>{item.label}</span>
