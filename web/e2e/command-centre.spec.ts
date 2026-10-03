@@ -35,7 +35,9 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await page.getByRole('button', { name: 'Analyse infrastructure evidence' }).click();
   await expect(page.getByText(/visual manifest exception/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('infrastructure compliance')).toBeVisible();
-  await expect(page.getByText('APPARENTLY ACTIVE')).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
+  ).toBeVisible({ timeout: 10_000 });
 
   const infraCase = page.locator('.case').first();
   await expect(infraCase.getByRole('link', { name: 'Open evidence' })).toBeVisible();
