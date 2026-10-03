@@ -74,7 +74,9 @@ def main() -> None:
                 "box": [round(float(v), 2) for v in box.tolist()],
             }
             for box, score, label in zip(
-                result["boxes"], result["scores"], result["labels"]
+                result["boxes"],
+                result["scores"],
+                result.get("text_labels", result["labels"]),
             )
         ],
         "interpretation": (
