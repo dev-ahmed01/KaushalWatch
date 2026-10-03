@@ -8,6 +8,7 @@ import numpy as np
 
 from app.models import AttendanceObservation, ComplianceCase, ProcessSummary
 from app.services.camera_trust import assess_camera
+from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.compliance_cases import build_camera_integrity_case
 from app.services.person_detector import build_person_detector
 from app.services.privacy import anonymize_person_regions
@@ -40,6 +41,7 @@ class VideoCompliancePipeline:
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
         step = max(1, int(round(fps * sample_every_seconds)))
         smoother = OccupancySmoother(window=5)
+        tracker = AnonymousCentroidTracker(max_distance=140.0, max_missed=2)
 
         observations: list[AttendanceObservation] = []
         mismatch_flags: list[bool] = []
@@ -78,15 +80,23 @@ class VideoCompliancePipeline:
                     worst_camera_evidence = (trust.score, frame.copy(), list(trust.reasons))
 
                 detections = self.detector.detect(frame) if trust.trusted else []
-                count = len(detections)
-                smooth = smoother.update(count)
+                raw_count = len(detections)
+                if trust.trusted:
+                    tracks = tracker.update(detections)
+                    # Keep a track for one missed observation to bridge short detector dropouts.
+                    # IDs are positional only and are discarded when this pipeline run ends.
+                    tracker_count = sum(track.missed <= 1 for track in tracks)
+                else:
+                    tracker_count = 0
+                smooth = smoother.update(tracker_count)
                 d_pct = discrepancy_pct(reported_attendance, smooth)
                 is_mismatch = trust.trusted and d_pct >= mismatch_threshold_pct
 
                 observations.append(
                     AttendanceObservation(
                         second=round(sec, 2),
-                        raw_count=count,
+                        raw_count=raw_count,
+                        tracker_count=tracker_count,
                         smoothed_count=smooth,
                         camera_trust=trust.score,
                     )
