@@ -12,6 +12,8 @@ from app.services.occupancy import discrepancy_pct, OccupancySmoother
 from app.services.operability import apparent_motion_state
 from app.services.person_detector import build_person_detector, HogPersonDetector
 from app.services.compliance_cases import build_infrastructure_case, build_camera_integrity_case
+from app.services.anonymous_tracker import AnonymousCentroidTracker
+from app.services.person_detector import Detection
 
 
 def test_discrepancy():
@@ -86,3 +88,23 @@ def test_camera_integrity_case_builder():
     assert case.case_type == "camera_integrity"
     assert case.severity == "high"
     assert "suspended" in case.summary.lower()
+
+
+def test_anonymous_tracker_reuses_short_lived_track_id():
+    tracker = AnonymousCentroidTracker(max_distance=50, max_missed=1)
+    first = tracker.update([Detection(10, 10, 30, 50, 0.9)])
+    assert len(first) == 1
+    first_id = first[0].track_id
+    second = tracker.update([Detection(14, 12, 34, 52, 0.9)])
+    assert len(second) == 1
+    assert second[0].track_id == first_id
+    assert second[0].hits == 2
+
+
+def test_anonymous_tracker_discards_stale_tracks():
+    tracker = AnonymousCentroidTracker(max_distance=50, max_missed=1)
+    tracker.update([Detection(10, 10, 30, 50, 0.9)])
+    tracker.update([])
+    assert len(tracker.tracks) == 1
+    tracker.update([])
+    assert tracker.tracks == []
