@@ -14,7 +14,8 @@ Write down:
 - simulated AEBAS/reported attendance,
 - exact visible count of each demo equipment class,
 - which equipment item is deliberately absent,
-- which apparent-operability state is deliberately demonstrated.
+- which apparent-operability state is deliberately demonstrated,
+- every compliance-case opportunity that should or should not create a case.
 
 Never derive "ground truth" from the AI output after the fact.
 
@@ -27,14 +28,17 @@ Never derive "ground truth" from the AI output after the fact.
 6. Offline event queue + later sync.
 7. Duplicate-evidence test through the test path.
 
+Record at least one **negative case opportunity** for the case types you want to score. For example, include a trustworthy interval where attendance matches the reported value, an infrastructure interval with no persistent deficit, and a healthy camera interval. Without negative opportunities, final FP/TN/FPR measurements are not meaningful.
+
 ## After recording
 1. Save raw footage locally under `data/raw/` (gitignored).
 2. Precompute/review GroundingDINO equipment observations.
 3. Annotate attendance/equipment/operability ground truth.
-4. Run `evaluation/evaluate_final_demo.py`.
-5. Run `evaluation/measure_bandwidth.py` on the exact clip/events.
-6. Keep generated outputs under `evaluation/output/` (gitignored).
-7. Copy only verified metric summaries into the SIH deck and `docs/benchmarks.md`.
+4. Annotate compliance-case opportunities in `data/annotations/final-demo-cases.csv` using `evaluation/final_demo_cases.example.csv` as the schema.
+5. Run `evaluation/evaluate_final_demo.py` with all four annotation files.
+6. Run `evaluation/measure_bandwidth.py` on the exact clip/events.
+7. Keep generated outputs under `evaluation/output/` (gitignored).
+8. Copy only verified metric summaries into the SIH deck and `docs/benchmarks.md`.
 
 ## Stage safety
 Before presentation, precompute the reviewed equipment cache for the exact video. Live equipment inference is optional; the evidence/case workflow must remain demoable using the cache.
