@@ -10,6 +10,8 @@ GroundingDINO is useful because the selected training-centre equipment is not re
 2. Install:
    ```bash
    pip install -r backend/requirements.txt
+   # CPU example; use the appropriate PyTorch install for your machine/GPU.
+   pip install torch --index-url https://download.pytorch.org/whl/cpu
    pip install -r backend/requirements-grounding.txt
    ```
 3. Run the precompute tool against the exact final demo video:
