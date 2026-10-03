@@ -4,7 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 
 type CaseStatus = 'open'|'under_review'|'confirmed'|'false_positive'|'virtual_verification'|'resolved';
 type Case = {
-  case_id:string; centre_id:string; batch_id:string; severity:string; summary:string; status:CaseStatus;
+  case_id:string; centre_id:string; batch_id:string; case_type:string; severity:string; summary:string; status:CaseStatus;
   discrepancy_pct?:number; reported_attendance?:number; visual_occupancy?:number; persistence_ratio?:number;
   evidence?:{evidence_id:string; duplicate_of?:string|null; sha256:string}[];
 };
