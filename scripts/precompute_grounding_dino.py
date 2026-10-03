@@ -35,6 +35,7 @@ def detect_prompt(processor, model, device, image: Image.Image, prompt: str, thr
 
     result = processor.post_process_grounded_object_detection(
         outputs,
+        inputs.input_ids,
         threshold=threshold,
         text_threshold=threshold,
         target_sizes=[(image.height, image.width)],
