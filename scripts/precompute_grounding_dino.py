@@ -13,6 +13,7 @@ MODEL_ID = "IDEA-Research/grounding-dino-tiny"
 
 DEFAULT_PROMPTS = {
     "workbench": "a workbench",
+    "chair": "a training chair",
     "training_panel": "an electrical training panel",
     "drill_machine": "a drill machine",
 }
