@@ -52,8 +52,17 @@ class InfrastructureCompliancePipeline:
             raise ValueError(f"Could not open video: {video_path}")
 
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        duration_seconds = frame_count / fps if frame_count > 0 else 0.0
         sample_seconds = sorted(float(row.get("second", 0.0)) for row in detection_rows)
-        evidence_second = sample_seconds[len(sample_seconds) // 2] if sample_seconds else 0.0
+        valid_sample_seconds = [
+            second for second in sample_seconds
+            if duration_seconds <= 0 or second < duration_seconds
+        ]
+        if valid_sample_seconds:
+            evidence_second = valid_sample_seconds[len(valid_sample_seconds) // 2]
+        else:
+            evidence_second = 0.0
 
         cap.set(cv2.CAP_PROP_POS_MSEC, evidence_second * 1000.0)
         ok, evidence_frame = cap.read()
