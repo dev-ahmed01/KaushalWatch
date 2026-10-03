@@ -30,7 +30,7 @@ The intended deployment processes ordinary video locally at the training centre 
 Continuous raw video is not required to leave the edge for normal operation.
 
 ## Evidence minimization
-When a persistent discrepancy is detected, the system may retain only the minimum evidence needed for authorized review: a selected frame or short event clip plus structured metadata. Evidence is linked to a case ID and integrity hash. Faces should be blurred before centrally storing or sharing retained evidence where operationally feasible.
+When a persistent discrepancy is detected, the system retains only the minimum evidence needed for authorized review: a selected frame plus structured metadata in the current prototype. Evidence is linked to a case ID and integrity hash. **Implemented behavior:** when the configured person detector finds people in an attendance or infrastructure evidence frame, KaushalWatch blurs the detected person regions before central retention. The retained metadata records whether this privacy transform was applied or no person region was detected.
 
 ## Human-in-the-loop decision making
 KaushalWatch does not automatically penalize a training centre. It produces machine states such as `COMPLIANT`, `DISCREPANCY`, and `UNCERTAIN`. Persistent discrepancies and uncertain cases are routed to an authorized monitoring officer, who may dismiss the event, confirm it, request virtual verification, or escalate to physical inspection.
