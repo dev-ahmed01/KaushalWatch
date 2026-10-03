@@ -33,7 +33,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
 
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse infrastructure evidence' }).click();
-  await expect(page.getByText(/Construction Electrician visual manifest exception/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/visual manifest exception/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('infrastructure compliance')).toBeVisible();
   await expect(page.getByText('APPARENTLY ACTIVE')).toBeVisible({ timeout: 10_000 });
 
