@@ -5,14 +5,14 @@ import cv2
 import numpy as np
 from app.models import AttendanceObservation, ComplianceCase, ProcessSummary
 from app.services.camera_trust import assess_camera
-from app.services.person_detector import PersonDetector
+from app.services.person_detector import build_person_detector
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.evidence import persist_evidence
 
 
 class VideoCompliancePipeline:
     def __init__(self, evidence_root: Path, index_path: Path):
-        self.detector = PersonDetector()
+        self.detector = build_person_detector()
         self.evidence_root = evidence_root
         self.index_path = index_path
 
