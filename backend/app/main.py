@@ -7,12 +7,13 @@ import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.models import ReviewRequest
+from app.models import ReviewRequest, EdgeSyncRequest
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest, load_manifest
 from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
+from app.services.offline_queue import json_payload_bytes
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -162,4 +163,28 @@ def create_demo_infrastructure_case(
         "created": True,
         "banner": "Prototype — case derived from cached/simulated equipment detections",
         "case": case.model_dump(mode="json"),
+    }
+
+
+
+@app.post("/api/edge/sync")
+def edge_sync(request: EdgeSyncRequest):
+    """Prototype cloud-side receiver for queued edge telemetry; raw video is not required."""
+    events_path = DATA / "edge_events.json"
+    rows = json.loads(events_path.read_text()) if events_path.exists() else []
+    accepted = []
+    existing = {row.get("event_id") for row in rows}
+    for event in request.events:
+        event_id = event.get("event_id")
+        if not event_id or event_id in existing:
+            continue
+        rows.append(event)
+        existing.add(event_id)
+        accepted.append(event_id)
+    events_path.write_text(json.dumps(rows, indent=2))
+    return {
+        "accepted_event_ids": accepted,
+        "accepted_count": len(accepted),
+        "received_payload_bytes": json_payload_bytes(request.events),
+        "raw_video_required": False,
     }
