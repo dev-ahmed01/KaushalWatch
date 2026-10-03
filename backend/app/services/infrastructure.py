@@ -75,7 +75,7 @@ def compare_manifest(
         sample_confidences = [float(x) for x in obs.get("sample_confidences", [])]
         # Backward-compatible adapter behavior: an aggregate-only observation is
         # treated as one temporal sample rather than becoming automatically uncertain.
-        if not sample_counts and int(obs.get("samples", 0)) > 0:
+        if not sample_counts and "observed_count" in obs:
             sample_counts = [count]
             sample_confidences = [confidence]
 
