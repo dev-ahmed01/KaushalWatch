@@ -1,0 +1,60 @@
+name: vision-benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["build/**"]
+    paths:
+      - ".github/vision-trigger"
+
+jobs:
+  epfl-person-count:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install vision dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-vision.txt
+
+      - name: Download runtime-only benchmark assets
+        run: |
+          python scripts/download_epfl_lab_camera0.py
+          python scripts/download_epfl_lab_c0_gt.py
+          python scripts/download_openvino_person_model.py
+
+      - name: Derive real occupancy labels
+        run: |
+          python evaluation/convert_epfl_gt_to_counts.py             --input data/raw/epfl/laboratory6-c0-gt.txt             --output data/raw/epfl/laboratory6-c0-counts.csv             --fps 25             --step-frames 25
+
+      - name: Benchmark HOG baseline
+        run: |
+          python evaluation/benchmark_video_counts.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-counts.csv             --out-dir evaluation/output/epfl-hog             --detector hog
+
+      - name: Benchmark OpenVINO
+        env:
+          KAUSHALWATCH_OPENVINO_MODEL_XML: models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml
+          KAUSHALWATCH_OPENVINO_DEVICE: CPU
+          KAUSHALWATCH_PERSON_CONFIDENCE: "0.45"
+        run: |
+          python evaluation/benchmark_video_counts.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-counts.csv             --out-dir evaluation/output/epfl-openvino             --detector openvino
+
+      - name: Compare detectors
+        run: |
+          python evaluation/compare_detectors.py             --hog evaluation/output/epfl-hog/count_metrics.json             --openvino evaluation/output/epfl-openvino/count_metrics.json             --out evaluation/output/epfl-detector-comparison.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: epfl-person-count-benchmark
+          path: |
+            evaluation/output/epfl-hog/
+            evaluation/output/epfl-openvino/
+            evaluation/output/epfl-detector-comparison.json
+          if-no-files-found: error
+          retention-days: 14
