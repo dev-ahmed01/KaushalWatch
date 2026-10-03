@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest, load_manifest
+from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 
@@ -54,13 +55,14 @@ def process_video(
     reported_attendance: int = Form(...),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
+    camera_id: str = Form("LAB-CAM-01"),
 ):
     suffix = Path(file.filename or "video.avi").suffix or ".avi"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = Path(tmp.name)
     try:
-        result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id)
+        result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
             STORE.save(result.case)
         return result.model_dump(mode="json")
@@ -129,3 +131,35 @@ def operability_check(
     finally:
         cap.release()
         tmp_path.unlink(missing_ok=True)
+
+
+
+@app.post("/api/demo/infrastructure/create-case")
+def create_demo_infrastructure_case(
+    centre_id: str = Form("DEMO-KA-104"),
+    batch_id: str = Form("ELEC-DEMO-01"),
+):
+    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
+    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
+    manifest = load_manifest(manifest_path)
+    rows = json.loads(cached_path.read_text())
+    observed = aggregate_cached_observations(rows)
+    results = compare_manifest(manifest, observed)
+    case = build_infrastructure_case(
+        centre_id=centre_id,
+        batch_id=batch_id,
+        job_role=manifest["job_role"],
+        results=results,
+    )
+    if not case:
+        return {
+            "created": False,
+            "message": "No persistent demo infrastructure exception found.",
+            "items": results,
+        }
+    STORE.save(case)
+    return {
+        "created": True,
+        "banner": "Prototype — case derived from cached/simulated equipment detections",
+        "case": case.model_dump(mode="json"),
+    }
