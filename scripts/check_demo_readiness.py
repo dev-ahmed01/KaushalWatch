@@ -97,6 +97,15 @@ def check_operability_roi(
     return True, f"ROI {(x1, y1, x2, y2)} within {width}x{height}"
 
 
+def required_cache_labels(manifest: dict) -> set[str]:
+    return {
+        str(item.get("id"))
+        for item in manifest.get("items", [])
+        if item.get("id")
+        and item.get("verification_tier") != "officer_verification_required"
+    }
+
+
 def final_mode_checks(
     scenario: dict,
     *,
@@ -213,7 +222,7 @@ def main() -> None:
 
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else []
-    manifest_ids = {item.get("id") for item in manifest.get("items", [])}
+    manifest_ids = required_cache_labels(manifest)
     cache_labels = {
         det.get("label")
         for row in cache if isinstance(row, dict)
