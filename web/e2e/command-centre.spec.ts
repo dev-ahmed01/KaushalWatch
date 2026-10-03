@@ -39,4 +39,10 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
 
   const infraCase = page.locator('.case').first();
   await expect(infraCase.getByRole('link', { name: 'Open evidence' })).toBeVisible();
+  const evidencePack = infraCase.getByRole('link', { name: 'Evidence pack' });
+  await expect(evidencePack).toBeVisible();
+  const packHref = await evidencePack.getAttribute('href');
+  expect(packHref).toBeTruthy();
+  const packResponse = await page.request.get(packHref!);
+  expect(packResponse.ok()).toBeTruthy();
 });
