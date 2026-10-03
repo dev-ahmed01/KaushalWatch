@@ -22,6 +22,7 @@ jobs:
             --attendance evaluation/final_demo_attendance.example.csv \
             --equipment evaluation/final_demo_equipment.example.csv \
             --operability evaluation/final_demo_operability.example.csv \
+            --cases evaluation/final_demo_cases.example.csv \
             --out-dir /tmp/kaushalwatch-final-eval
 
   frontend:

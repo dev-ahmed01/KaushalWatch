@@ -21,7 +21,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
 - Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states.
 - Durable edge telemetry queue, executable offline edge agent, idempotent sync endpoint, dashboard sync visibility and bandwidth measurement utility.
-- Final demonstration evaluator for attendance cases, equipment counts and apparent-operability coverage/accuracy.
+- Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.
 - Privacy-preserving design note matching the PS conditional on individual identification.
 - Next.js Command Centre connected to the live API.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
