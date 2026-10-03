@@ -33,6 +33,7 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 - Final-demo evaluation scripts — **implemented and CI-smoke-tested; example inputs remain synthetic until replaced with annotations of the exact final clip**.
 - Privacy-preserving design note — **written and reflected in code; retained attendance/infrastructure evidence anonymizes detected person regions**.
 - Next.js monitoring command centre — **production build and browser E2E verified in GitHub Actions**.
+- Offline edge runtime — **locally processes video, queues sanitized compliance telemetry, and syncs JSON events without raw-video upload; dashboard visibility is browser-E2E verified**.
 
 ## Core demo path
 
@@ -98,3 +99,19 @@ python scripts/download_openvino_person_model.py
 ```
 
 HOG remains available as a zero-download fallback, but it is not the detector selected for the SIH demo.
+
+
+## Low-bandwidth / offline mode
+
+```bash
+python edge/agent.py analyze \
+  --video data/raw/final-demo.avi \
+  --reported-attendance 12
+
+python edge/agent.py status
+
+# after connectivity returns
+python edge/agent.py sync --url http://127.0.0.1:8000
+```
+
+The edge queue contains compact compliance telemetry and evidence integrity hashes, not raw video or biometric identity data. See [`edge/README.md`](edge/README.md).

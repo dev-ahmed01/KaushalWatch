@@ -7,6 +7,25 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(page.getByText('KaushalWatch Command Centre')).toBeVisible();
   await expect(page.getByText('PROTOTYPE — SIMULATED OPERATIONAL DATA')).toBeVisible();
 
+  const edgeSync = await page.request.post('http://127.0.0.1:8000/api/edge/sync', {
+    data: {
+      events: [{
+        event_id: 'EDGE-E2E-001',
+        event_type: 'compliance_case',
+        created_at: '2026-10-03T00:00:00Z',
+        payload: {
+          case_type: 'attendance_discrepancy',
+          raw_video_included: false
+        }
+      }]
+    }
+  });
+  expect(edgeSync.ok()).toBeTruthy();
+  await page.reload();
+  await expect(page.getByText('Synced edge events')).toBeVisible();
+  const syncedMetric = page.locator('.metric').filter({ hasText: 'Synced edge events' });
+  await expect(syncedMetric.getByText('1', { exact: true })).toBeVisible();
+
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required');
 

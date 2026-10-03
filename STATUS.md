@@ -20,11 +20,11 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Infrastructure expected-vs-observed comparison with **Temporal Proof** using per-item persistence ratios.
 - Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
 - Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states.
-- Durable edge telemetry queue, idempotent sync endpoint and bandwidth measurement utility.
+- Durable edge telemetry queue, executable offline edge agent, idempotent sync endpoint, dashboard sync visibility and bandwidth measurement utility.
 - Final demonstration evaluator for attendance cases, equipment counts and apparent-operability coverage/accuracy.
 - Privacy-preserving design note matching the PS conditional on individual identification.
 - Next.js Command Centre connected to the live API.
-- Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state and evidence-pack retrieval.
+- Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
 
 ## Verified benchmark
@@ -41,6 +41,13 @@ See `docs/benchmarks.md` for methodology and limits.
 The optional `IDEA-Research/grounding-dino-tiny` path now installs and performs inference successfully in its isolated GitHub Actions smoke workflow. On the CC0 electrical-workroom smoke image it returned six prompt-grounded detections at the configured smoke threshold. **This validates the inference path only; it is not equipment accuracy validation.**
 
 GroundingDINO remains outside the core API dependency set and the stage demo retains a reviewed cached-detection fallback.
+
+## Verified low-bandwidth architecture
+- `edge/agent.py analyze` processes footage locally and queues sanitized compliance telemetry.
+- `edge/agent.py sync` sends JSON events only after connectivity returns; raw video is not part of the sync request.
+- Local evidence paths, identity data and raw frames are excluded from the central telemetry payload.
+- The central API stores accepted edge events idempotently and the Command Centre exposes the synchronized-event count.
+- Browser E2E verifies a synchronized edge event appears in the dashboard.
 
 ## Intentionally NOT claimed as complete
 - Final equipment quality has **not** been measured on the exact controlled training-centre demo video.

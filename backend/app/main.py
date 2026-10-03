@@ -44,11 +44,14 @@ def health():
 @app.get("/api/dashboard")
 def dashboard():
     cases = STORE.list()
+    edge_events_path = DATA / "edge_events.json"
+    edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
     return {
         "banner": "Prototype — Simulated Operational Data",
         "centres_monitored": 4,
         "open_cases": sum(c.status.value in {"open", "under_review", "virtual_verification"} for c in cases),
         "camera_issues": sum(c.case_type == "camera_integrity" and c.status.value != "resolved" for c in cases),
+        "synced_edge_events": len(edge_events),
         "cases": [c.model_dump(mode="json") for c in cases[-20:]],
     }
 
