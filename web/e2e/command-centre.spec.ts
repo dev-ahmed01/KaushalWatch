@@ -21,6 +21,6 @@ test('video upload creates a compliance case and officer can review it', async (
   await newestCase.getByRole('button', { name: 'Review' }).click();
   await expect(newestCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
 
-  await expect(page.getByText(/cached detections on a demo configuration/i)).toBeVisible();
+  await expect(page.getByText(/Cached detections are a stage-safe fallback/i)).toBeVisible();
   await expect(page.getByText('Electrical Training Panel')).toBeVisible();
 });
