@@ -15,6 +15,8 @@ from app.services.compliance_cases import build_infrastructure_case, build_camer
 from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.person_detector import Detection
 from app.services.offline_queue import EdgeEventQueue, bandwidth_measurement
+from app.services.case_store import CaseStore
+from app.models import ComplianceCase, CaseStatus
 
 
 def test_discrepancy():
@@ -126,3 +128,28 @@ def test_bandwidth_measurement_is_data_driven():
     result = bandwidth_measurement(raw_video_bytes=1_000_000, events=events, evidence_bytes=10_000)
     assert result["transmitted_bytes"] < result["raw_video_bytes"]
     assert 0 < result["estimated_transfer_reduction_pct"] < 100
+
+
+def test_case_review_history_is_appended(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    case = ComplianceCase(
+        case_id="CASE-TEST",
+        centre_id="DEMO",
+        batch_id="B1",
+        case_type="attendance_discrepancy",
+        severity="medium",
+        summary="test",
+    )
+    store.save(case)
+    updated = store.update_status(
+        "CASE-TEST",
+        CaseStatus.virtual_verification,
+        note="Needs remote officer check",
+    )
+    assert updated is not None
+    assert updated.status == CaseStatus.virtual_verification
+    assert len(updated.review_history) == 1
+    event = updated.review_history[0]
+    assert event["from_status"] == "open"
+    assert event["to_status"] == "virtual_verification"
+    assert event["note"] == "Needs remote officer check"
