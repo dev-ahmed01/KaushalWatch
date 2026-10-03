@@ -16,7 +16,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Attendance and infrastructure evidence paths anonymize detected person regions before central retention.
 - Officer-review workflow with timestamped status-transition audit history.
 - Structured case evidence-pack endpoint.
-- Construction Electrician - LV (CON/Q0603) demo compliance manifest with quantities explicitly marked simulated.
+- Construction Electrician-LV (CON/Q0603) demo compliance manifest with current CSDCI V5 role/item-type provenance and quantities explicitly marked simulated.
 - Infrastructure expected-vs-observed comparison with **Temporal Proof** using per-item persistence ratios.
 - Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
 - Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states.
@@ -44,7 +44,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 
 ## Intentionally NOT claimed as complete
 - Final equipment quality has **not** been measured on the exact controlled training-centre demo video.
-- Current equipment quantities in the demo manifest remain simulated until the applicable official specification table is verified item-by-item.
+- Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
 - Example final-evaluation rows are synthetic templates, not SIH accuracy results.
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
@@ -57,5 +57,5 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 3. Annotate the exact clip for attendance, equipment and apparent operability.
 4. Run `evaluation/evaluate_final_demo.py` and report only the measured results.
 5. Run the bandwidth measurement utility on the exact clip/events and report only the measured reduction.
-6. Verify or replace remaining simulated manifest quantities where an applicable official lab specification is available.
+6. If a current applicable source with explicit per-item quantities is obtained, attach it item-by-item; otherwise keep the demo quantities visibly simulated.
 7. Freeze presentation/demo configuration and perform the final browser rehearsal.

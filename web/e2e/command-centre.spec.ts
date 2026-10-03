@@ -29,7 +29,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(attendanceCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
 
   await expect(page.getByText(/Cached detections are a stage-safe fallback/i)).toBeVisible();
-  await expect(page.getByText('Electrical Training Panel')).toBeVisible();
+  await expect(page.getByText(/Electrical (Switchboard \/ )?Training Panel/)).toBeVisible();
 
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse infrastructure evidence' }).click();
