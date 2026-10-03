@@ -9,12 +9,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest, EdgeSyncRequest
 from app.services.case_store import CaseStore
-from app.services.infrastructure import aggregate_cached_observations, compare_manifest, load_manifest
+from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
 from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.offline_queue import json_payload_bytes
+from app.services.demo_assets import load_demo_manifest_and_cache
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -115,10 +116,10 @@ def review_case(case_id: str, request: ReviewRequest):
 
 @app.get("/api/demo/infrastructure")
 def infrastructure_demo():
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
-    manifest = load_manifest(manifest_path)
-    rows = json.loads(cached_path.read_text())
+    try:
+        manifest, rows = load_demo_manifest_and_cache()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     observed = aggregate_cached_observations(rows)
     return {
         "banner": "Prototype — cached detections on a demo configuration, not official live compliance data",
@@ -147,10 +148,10 @@ def process_infrastructure_video(
     Equipment observations are currently sourced from the cached detector adapter;
     GroundingDINO can replace that adapter without changing the case workflow.
     """
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
-    manifest = load_manifest(manifest_path)
-    rows = json.loads(cached_path.read_text())
+    try:
+        manifest, rows = load_demo_manifest_and_cache()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     roi_values = (roi_x1, roi_y1, roi_x2, roi_y2)
     if any(v is not None for v in roi_values) and not all(v is not None for v in roi_values):
@@ -233,10 +234,10 @@ def create_demo_infrastructure_case(
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
 ):
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
-    manifest = load_manifest(manifest_path)
-    rows = json.loads(cached_path.read_text())
+    try:
+        manifest, rows = load_demo_manifest_and_cache()
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
     observed = aggregate_cached_observations(rows)
     results = compare_manifest(manifest, observed)
     case = build_infrastructure_case(

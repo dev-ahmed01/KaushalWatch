@@ -13,6 +13,8 @@ data/evidence_index.json
 data/edge_events.json
 data/raw/
 data/videos/
+data/generated/
+data/annotations/
 evaluation/output/
 artifacts/
 
