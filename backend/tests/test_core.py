@@ -11,6 +11,7 @@ from app.services.infrastructure import compare_manifest
 from app.services.occupancy import discrepancy_pct, OccupancySmoother
 from app.services.operability import apparent_motion_state
 from app.services.person_detector import build_person_detector, HogPersonDetector
+from app.services.compliance_cases import build_infrastructure_case, build_camera_integrity_case
 
 
 def test_discrepancy():
@@ -61,3 +62,27 @@ def test_manifest_compare():
 def test_default_detector_factory(monkeypatch):
     monkeypatch.delenv("KAUSHALWATCH_PERSON_DETECTOR", raising=False)
     assert isinstance(build_person_detector(), HogPersonDetector)
+
+
+def test_infrastructure_case_builder():
+    rows = [
+        {"id":"panel","label":"Training Panel","required":4,"observed":3,"state":"DISCREPANCY","confidence":0.9},
+        {"id":"bench","label":"Workbench","required":4,"observed":4,"state":"COMPLIANT","confidence":0.9},
+    ]
+    case = build_infrastructure_case("DEMO-KA-104","B1","Construction Electrician",rows)
+    assert case is not None
+    assert case.case_type == "infrastructure_compliance"
+    assert case.details["items"][0]["state"] == "DISCREPANCY"
+
+
+def test_camera_integrity_case_builder():
+    case = build_camera_integrity_case(
+        centre_id="DEMO-KA-104",
+        batch_id="B1",
+        camera_id="CAM-1",
+        reasons=["image excessively blurred"],
+        trust_score=20.0,
+    )
+    assert case.case_type == "camera_integrity"
+    assert case.severity == "high"
+    assert "suspended" in case.summary.lower()
