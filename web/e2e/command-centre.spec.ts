@@ -6,6 +6,11 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
 
   await expect(page.getByText('KaushalWatch Command Centre')).toBeVisible();
   await expect(page.getByText('PROTOTYPE — SIMULATED OPERATIONAL DATA')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Attendance' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Infrastructure' })).toBeVisible();
+  await expect(page.getByText('System posture')).toBeVisible();
+  await expect(page.getByText('Anonymous', { exact: true }).first()).toBeVisible();
 
   const edgeSync = await page.request.post('http://127.0.0.1:8000/api/edge/sync', {
     data: {
