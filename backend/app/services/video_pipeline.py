@@ -10,6 +10,7 @@ from app.models import AttendanceObservation, ComplianceCase, ProcessSummary
 from app.services.camera_trust import assess_camera
 from app.services.compliance_cases import build_camera_integrity_case
 from app.services.person_detector import build_person_detector
+from app.services.privacy import anonymize_person_regions
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.evidence import persist_evidence
 
@@ -47,7 +48,7 @@ class VideoCompliancePipeline:
 
         prev_frame = None
         reference_frame = None
-        best_evidence: tuple[float, np.ndarray, int] | None = None
+        best_evidence: tuple[float, np.ndarray, int, list] | None = None
         worst_camera_evidence: tuple[float, np.ndarray, list[str]] | None = None
 
         i = 0
@@ -76,7 +77,8 @@ class VideoCompliancePipeline:
                 ):
                     worst_camera_evidence = (trust.score, frame.copy(), list(trust.reasons))
 
-                count = len(self.detector.detect(frame)) if trust.trusted else 0
+                detections = self.detector.detect(frame) if trust.trusted else []
+                count = len(detections)
                 smooth = smoother.update(count)
                 d_pct = discrepancy_pct(reported_attendance, smooth)
                 is_mismatch = trust.trusted and d_pct >= mismatch_threshold_pct
@@ -94,7 +96,7 @@ class VideoCompliancePipeline:
                 if is_mismatch and (
                     best_evidence is None or d_pct > best_evidence[0]
                 ):
-                    best_evidence = (d_pct, frame.copy(), smooth)
+                    best_evidence = (d_pct, frame.copy(), smooth, detections)
 
                 prev_frame = frame.copy()
                 i += 1
@@ -151,7 +153,8 @@ class VideoCompliancePipeline:
             and persistence >= persistence_threshold
             and best_evidence
         ):
-            _, frame, evidence_count = best_evidence
+            _, frame, evidence_count, evidence_detections = best_evidence
+            frame = anonymize_person_regions(frame, evidence_detections)
             case_id = f"CASE-{uuid.uuid4().hex[:8].upper()}"
             evidence_id = f"EV-{uuid.uuid4().hex[:10].upper()}"
             evidence = persist_evidence(
@@ -165,6 +168,7 @@ class VideoCompliancePipeline:
                     "camera_id": camera_id,
                     "reported_attendance": reported_attendance,
                     "visual_occupancy": evidence_count,
+                    "privacy_transform": "person_regions_blurred_before_central_retention",
                 },
             )
             case = ComplianceCase(
