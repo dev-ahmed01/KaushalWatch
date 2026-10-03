@@ -17,7 +17,9 @@ export default function Page() {
   const [data,setData]=useState<Dashboard|null>(null);
   const [infra,setInfra]=useState<InfraItem[]>([]);
   const [result,setResult]=useState<any>(null);
+  const [infraResult,setInfraResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
+  const [infraBusy,setInfraBusy]=useState(false);
   const [error,setError]=useState('');
 
   const refresh = async () => {
@@ -40,15 +42,23 @@ export default function Page() {
     } catch(err:any){setError(err.message||String(err));} finally {setBusy(false);}
   }
 
-  async function createInfrastructureCase(){
-    setError('');
-    const body = new FormData();
-    body.append('centre_id','DEMO-KA-104');
-    body.append('batch_id','ELEC-DEMO-01');
-    const r=await fetch(`${API}/api/demo/infrastructure/create-case`,{method:'POST',body});
-    const payload=await r.json();
-    if(!r.ok){setError(payload.detail||'Could not create infrastructure demo case');return;}
-    await refresh();
+  async function submitInfrastructure(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); setInfraBusy(true); setError(''); setInfraResult(null);
+    try{
+      const incoming=new FormData(e.currentTarget);
+      const video=incoming.get('infra_file');
+      if(!(video instanceof File)){throw new Error('Choose an infrastructure demo video');}
+      const body=new FormData();
+      body.append('file',video);
+      for(const key of ['centre_id','batch_id','camera_id','operability_item_id','roi_x1','roi_y1','roi_x2','roi_y2']){
+        const value=incoming.get(key);
+        if(value!==null && String(value).trim()!=='') body.append(key,String(value));
+      }
+      const r=await fetch(`${API}/api/process-infrastructure-video`,{method:'POST',body});
+      const payload=await r.json();
+      if(!r.ok) throw new Error(payload.detail||'Infrastructure processing failed');
+      setInfraResult(payload); await refresh();
+    }catch(err:any){setError(err.message||String(err));}finally{setInfraBusy(false);}
   }
 
   async function review(caseId:string, action:CaseStatus){
@@ -118,7 +128,29 @@ export default function Page() {
 
     <section className="card infra">
       <div className="sectionHead"><div><h2>Construction Electrician · Visual Compliance Manifest</h2><p className="muted">Cached detections are a stage-safe fallback. Quantities below are demo configuration, not official sanctioned figures.</p></div><span className="tag">DEMO MANIFEST</span></div>
-      <div className="infraActions"><button className="ghost" onClick={createInfrastructureCase}>Create demo infrastructure case</button><span>Uses cached/simulated detections only.</span></div>
+      <form className="infraUpload" onSubmit={submitInfrastructure}>
+        <label>Infrastructure demo video<input name="infra_file" type="file" accept="video/*,.avi" required /></label>
+        <div className="three">
+          <label>Centre ID<input name="centre_id" defaultValue="DEMO-KA-104" /></label>
+          <label>Batch ID<input name="batch_id" defaultValue="ELEC-DEMO-01" /></label>
+          <label>Camera ID<input name="camera_id" defaultValue="LAB-CAM-02" /></label>
+        </div>
+        <div className="roiGroup">
+          <div><strong>Optional apparent-operability ROI</strong><span>Demo defaults target a moving machine region; this is a visual activity proxy only.</span></div>
+          <input aria-label="ROI x1" name="roi_x1" type="number" defaultValue="0" />
+          <input aria-label="ROI y1" name="roi_y1" type="number" defaultValue="20" />
+          <input aria-label="ROI x2" name="roi_x2" type="number" defaultValue="220" />
+          <input aria-label="ROI y2" name="roi_y2" type="number" defaultValue="190" />
+          <input type="hidden" name="operability_item_id" value="drill_machine" />
+        </div>
+        <button disabled={infraBusy}>{infraBusy?'Analysing infrastructure…':'Analyse infrastructure evidence'}</button>
+      </form>
+      {infraResult?.created&&<div className="result infraResult">
+        <Result label="Case" value={infraResult.case.case_id}/>
+        <Result label="Type" value="Infrastructure"/>
+        <Result label="Evidence" value={infraResult.case.evidence?.length?'Captured':'Missing'}/>
+        <Result label="Operability" value={infraResult.case.details?.apparent_operability?.state?.replaceAll('_',' ')||'Not evaluated'}/>
+      </div>}
       <div className="table">
         <div className="tr th"><span>Item</span><span>Required</span><span>Observed</span><span>State</span></div>
         {infra.map(x=><div className="tr" key={x.id}><span>{x.label}</span><span>{x.required}</span><span>{x.observed??'Officer'}</span><span className={`state ${x.state.toLowerCase()}`}>{x.state.replaceAll('_',' ')}</span></div>)}
