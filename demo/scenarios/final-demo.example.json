@@ -1,0 +1,73 @@
+{
+  "status": "EXAMPLE SCENARIO — replace timestamps and observed truth after recording the final controlled clip",
+  "scenario_id": "KW-FINAL-DEMO-01",
+  "centre_id": "DEMO-KA-104",
+  "batch_id": "ELEC-DEMO-01",
+  "camera_id": "LAB-CAM-02",
+  "job_role": {
+    "name": "Construction Electrician - LV",
+    "code": "CON/Q0603"
+  },
+  "reported_attendance": 12,
+  "planned_ground_truth": {
+    "physical_occupancy": 9,
+    "equipment": {
+      "workbench": 4,
+      "chair": 12,
+      "training_panel": 3,
+      "drill_machine": 1
+    },
+    "operability": {
+      "drill_machine": "APPARENTLY_ACTIVE"
+    }
+  },
+  "events_to_record": [
+    {
+      "event": "baseline",
+      "instruction": "Show the fixed room view with known people/equipment counts."
+    },
+    {
+      "event": "attendance_discrepancy",
+      "instruction": "Keep physical occupancy below the simulated reported attendance long enough to satisfy temporal persistence."
+    },
+    {
+      "event": "infrastructure_discrepancy",
+      "instruction": "Keep one training panel absent/hidden across the required temporal samples."
+    },
+    {
+      "event": "operability_proxy",
+      "instruction": "Create clear visual motion inside the configured drill-machine ROI; do not claim mechanical health."
+    },
+    {
+      "event": "camera_integrity",
+      "instruction": "Briefly cover/obscure the camera to demonstrate compliance inference suspension."
+    },
+    {
+      "event": "offline_sync",
+      "instruction": "Queue telemetry locally, restore connectivity, then sync events without sending the full raw video."
+    },
+    {
+      "event": "duplicate_evidence",
+      "instruction": "Use an identical test evidence frame through the test path to demonstrate perceptual duplicate detection; do not falsify real evidence."
+    }
+  ],
+  "operability_roi": {
+    "item_id": "drill_machine",
+    "x1": 0,
+    "y1": 20,
+    "x2": 220,
+    "y2": 190,
+    "note": "Replace these coordinates after framing the final camera."
+  },
+  "expected_human_workflow": [
+    "open",
+    "under_review",
+    "virtual_verification"
+  ],
+  "claim_rules": [
+    "All final accuracy values must be calculated from annotations of the exact recorded clip.",
+    "Dashboard operational counts remain labelled simulated unless sourced.",
+    "Apparent operability is visual activity evidence only.",
+    "No automatic penalty is issued by the AI."
+  ]
+}
