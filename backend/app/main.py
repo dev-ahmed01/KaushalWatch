@@ -80,9 +80,34 @@ def list_cases():
     return [c.model_dump(mode="json") for c in STORE.list()]
 
 
+@app.get("/api/cases/{case_id}/evidence-pack")
+def get_evidence_pack(case_id: str):
+    case = STORE.get(case_id)
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return {
+        "prototype": True,
+        "case": case.model_dump(mode="json"),
+        "integrity": [
+            {
+                "evidence_id": e.evidence_id,
+                "sha256": e.sha256,
+                "perceptual_hash": e.perceptual_hash,
+                "possible_duplicate": e.duplicate_of is not None,
+                "duplicate_of": e.duplicate_of,
+            }
+            for e in case.evidence
+        ],
+        "decision_policy": (
+            "AI evidence supports human review only; no automatic penalty or final compliance "
+            "decision is issued by this prototype."
+        ),
+    }
+
+
 @app.post("/api/cases/{case_id}/review")
 def review_case(case_id: str, request: ReviewRequest):
-    case = STORE.update_status(case_id, request.action)
+    case = STORE.update_status(case_id, request.action, note=request.note)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     return case.model_dump(mode="json")
