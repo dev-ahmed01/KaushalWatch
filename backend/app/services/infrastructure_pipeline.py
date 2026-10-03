@@ -10,6 +10,7 @@ from app.services.compliance_cases import build_infrastructure_case
 from app.services.evidence import persist_evidence
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.operability import apparent_motion_state
+from app.services.privacy import anonymize_person_regions
 
 
 class InfrastructureCompliancePipeline:
@@ -19,9 +20,10 @@ class InfrastructureCompliancePipeline:
     case/evidence workflow does not care which adapter produced them.
     """
 
-    def __init__(self, evidence_root: Path, index_path: Path):
+    def __init__(self, evidence_root: Path, index_path: Path, privacy_detector=None):
         self.evidence_root = evidence_root
         self.index_path = index_path
+        self.privacy_detector = privacy_detector
 
     def run(
         self,
@@ -100,6 +102,15 @@ class InfrastructureCompliancePipeline:
 
         cap.release()
 
+        privacy_transform = "not_applied"
+        if self.privacy_detector is not None:
+            person_detections = self.privacy_detector.detect(evidence_frame)
+            if person_detections:
+                evidence_frame = anonymize_person_regions(evidence_frame, person_detections)
+                privacy_transform = "person_regions_blurred_before_central_retention"
+            else:
+                privacy_transform = "no_person_regions_detected"
+
         evidence_id = f"EV-{uuid.uuid4().hex[:10].upper()}"
         evidence = persist_evidence(
             evidence_frame,
@@ -114,6 +125,7 @@ class InfrastructureCompliancePipeline:
                 "job_role": manifest.get("job_role"),
                 "evidence_second": evidence_second,
                 "observation_source": "cached_or_live_detector_adapter",
+                "privacy_transform": privacy_transform,
             },
         )
 
