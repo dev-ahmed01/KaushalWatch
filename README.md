@@ -24,13 +24,14 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 - Temporal persistence gate before creating a case — **implemented**.
 - Camera trust checks for darkness, blur, frozen frames and viewpoint shift — **implemented**.
 - Evidence image persistence with SHA-256 — **implemented**.
-- Perceptual duplicate-evidence fingerprinting — **implemented; end-to-end duplicate alert workflow still needs demo validation**.
+- Perceptual duplicate-evidence fingerprinting — **implemented and integration-tested with identical evidence**.
 - Human review status workflow — **implemented**.
 - Apparent-operability ROI motion proxy — **implemented as a visual activity proxy only; not a mechanical diagnosis**.
-- Cached equipment-detection adapter — **implemented so GroundingDINO cannot block the core demo; live GroundingDINO remains a separate validation task**.
-- Executable demo compliance manifest — **implemented with explicitly synthetic quantities**.
-- Evaluation script — **implemented; example inputs are synthetic until replaced with annotated footage**.
-- Privacy-preserving design note — **written**.
+- Cached equipment-detection adapter — **implemented as the stage-safe fallback**.
+- GroundingDINO offline precompute path — **isolated smoke inference verified; final-video equipment accuracy still pending**.
+- Executable Construction Electrician - LV (CON/Q0603) demo manifest — **implemented; job-role identity sourced, quantities explicitly simulated**.
+- Final-demo evaluation scripts — **implemented and CI-smoke-tested; example inputs remain synthetic until replaced with annotations of the exact final clip**.
+- Privacy-preserving design note — **written and reflected in code; retained attendance/infrastructure evidence anonymizes detected person regions**.
 - Next.js monitoring command centre — **production build and browser E2E verified in GitHub Actions**.
 
 ## Core demo path
@@ -47,7 +48,7 @@ single-camera video
   -> officer review
 ```
 
-Equipment presence, apparent operability and evidence-authenticity checks plug into the same case workflow rather than becoming separate demos.
+Equipment presence, Temporal Proof, apparent operability, evidence authenticity, camera integrity and officer audit history all plug into the same persisted case workflow rather than becoming separate demos.
 
 ## Verified attendance benchmark
 
