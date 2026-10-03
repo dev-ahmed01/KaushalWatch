@@ -15,6 +15,7 @@ from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.offline_queue import json_payload_bytes
+from app.config import demo_manifest_path, equipment_cache_path
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -115,8 +116,12 @@ def review_case(case_id: str, request: ReviewRequest):
 
 @app.get("/api/demo/infrastructure")
 def infrastructure_demo():
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
+    manifest_path = demo_manifest_path()
+    cached_path = equipment_cache_path()
+    if not manifest_path.exists():
+        raise HTTPException(status_code=500, detail=f"Manifest not found: {manifest_path}")
+    if not cached_path.exists():
+        raise HTTPException(status_code=500, detail=f"Equipment cache not found: {cached_path}")
     manifest = load_manifest(manifest_path)
     rows = json.loads(cached_path.read_text())
     observed = aggregate_cached_observations(rows)
@@ -147,8 +152,12 @@ def process_infrastructure_video(
     Equipment observations are currently sourced from the cached detector adapter;
     GroundingDINO can replace that adapter without changing the case workflow.
     """
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
+    manifest_path = demo_manifest_path()
+    cached_path = equipment_cache_path()
+    if not manifest_path.exists():
+        raise HTTPException(status_code=500, detail=f"Manifest not found: {manifest_path}")
+    if not cached_path.exists():
+        raise HTTPException(status_code=500, detail=f"Equipment cache not found: {cached_path}")
     manifest = load_manifest(manifest_path)
     rows = json.loads(cached_path.read_text())
 
@@ -233,8 +242,8 @@ def create_demo_infrastructure_case(
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
 ):
-    manifest_path = ROOT / "configs" / "job_roles" / "construction_electrician.demo.json"
-    cached_path = ROOT / "demo" / "cached_detections" / "construction_electrician.example.json"
+    manifest_path = demo_manifest_path()
+    cached_path = equipment_cache_path()
     manifest = load_manifest(manifest_path)
     rows = json.loads(cached_path.read_text())
     observed = aggregate_cached_observations(rows)
