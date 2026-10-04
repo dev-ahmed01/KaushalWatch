@@ -46,15 +46,23 @@ def _write_trustworthy_video(path: Path, frames: int = 120, fps: int = 10) -> No
         (640, 360),
     )
     assert writer.isOpened()
+    rng = np.random.default_rng(20261004)
     try:
         for i in range(frames):
-            frame = np.full((360, 640, 3), 155, dtype=np.uint8)
-            for x in range(0, 640, 32):
-                cv2.line(frame, (x, 0), (x, 360), (120, 120, 120), 1)
-            for y in range(0, 360, 32):
-                cv2.line(frame, (0, y), (640, y), (185, 185, 185), 1)
-            shift = (i * 3) % 70
-            cv2.rectangle(frame, (20 + shift, 20), (80 + shift, 55), (40, 120, 220), -1)
+            # Bright, sharp, continuously changing texture avoids accidentally
+            # exercising the camera-freeze branch in this attendance regression.
+            frame = rng.integers(90, 220, size=(360, 640, 3), dtype=np.uint8)
+            shift = (i * 11) % 300
+            cv2.rectangle(frame, (20 + shift, 25), (110 + shift, 80), (30, 90, 230), -1)
+            cv2.putText(
+                frame,
+                f"FRAME {i:03d}",
+                (20, 330),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (20, 20, 20),
+                2,
+            )
             writer.write(frame)
     finally:
         writer.release()
