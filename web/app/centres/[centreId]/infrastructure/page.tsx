@@ -20,7 +20,7 @@ export default function InfrastructureVerification(){
   const [error,setError]=useState('');
 
   useEffect(()=>{
-    fetch(\`\${API}/api/demo/infrastructure\`)
+    fetch(`${API}/api/demo/infrastructure`)
       .then(r=>r.json())
       .then(p=>setManifest(p.items||[]))
       .catch(()=>{});
@@ -43,7 +43,7 @@ export default function InfrastructureVerification(){
     body.append('camera_id','LAB-CAM-02');
     body.append('demo_profile',profile);
     try{
-      const response=await fetch(\`\${API}/api/process-infrastructure-video\`,{method:'POST',body});
+      const response=await fetch(`${API}/api/process-infrastructure-video`,{method:'POST',body});
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Infrastructure analysis failed');
       setResult(payload);
@@ -93,14 +93,14 @@ export default function InfrastructureVerification(){
         text={result.case?.summary||result.banner}
       />
       {result.created&&result.case?.evidence?.[0]&&
-        <a className="secondaryBtn" href={\`\${API}/evidence/\${result.case.evidence[0].evidence_id}.jpg\`} target="_blank" rel="noreferrer">View Evidence</a>}
+        <a className="secondaryBtn" href={`${API}/evidence/${result.case.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer">View Evidence</a>}
     </div>}
   </div>;
 }
 
 function TierCard({title,icon,tone,items}:{title:string;icon:string;tone:'good'|'warn'|'info';items:any[]}){
   const compliant=items.filter(i=>i.state==='COMPLIANT').length;
-  return <section className={\`tierCard \${tone}\`}>
+  return <section className={`tierCard ${tone}`}>
     <div className="tierHead">
       <span>{icon}</span>
       <div><strong>{title}</strong><small>{tone==='good'?'Automated via CCTV':tone==='warn'?'CCTV + officer review':'Manual verification'}</small></div>
