@@ -95,7 +95,8 @@ export default function Page(){
   const [attendancePreview,setAttendancePreview]=useState('');
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
-  const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('unknown');
+  const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
+  const [attendanceReported,setAttendanceReported]=useState(3);
   const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
     attendance:'pending',
     practical:'pending',
@@ -195,7 +196,11 @@ export default function Page(){
       setAttendanceResult(body);
       markWorkflow(
         'attendance',
-        !body.detector_authoritative ? 'blocked' : body.case ? 'attention' : 'passed',
+        body.decision==='detector_unavailable'
+          ? 'blocked'
+          : body.decision==='compliant'
+            ? 'passed'
+            : 'attention',
       );
       await refresh();
     }catch(err:any){
@@ -377,6 +382,8 @@ export default function Page(){
           result={attendanceResult}
           busy={attendanceBusy}
           preview={attendancePreview}
+          reported={attendanceReported}
+          setReported={setAttendanceReported}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -512,11 +519,13 @@ function Overview({
 }
 
 function AttendanceView({
-  result,busy,preview,onPreview,onSubmit,
+  result,busy,preview,reported,setReported,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
+  reported:number;
+  setReported:(value:number)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -549,8 +558,22 @@ function AttendanceView({
 
         <div className="formSection">
           <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>Reported context</h3><p>Values supplied by the training-centre record.</p></div></div>
+          <div className="scenarioPresetRow">
+            <span>Quick demo</span>
+            <button type="button" className={reported===3?'presetChip active':'presetChip'} onClick={()=>setReported(3)}>Matching report · 3</button>
+            <button type="button" className={reported===12?'presetChip active attention':'presetChip attention'} onClick={()=>setReported(12)}>Mismatch report · 12</button>
+          </div>
           <div className="formGrid two">
-            <Field label="Reported attendance"><input name="reported_attendance" type="number" min="0" defaultValue="12" required/></Field>
+            <Field label="Reported attendance" help="Demo clean preset = 3. Use 12 to demonstrate a deliberate mismatch.">
+              <input
+                name="reported_attendance"
+                type="number"
+                min="0"
+                value={reported}
+                onChange={event=>setReported(Number(event.target.value))}
+                required
+              />
+            </Field>
             <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-01"/></Field>
             <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
             <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
