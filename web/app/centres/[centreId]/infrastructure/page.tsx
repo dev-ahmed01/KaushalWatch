@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import AnalysisProgressOverlay from '../../../components/AnalysisProgressOverlay';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
@@ -75,8 +76,9 @@ export default function InfrastructureVerification(){
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="infrastructureLayout">
-      <form id="infra-form" className="infraMediaPanel" onSubmit={analyse}>
+      <form id="infra-form" className="infraMediaPanel analysisProgressHost" onSubmit={analyse}>
         <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="Infrastructure camera" badge={preview?'Recorded clip':'No feed'}/>
+        {busy&&<AnalysisProgressOverlay mode="infrastructure"/>}
         <div className="sourceDisclosure">ⓘ Equipment counts below are stage-safe demo telemetry. The uploaded video supplies evidence imagery and optional visual-motion evidence.</div>
       </form>
 

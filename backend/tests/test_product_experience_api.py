@@ -192,3 +192,23 @@ def test_saved_escalation_policy_changes_network_result(tmp_path, monkeypatch):
         for reason in bengaluru["escalation"]["reasons"]
     )
     assert bengaluru["escalation"]["next_action"]
+
+
+
+def test_printable_report_document(tmp_path, monkeypatch):
+    client, _, history = _client(tmp_path, monkeypatch)
+    history.append(
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="attendance",
+        outcome="compliant",
+        summary="Attendance matched the reported record.",
+        details={},
+    )
+
+    response = client.get("/api/centres/DEMO-KA-104/report.html?period=7d")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "KaushalWatch" in response.text
+    assert "Centre Verification Report" in response.text
+    assert "Attendance matched the reported record." in response.text

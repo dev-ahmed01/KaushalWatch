@@ -846,3 +846,49 @@ input,select,textarea{font-size:11px;padding:10px 12px;border-radius:10px}
 
 .caseTabs button{font-size:9px;padding:9px 11px}
 .caseTabs button.active{color:#245fcf;border-bottom-color:#2764e7;background:#f7faff}
+
+
+/* Cycle 3 — animated analysis pipeline */
+.analysisProgressHost{position:relative}
+.analysisProgressOverlay{
+  position:absolute;inset:42px 0 auto 0;z-index:12;display:grid;place-items:center;padding:26px;
+  pointer-events:none
+}
+.analysisProgressCard{
+  width:min(520px,92%);background:rgba(10,24,46,.94);color:#fff;border:1px solid rgba(255,255,255,.1);
+  border-radius:18px;padding:16px 17px 14px;box-shadow:0 24px 60px rgba(4,14,31,.32);
+  backdrop-filter:blur(18px);display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;
+  animation:cardIn .28s ease both
+}
+.analysisProgressOrb{
+  width:42px;height:42px;border-radius:13px;background:linear-gradient(145deg,#2f73ff,#7058ee);
+  display:grid;place-items:center;position:relative;box-shadow:0 10px 24px rgba(42,95,220,.32)
+}
+.analysisProgressOrb:before,.analysisProgressOrb:after,.analysisProgressOrb span{
+  content:"";position:absolute;border:1.5px solid rgba(255,255,255,.9);border-radius:50%
+}
+.analysisProgressOrb:before{width:20px;height:11px;transform:rotate(-25deg)}
+.analysisProgressOrb:after{width:20px;height:11px;transform:rotate(25deg)}
+.analysisProgressOrb span{width:5px;height:5px;background:#fff;border:0;animation:pulse 1.7s infinite}
+.analysisProgressCopy small,.analysisProgressCopy strong,.analysisProgressCopy p{display:block}
+.analysisProgressCopy small{font-size:8px;color:#8ca4c7;text-transform:uppercase;letter-spacing:.08em;font-weight:850}
+.analysisProgressCopy strong{font-size:12px;margin-top:2px}
+.analysisProgressCopy p{font-size:9px;color:#b6c5d9;margin:3px 0 0}
+.analysisProgressMeta{font-size:10px;font-weight:850;color:#9ebeff}
+.analysisProgressTrack{grid-column:1/-1;height:4px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
+.analysisProgressTrack i{display:block;height:100%;background:linear-gradient(90deg,#4a8aff,#7b63ef);border-radius:999px;transition:width .4s ease}
+.analysisProgressSteps{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:2px}
+.analysisProgressSteps span{display:flex;align-items:center;gap:5px;font-size:7px;color:#7489a7;white-space:nowrap}
+.analysisProgressSteps span i{width:16px;height:16px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.08);font-style:normal;font-size:7px}
+.analysisProgressSteps span.active{color:#c8d9f3}
+.analysisProgressSteps span.active i{background:#285fc3;color:#fff}
+.analysisProgressSteps span.done{color:#8ad7ad}
+.analysisProgressSteps span.done i{background:#147849;color:#fff}
+
+@media(max-width:620px){
+  .analysisProgressOverlay{inset:42px 0 auto 0;padding:14px}
+  .analysisProgressCard{grid-template-columns:auto 1fr;padding:13px}
+  .analysisProgressMeta{display:none}
+  .analysisProgressSteps{grid-template-columns:1fr 1fr}
+  .analysisProgressSteps span{white-space:normal}
+}
