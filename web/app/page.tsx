@@ -781,6 +781,13 @@ function PracticalView({
         text={practicalText}
       />
 
+      {result.zone_scaled&&<div className="resultSourceBanner">
+        <Icon name="zones"/>
+        <div>
+          <strong>Work-zone profile auto-scaled</strong>
+          <span>Same camera geometry scaled from {result.zone_reference_width}×{result.zone_reference_height} to the uploaded video resolution.</span>
+        </div>
+      </div>}
       <div className="resultGrid">
         <ResultMetric label="Peak stable workers" value={result.peak_stable_workers}/>
         <ResultMetric label="Active work cells" value={result.active_work_cells}/>
@@ -1149,10 +1156,22 @@ function DecisionHeader({tone,eyebrow,title,text}:{tone:'good'|'warn'|'danger';e
 function WorkCellResult({cell}:{cell:any}){
   const activity=Math.round((cell.activity_fraction||0)*100);
   const presence=Math.round((cell.registered_worker_presence_fraction||0)*100);
+  const state=activity>0?'Activity sustained':presence>0?'Worker present · no sustained motion':'No stable worker';
   return <div className="cellResult">
-    <div className="cellResultHead"><div><strong>{String(cell.zone_id).replaceAll('_',' ')}</strong><span>{presence}% stable-worker presence</span></div><b>{activity}% active</b></div>
+    <div className="cellResultHead">
+      <div><strong>{String(cell.zone_id).replaceAll('_',' ')}</strong><span>{presence}% stable-worker presence</span></div>
+      <b>{activity}% active</b>
+    </div>
+    <div className="cellStateLine">{state}</div>
     <div className="progressTrack"><i style={{width:`${activity}%`}}></i></div>
-    <div className="cellSignals"><span>Motion p50 <b>{pct(cell.worker_motion_fraction_p50)}</b></span><span>p90 <b>{pct(cell.worker_motion_fraction_p90)}</b></span><span>p95 <b>{pct(cell.worker_motion_fraction_p95)}</b></span></div>
+    <details className="technicalDetails">
+      <summary>Technical motion evidence</summary>
+      <div className="cellSignals">
+        <span>Motion p50 <b>{pct(cell.worker_motion_fraction_p50)}</b></span>
+        <span>p90 <b>{pct(cell.worker_motion_fraction_p90)}</b></span>
+        <span>p95 <b>{pct(cell.worker_motion_fraction_p95)}</b></span>
+      </div>
+    </details>
   </div>;
 }
 
