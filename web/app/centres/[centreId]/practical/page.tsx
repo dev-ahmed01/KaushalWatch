@@ -58,7 +58,7 @@ export default function PracticalVerification(){
       subtitle="Verify sustained worker activity in configured work cells, then compare it with external training authorization."
       actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="practical-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Practical Work'}</button></>}
     />
-    <WorkflowStepper centreId={id} states={withRunningStep(centre,'practical',busy,result?(result.decision==='camera_evidence_insufficient'?'blocked':result.case?'attention':'complete'):undefined)}/>
+    <WorkflowStepper centreId={id} states={withRunningStep(centre,'practical',busy,result?(['camera_evidence_insufficient','detector_unavailable'].includes(result.decision)?'blocked':result.case?'attention':'complete'):undefined)}/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">
@@ -73,7 +73,7 @@ export default function PracticalVerification(){
       </form>
 
       <section className="analysisResultsPanel">
-        <div className="resultPanelHead"><h2>Verification Results</h2>{result&&<Status tone={result.case?'warn':'good'}>{result.case?'Needs review':'Compliant'}</Status>}</div>
+        <div className="resultPanelHead"><h2>Verification Results</h2>{result&&<Status tone={result.decision==='detector_unavailable'||result.decision==='camera_evidence_insufficient'?'danger':result.case?'warn':'good'}>{result.decision==='detector_unavailable'?'Blocked':result.decision==='camera_evidence_insufficient'?'Blocked':result.case?'Needs review':'Compliant'}</Status>}</div>
         <div className="resultNumberGrid">
           <div><span>Authorized Activities</span><strong>{result?.decision==='authorized_practical_activity'?result.active_work_cells:0}</strong></div>
           <div><span>Unauthorized Activities</span><strong>{result?.decision==='unauthorized_practical_activity'?result.active_work_cells:0}</strong></div>
@@ -83,9 +83,9 @@ export default function PracticalVerification(){
           <div><span>Trusted Imagery</span><b>{result?`${Math.round((result.trusted_frame_ratio||0)*100)}%`:'—'}</b></div>
         </div>
         {result&&<OutcomeCard
-          tone={result.case?'warn':'good'}
-          title={result.decision==='authorized_practical_activity'?'Authorized practical work detected':String(result.decision).replaceAll('_',' ')}
-          text={result.case?.summary||'Visual activity stayed within the supplied authorization state.'}
+          tone={result.decision==='detector_unavailable'||result.decision==='camera_evidence_insufficient'?'blocked':result.case?'warn':'good'}
+          title={result.decision==='authorized_practical_activity'?'Authorized practical work detected':result.decision==='detector_unavailable'?'Practical detector unavailable — decision withheld':String(result.decision).replaceAll('_',' ')}
+          text={result.case?.summary||result.detector_message||'Visual activity stayed within the supplied authorization state.'}
         />}
         {!result&&<div className="resultEmpty"><span>⌁</span><b>No analysis yet</b><p>The system confirms stable worker presence and local motion before calling a work cell active.</p></div>}
 
