@@ -21,7 +21,7 @@ export default function ReportsPage(){
   async function generate(){
     setBusy(true);
     try{
-      const response=await fetch(\`\${API}/api/centres/\${encodeURIComponent(centreId)}/report?period=\${period}\`,{cache:'no-store'});
+      const response=await fetch(`${API}/api/centres/${encodeURIComponent(centreId)}/report?period=${period}`,{cache:'no-store'});
       const body=await response.json();
       if(!response.ok) throw new Error(body.detail||'Report unavailable');
       setReport(body);
@@ -51,7 +51,7 @@ export default function ReportsPage(){
         <div className="reportExecutive">
           <span className="sectionKicker">Executive summary</span>
           <p>{report?.summary?.pending_cases
-            ? \`\${report.summary.pending_cases} pending case(s) require human attention. Current escalation: \${report.summary.escalation?.label}.\`
+            ? `${report.summary.pending_cases} pending case(s) require human attention. Current escalation: ${report.summary.escalation?.label}.`
             : 'No pending compliance exception is recorded for this centre in the current review state.'}</p>
         </div>
         <div className="reportSection"><h3>Recent analyses</h3>
