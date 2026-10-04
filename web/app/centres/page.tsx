@@ -1,19 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { getCentres } from '../lib/api';
 import type { Centre } from '../lib/types';
 import { PageHeader, Status } from '../components/Ui';
 
 export default function CentresPage(){
-  const searchParams=useSearchParams();
   const [rows,setRows]=useState<Centre[]>([]);
   const [query,setQuery]=useState('');
   const [status,setStatus]=useState('all');
   useEffect(()=>{getCentres().then(r=>setRows(r.centres)).catch(()=>{});},[]);
-  useEffect(()=>{setQuery(searchParams.get('q')||'');},[searchParams]);
+  useEffect(()=>{setQuery(new URLSearchParams(window.location.search).get('q')||'');},[]);
   const filtered=useMemo(()=>rows.filter(c=>{
     const q=query.toLowerCase();
     return (!q||c.name.toLowerCase().includes(q)||c.district.toLowerCase().includes(q)||c.batch_id.toLowerCase().includes(q))
