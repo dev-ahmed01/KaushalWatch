@@ -259,3 +259,21 @@ button,input,select,textarea{font:inherit}
 .networkFilterTabs button:hover{background:#f7f9fc}
 .networkFilterTabs button.active{background:#eef4ff;color:#245fcf;border-color:#d7e2ff}
 .networkFilterTabs button span{margin-left:4px;color:#94a1b1}
+
+/* cycle 3 — final outcome */
+.finalOutcomeGrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,330px);gap:14px}
+.finalOutcomeMain{display:grid;gap:12px}
+.finalOutcomeSide{align-self:start}
+.finalDecisionCard{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border-radius:16px;padding:16px;border:1px solid #dfe7f1;box-shadow:var(--kw-shadow-soft)}
+.finalDecisionCard.good{background:linear-gradient(135deg,#f3fcf7,#fff);border-color:#c5ead6}.finalDecisionCard.attention{background:linear-gradient(135deg,#fff9ef,#fff);border-color:#f1d9aa}
+.finalDecisionIcon{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:15px;font-weight:900}.finalDecisionCard.good .finalDecisionIcon{background:#dff7e9;color:#0a9252}.finalDecisionCard.attention .finalDecisionIcon{background:#fff0cc;color:#c36f00}
+.finalDecisionCard h2{font-size:22px;margin:4px 0 4px}.finalDecisionCard p{font-size:8px;line-height:1.5;color:#62738a;margin:0;max-width:700px}
+.pillarDecisionGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.pillarDecision{border:1px solid #e1e8f0;border-radius:12px;background:#fff;padding:10px;min-height:116px;display:grid;grid-template-columns:auto 1fr;gap:8px;align-content:start}
+.pillarDecision>span{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:8px}.pillarDecision.good>span{background:#e6f8ef;color:#0b9454}.pillarDecision.attention>span{background:#fff0d8;color:#c67400}
+.pillarDecision b{font-size:8px}.pillarDecision p{font-size:7px;color:#77879b;line-height:1.4;margin:3px 0}.pillarDecision em{grid-column:1/-1;font-style:normal;font-size:7px;text-transform:capitalize;color:#52647a;font-weight:850;margin-top:3px}
+.nextActionGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:11px}.nextActionGrid>div{border:1px solid #e8edf3;background:#fafbfd;border-radius:10px;padding:9px}.nextActionGrid span,.nextActionGrid b,.nextActionGrid small{display:block}.nextActionGrid span{font-size:7px;color:#8a97a8}.nextActionGrid b{font-size:14px;color:#183b6c;margin-top:3px;text-transform:capitalize}.nextActionGrid small{font-size:7px;color:#8b98a9;line-height:1.35;margin-top:2px}
+.finalActionRow{display:flex;gap:6px;flex-wrap:wrap;padding:0 11px 12px}
+@media(max-width:1100px){.pillarDecisionGrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:920px){.finalOutcomeGrid{grid-template-columns:1fr}.pillarDecisionGrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.finalDecisionCard{grid-template-columns:auto 1fr}.finalDecisionCard>.statusChip{grid-column:1/-1;width:max-content}.pillarDecisionGrid{grid-template-columns:1fr}.nextActionGrid{grid-template-columns:1fr}}
