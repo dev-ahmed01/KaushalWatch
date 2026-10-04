@@ -191,8 +191,6 @@ export default function Page(){
     ()=>[...(data?.resolved_case_history||data?.cases?.filter(item=>!['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
     [data]
   );
-  const cameraHealthy=(data?.camera_issues??0)===0;
-
   function previewFile(
     event:ChangeEvent<HTMLInputElement>,
     setter:(value:string)=>void,
