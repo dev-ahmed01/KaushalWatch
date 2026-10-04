@@ -9,6 +9,9 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Attendance' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Infrastructure' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Practical work' })).toBeVisible();
+  await expect(page.getByText('Practical-work verification')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Analyse practical work' })).toBeVisible();
   await expect(page.getByText('System posture')).toBeVisible();
   await expect(page.getByText('Anonymous', { exact: true }).first()).toBeVisible();
 
