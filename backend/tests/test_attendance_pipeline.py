@@ -137,13 +137,15 @@ def test_fallback_detector_never_presents_zero_or_nonzero_as_attendance_truth(tm
 
 @pytest.mark.real_video
 def test_real_attendance_clip_if_configured(tmp_path):
-    """Local launch gate for the real demo clip.
+    """Local launch gate for a manually counted real demo clip.
 
     Run with:
       KAUSHALWATCH_REAL_ATTENDANCE_CLIP=<path>
-      KAUSHALWATCH_REAL_ATTENDANCE_MIN=2
-      KAUSHALWATCH_REAL_ATTENDANCE_MAX=4
+      KAUSHALWATCH_REAL_ATTENDANCE_TRUE_COUNT=5
       pytest -q backend/tests/test_attendance_pipeline.py -m real_video
+
+    The exact count must be established manually before the run. A range is
+    intentionally not accepted because a broad range can hide a real undercount.
     """
 
     clip = os.getenv("KAUSHALWATCH_REAL_ATTENDANCE_CLIP")
@@ -154,8 +156,13 @@ def test_real_attendance_clip_if_configured(tmp_path):
     if not path.exists():
         pytest.fail(f"Configured real attendance clip does not exist: {path}")
 
-    expected_min = int(os.getenv("KAUSHALWATCH_REAL_ATTENDANCE_MIN", "2"))
-    expected_max = int(os.getenv("KAUSHALWATCH_REAL_ATTENDANCE_MAX", "4"))
+    true_count_raw = os.getenv("KAUSHALWATCH_REAL_ATTENDANCE_TRUE_COUNT")
+    if true_count_raw is None:
+        pytest.fail(
+            "Set KAUSHALWATCH_REAL_ATTENDANCE_TRUE_COUNT from manual ground truth "
+            "before running the real-video launch gate."
+        )
+    true_count = int(true_count_raw)
 
     pipeline = VideoCompliancePipeline(
         tmp_path / "evidence",
@@ -163,7 +170,7 @@ def test_real_attendance_clip_if_configured(tmp_path):
     )
     result = pipeline.run(
         video_path=path,
-        reported_attendance=expected_max,
+        reported_attendance=true_count,
         centre_id="REAL-DEMO",
         batch_id="REAL-DEMO",
         sample_every_seconds=0.2,
@@ -172,8 +179,13 @@ def test_real_attendance_clip_if_configured(tmp_path):
     assert result.detector_authoritative, result.detector_message
     assert result.detector_failures == 0, result.detector_message
     assert result.estimated_occupancy is not None
-    assert expected_min <= result.estimated_occupancy <= expected_max, (
-        f"Real-video occupancy {result.estimated_occupancy} outside "
-        f"expected range {expected_min}..{expected_max}; "
-        f"detector={result.detector_backend} sampled={result.frames_sampled}"
+    assert result.estimated_occupancy == true_count, (
+        f"Real-video occupancy {result.estimated_occupancy} != manual ground truth "
+        f"{true_count}; detector={result.detector_backend} "
+        f"message={result.detector_message} sampled={result.frames_sampled}"
+    )
+    assert result.decision == "compliant", (
+        f"Expected no attendance exception when reported attendance equals manual "
+        f"ground truth; got decision={result.decision} "
+        f"discrepancy={result.discrepancy_pct}"
     )
