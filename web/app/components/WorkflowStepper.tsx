@@ -15,7 +15,7 @@ export default function WorkflowStepper({
     ['attendance','Attendance',`/centres/${centreId}/attendance`],
     ['practical','Practical Work',`/centres/${centreId}/practical`],
     ['infrastructure','Infrastructure',`/centres/${centreId}/infrastructure`],
-    ['review','Review Outcome',`/centres/${centreId}/review`],
+    ['review','Review Outcome',`/centres/${centreId}/outcome`],
   ] as const;
   return <div className="workflowStepper">
     {steps.map(([key,label,href],index)=>{
