@@ -151,27 +151,49 @@ def runtime_readiness():
 
 
 @app.get("/api/dashboard")
-def dashboard():
-    cases = STORE.list()
+def dashboard(
+    centre_id: str | None = None,
+    batch_id: str | None = None,
+):
+    all_cases = STORE.list()
     edge_events_path = DATA / "edge_events.json"
     edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
     pending_statuses = {"open", "under_review", "virtual_verification"}
-    pending_cases = [c for c in cases if c.status.value in pending_statuses]
-    resolved_cases = [c for c in cases if c.status.value not in pending_statuses]
+
+    global_pending_cases = [
+        case for case in all_cases if case.status.value in pending_statuses
+    ]
+
+    cases = all_cases
+    if centre_id:
+        cases = [case for case in cases if case.centre_id == centre_id]
+    if batch_id:
+        cases = [case for case in cases if case.batch_id == batch_id]
+
+    pending_cases = [case for case in cases if case.status.value in pending_statuses]
+    resolved_cases = [case for case in cases if case.status.value not in pending_statuses]
+
     return {
         "banner": "Prototype — Simulated Operational Data",
         "centres_monitored": 4,
+        "scope": {
+            "centre_id": centre_id,
+            "batch_id": batch_id,
+            "is_filtered": bool(centre_id or batch_id),
+        },
         "open_cases": len(pending_cases),
+        "global_open_cases": len(global_pending_cases),
         "resolved_cases": len(resolved_cases),
         "camera_issues": sum(
-            c.case_type == "camera_integrity" and c.status.value in pending_statuses
-            for c in cases
+            case.case_type == "camera_integrity"
+            and case.status.value in pending_statuses
+            for case in cases
         ),
         "synced_edge_events": len(edge_events),
         "edge_sync_state": "idle" if not edge_events else "synced",
-        "pending_cases": [c.model_dump(mode="json") for c in pending_cases[-20:]],
-        "resolved_case_history": [c.model_dump(mode="json") for c in resolved_cases[-20:]],
-        "cases": [c.model_dump(mode="json") for c in cases[-40:]],
+        "pending_cases": [case.model_dump(mode="json") for case in pending_cases[-20:]],
+        "resolved_case_history": [case.model_dump(mode="json") for case in resolved_cases[-20:]],
+        "cases": [case.model_dump(mode="json") for case in cases[-40:]],
     }
 
 
