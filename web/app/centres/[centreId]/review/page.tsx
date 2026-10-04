@@ -18,6 +18,7 @@ export default function ReviewQueue(){
   const [selectedId,setSelectedId]=useState('');
   const [note,setNote]=useState('');
   const [busy,setBusy]=useState(false);
+  const [tab,setTab]=useState<'pending'|'resolved'>('pending');
 
   async function refresh(){
     const payload=await getDashboard(id);
@@ -25,12 +26,15 @@ export default function ReviewQueue(){
     const resolved=(payload.resolved_case_history||[]) as CaseRecord[];
     setCases(pending);
     setHistory(resolved);
-    setSelectedId(current=>current&&[...pending,...resolved].some(c=>c.case_id===current)?current:(pending[0]?.case_id||resolved[0]?.case_id||''));
+    setSelectedId(current=>current&&[...pending,...resolved].some(c=>c.case_id===current)
+      ? current
+      : (tab==='pending'?(pending[0]?.case_id||resolved[0]?.case_id||''):(resolved[0]?.case_id||pending[0]?.case_id||'')));
   }
 
   useEffect(()=>{refresh().catch(()=>{});},[id]);
   const all=useMemo(()=>[...cases,...history],[cases,history]);
   const selected=all.find(c=>c.case_id===selectedId)||null;
+  const visibleCases=tab==='pending'?cases:history;
   const resolved=selected?['confirmed','false_positive','resolved'].includes(selected.status):false;
   const activeReview=selected?['under_review','virtual_verification'].includes(selected.status):false;
 
@@ -57,15 +61,23 @@ export default function ReviewQueue(){
 
     <div className="reviewLayout">
       <section className="caseListPanel">
-        <div className="caseTabs"><button className="active">Pending ({cases.length})</button><button>Resolved ({history.length})</button></div>
+        <div className="caseTabs">
+          <button
+            className={tab==='pending'?'active':''}
+            onClick={()=>{setTab('pending');setSelectedId(cases[0]?.case_id||'');}}
+          >Pending ({cases.length})</button>
+          <button
+            className={tab==='resolved'?'active':''}
+            onClick={()=>{setTab('resolved');setSelectedId(history[0]?.case_id||'');}}
+          >Resolved ({history.length})</button>
+        </div>
         <div className="caseList">
-          {cases.map(item=><button type="button" key={item.case_id} onClick={()=>setSelectedId(item.case_id)} className={selectedId===item.case_id?'caseListItem active':'caseListItem'}>
+          {visibleCases.map(item=><button type="button" key={item.case_id} onClick={()=>setSelectedId(item.case_id)} className={selectedId===item.case_id?'caseListItem active':'caseListItem'}>
             <span className={`caseBullet ${item.severity}`}></span>
             <div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.summary}</small><em>{item.case_id}</em></div>
-            <Status tone={tone(item.severity) as any}>{item.severity}</Status>
+            <Status tone={tab==='resolved'?'good':tone(item.severity) as any}>{tab==='resolved'?item.status.replaceAll('_',' '):item.severity}</Status>
           </button>)}
-          {!cases.length&&<div className="queueClear">✓ No pending cases for this centre.</div>}
-          {!!history.length&&<div className="resolvedMini"><b>Resolved history</b>{history.slice(0,4).map(item=><button key={item.case_id} onClick={()=>setSelectedId(item.case_id)} className={selectedId===item.case_id?'resolvedRow active':'resolvedRow'}><span>{item.case_type.replaceAll('_',' ')}</span><small>{item.status.replaceAll('_',' ')}</small></button>)}</div>}
+          {!visibleCases.length&&<div className="queueClear">{tab==='pending'?'✓ No pending cases for this centre.':'No resolved cases yet.'}</div>}
         </div>
       </section>
 
