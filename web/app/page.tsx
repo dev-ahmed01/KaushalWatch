@@ -903,7 +903,14 @@ function EvidenceView(){
   </>;
 }
 
-function CentreProgress({progress,activeView,onOpen}:{progress:WorkflowProgress;activeView:ViewKey;onOpen:(view:ViewKey)=>void}){
+function CentreProgress({
+  progress,activeView,onOpen,onReset,
+}:{
+  progress:WorkflowProgress;
+  activeView:ViewKey;
+  onOpen:(view:ViewKey)=>void;
+  onReset:()=>void;
+}){
   const steps:[
     keyof WorkflowProgress,
     ViewKey,
@@ -913,21 +920,33 @@ function CentreProgress({progress,activeView,onOpen}:{progress:WorkflowProgress;
     ['practical','practical','Practical Work'],
     ['infrastructure','infrastructure','Infrastructure'],
   ];
+
+  const meta:Record<WorkflowStepState,{label:string;symbol:string}> = {
+    pending:{label:'Pending',symbol:'•'},
+    passed:{label:'Compliant / complete',symbol:'✓'},
+    attention:{label:'Review attention',symbol:'!'},
+    blocked:{label:'Blocked / unavailable',symbol:'×'},
+  };
+
   return <section className="centreProgress" aria-label="Centre verification progress">
     <div className="centreProgressLead">
       <span className="eyebrow">CENTRE VERIFICATION</span>
       <strong>One centre · three checkpoints</strong>
+      <button type="button" className="resetFlowButton" onClick={onReset}>Reset walkthrough</button>
     </div>
     <div className="centreProgressSteps">
-      {steps.map(([key,view,label],index)=><button
-        key={key}
-        type="button"
-        className={`centreProgressStep ${progress[key]?'done':''} ${activeView===view?'active':''}`}
-        onClick={()=>onOpen(view)}
-      >
-        <span>{progress[key]?'✓':index+1}</span>
-        <div><strong>{label}</strong><small>{progress[key]?'Run completed':'Pending'}</small></div>
-      </button>)}
+      {steps.map(([key,view,label],index)=>{
+        const state=progress[key];
+        return <button
+          key={key}
+          type="button"
+          className={`centreProgressStep ${state} ${activeView===view?'active':''}`}
+          onClick={()=>onOpen(view)}
+        >
+          <span>{state==='pending'?index+1:meta[state].symbol}</span>
+          <div><strong>{label}</strong><small>{meta[state].label}</small></div>
+        </button>;
+      })}
     </div>
   </section>;
 }
