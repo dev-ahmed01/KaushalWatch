@@ -27,7 +27,13 @@ type Dashboard = {
   banner:string;
   centres_monitored:number;
   open_cases:number;
+  global_open_cases?:number;
   resolved_cases?:number;
+  scope?:{
+    centre_id?:string|null;
+    batch_id?:string|null;
+    is_filtered?:boolean;
+  };
   camera_issues:number;
   synced_edge_events:number;
   edge_sync_state?:string;
@@ -117,8 +123,12 @@ export default function Page(){
   ].filter(Boolean).length;
 
   const refresh=async()=>{
+    const dashboardQuery=new URLSearchParams({
+      centre_id:centreId,
+      batch_id:batchId,
+    });
     const [dashboardResponse,infraResponse,readinessResponse]=await Promise.all([
-      fetch(`${API}/api/dashboard`,{cache:'no-store'}),
+      fetch(`${API}/api/dashboard?${dashboardQuery.toString()}`,{cache:'no-store'}),
       fetch(`${API}/api/demo/infrastructure`,{cache:'no-store'}),
       fetch(`${API}/api/runtime-readiness`,{cache:'no-store'}),
     ]);
@@ -133,10 +143,18 @@ export default function Page(){
     }
   };
 
-  useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  useEffect(()=>{
+    const handle=window.setTimeout(()=>{
+      refresh().catch(err=>setError(String(err.message||err)));
+    },200);
+    return ()=>window.clearTimeout(handle);
+  },[centreId,batchId]);
   const progressStorageKey=`kaushalwatch-centre-progress:${centreId}:${batchId}`;
 
   useEffect(()=>{
+    setAttendanceResult(null);
+    setPracticalResult(null);
+    setInfraResult(null);
     const pending:WorkflowProgress={
       attendance:'pending',
       practical:'pending',
@@ -387,6 +405,14 @@ export default function Page(){
       </header>
 
       <div className="page">
+        <ContextBar
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
+          scopedPending={data?.open_cases??0}
+          globalPending={data?.global_open_cases??data?.open_cases??0}
+        />
         <CentreProgress
           progress={workflowProgress}
           activeView={activeView}
@@ -408,9 +434,7 @@ export default function Page(){
           reported={attendanceReported}
           setReported={setAttendanceReported}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -425,9 +449,7 @@ export default function Page(){
           setProfile={setPracticalProfile}
           readiness={runtimeReadiness?.practical_work}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setPracticalPreview)}
           onSubmit={submitPractical}
         />}
@@ -439,9 +461,7 @@ export default function Page(){
           preview={infraPreview}
           readiness={runtimeReadiness?.infrastructure}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setInfraPreview)}
           onSubmit={submitInfrastructure}
         />}
@@ -450,6 +470,8 @@ export default function Page(){
           cases={priority}
           history={history}
           review={review}
+          centreId={centreId}
+          batchId={batchId}
         />}
 
         {activeView==='evidence'&&<EvidenceView/>}
