@@ -95,6 +95,17 @@ def _case_pillar(case_type: str) -> str:
     return "other"
 
 
+def _case_has_duplicate(case: ComplianceCase) -> bool:
+    if any(evidence.duplicate_of for evidence in case.evidence):
+        return True
+    edge_integrity = case.details.get("edge_evidence_integrity") or []
+    return any(
+        isinstance(evidence, dict)
+        and (evidence.get("duplicate_of") or evidence.get("possible_duplicate"))
+        for evidence in edge_integrity
+    )
+
+
 def _age_days(case: ComplianceCase) -> float:
     try:
         created = datetime.fromisoformat(case.created_at.replace("Z", "+00:00"))
@@ -117,9 +128,7 @@ def _escalation_level(
         if case.status.value in {"open", "under_review", "virtual_verification"}
     ]
     confirmed = [case for case in cases if case.status.value == "confirmed"]
-    duplicate_count = sum(
-        1 for case in cases for evidence in case.evidence if evidence.duplicate_of
-    )
+    duplicate_count = sum(1 for case in cases if _case_has_duplicate(case))
     pillars = {_case_pillar(case.case_type) for case in pending + confirmed}
 
     attendance_days = {
@@ -263,11 +272,7 @@ def centre_rows(
             if case_pillars["camera_integrity"]
             else ("nominal" if has_video_analysis else "pending")
         )
-        duplicate_pending = any(
-            evidence.duplicate_of
-            for case in pending
-            for evidence in case.evidence
-        )
+        duplicate_pending = any(_case_has_duplicate(case) for case in pending)
         evidence_integrity_status = (
             "attention"
             if duplicate_pending
