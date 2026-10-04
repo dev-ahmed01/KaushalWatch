@@ -1052,6 +1052,46 @@ function AuthChoice({active,tone,title,detail,onClick}:{active:boolean;tone:'goo
   </button>;
 }
 
+function OccupancyTimeline({observations,reported}:{observations:any[];reported:number}){
+  const samples=(observations||[]).filter(item=>Number.isFinite(Number(item?.smoothed_count)));
+  if(samples.length<2) return null;
+
+  const width=600;
+  const height=160;
+  const padX=28;
+  const padY=22;
+  const maxCount=Math.max(
+    1,
+    reported,
+    ...samples.map(item=>Number(item.smoothed_count||0)),
+    ...samples.map(item=>Number(item.raw_count||0)),
+  );
+  const x=(index:number)=>padX+(index/(samples.length-1))*(width-padX*2);
+  const y=(value:number)=>height-padY-(value/maxCount)*(height-padY*2);
+  const stablePoints=samples.map((item,index)=>`${x(index)},${y(Number(item.smoothed_count||0))}`).join(' ');
+  const rawPoints=samples.map((item,index)=>`${x(index)},${y(Number(item.raw_count||0))}`).join(' ');
+  const reportY=y(reported);
+
+  return <div className="timelineCard">
+    <div className="timelineHead">
+      <div><span className="eyebrow">TEMPORAL PROOF</span><strong>Occupancy over sampled time</strong></div>
+      <div className="timelineLegend">
+        <span><i className="legendStable"></i>Stable occupancy</span>
+        <span><i className="legendRaw"></i>Raw detections</span>
+        <span><i className="legendReported"></i>Reported</span>
+      </div>
+    </div>
+    <svg className="occupancyChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Attendance occupancy timeline">
+      <line x1={padX} y1={reportY} x2={width-padX} y2={reportY} className="reportedLine"/>
+      <polyline points={rawPoints} className="rawLine"/>
+      <polyline points={stablePoints} className="stableLine"/>
+      <text x={padX} y={14} className="chartLabel">{maxCount}</text>
+      <text x={padX} y={height-5} className="chartLabel">0</text>
+      <text x={width-padX-5} y={height-5} textAnchor="end" className="chartLabel">{samples.at(-1)?.second??'—'}s</text>
+    </svg>
+  </div>;
+}
+
 function DecisionHeader({tone,eyebrow,title,text}:{tone:'good'|'warn'|'danger';eyebrow:string;title:string;text:string}){
   return <div className={`decisionHeader ${tone}`}>
     <span className="decisionIcon"><Icon name={tone==='good'?'check':'alert'}/></span>
