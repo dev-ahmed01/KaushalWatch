@@ -32,7 +32,7 @@ export default function CentreOverview(){
       actions={<>
         <Link href={`/centres/${centreId}/history`} className="secondaryBtn">Recent Analysis</Link>
         <Link href={`/reports?centre=${centreId}`} className="secondaryBtn">Generate Report</Link>
-        <Link href={`/centres/${centreId}/attendance`} className="primaryBtn">Start Analysis</Link>
+        <Link href={`/centres/${centreId}/analysis`} className="primaryBtn">Start Analysis</Link>
       </>}
     />
 
@@ -56,7 +56,7 @@ export default function CentreOverview(){
               <div><span>Connectivity</span><b>{centre.connectivity_mode.replace('_',' ')}</b></div>
               <div><span>Next run</span><b>Next training window</b></div>
             </div>
-            <Link href={`/centres/${centreId}/attendance`} className="runNowBtn">▶ Run analysis now</Link>
+            <Link href={`/centres/${centreId}/analysis`} className="runNowBtn">▶ Run analysis now</Link>
           </div>
         </section>
 
