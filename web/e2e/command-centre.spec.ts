@@ -56,6 +56,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.locator('.overlayMode')).toContainText(/Diagnostic detector overlay/i);
   const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(attendanceOverflow).toBeLessThanOrEqual(2);
+  const attendanceRailScroll = await page.locator('.neoViewport').evaluate(element => element.scrollLeft);
+  expect(attendanceRailScroll).toBeLessThanOrEqual(1);
 
   // Practical work now uses the same detector abstraction as attendance. Core CI
   // can still be non-authoritative, but it must process the clip, show real work
