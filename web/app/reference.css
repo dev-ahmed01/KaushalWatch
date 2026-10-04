@@ -641,3 +641,9 @@
 
 /* Prevent focus-driven horizontal scrolling inside the desktop content rail. */
 .neoMain,.neoViewport{overflow-x:clip}
+
+
+.infraResultsColumn{display:grid;gap:11px;align-content:start;min-width:0}
+.infraInlineOutcome{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(190px,.85fr);gap:9px;align-items:stretch}
+.infraInlineOutcome .outcomeCard{margin-top:0}
+@media(max-width:1180px){.infraInlineOutcome{grid-template-columns:1fr}}
