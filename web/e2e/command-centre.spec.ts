@@ -17,8 +17,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
 
   await page.getByRole('link', { name: 'Start Analysis' }).click();
-  await expect(page.getByRole('heading', { name: 'Start Centre Analysis' })).toBeVisible();
-  await expect(page.getByText('Automatic scheduled monitoring')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Centre Analysis' })).toBeVisible();
+  await expect(page.getByText('Normal operation is automatic.')).toBeVisible();
 
   // Core CI does not install YOLO. Attendance must show an explicit withheld state
   // rather than silently presenting a genuine zero occupancy.
