@@ -396,7 +396,6 @@ export default function Page(){
         {activeView==='overview'&&<Overview
           data={data}
           priority={priority}
-          cameraHealthy={cameraHealthy}
           onOpen={setActiveView}
         />}
 
@@ -458,12 +457,10 @@ export default function Page(){
 function Overview({
   data,
   priority,
-  cameraHealthy,
   onOpen,
 }:{
   data:Dashboard|null;
   priority:Case[];
-  cameraHealthy:boolean;
   onOpen:(view:ViewKey)=>void;
 }){
   return <>
@@ -481,9 +478,15 @@ function Overview({
     </section>
 
     <section className="kpis">
-      <Kpi icon="site" label="Centres monitored" value={data?.centres_monitored??'—'} note="Demo workspace"/>
-      <Kpi icon="cases" label="Open review cases" value={data?.open_cases??'—'} note="Persistent exceptions only" attention={(data?.open_cases??0)>0}/>
-      <Kpi icon="camera" label="Camera integrity" value={cameraHealthy?'Nominal':`${data?.camera_issues??0} issue`} note="Trust gates every inference" attention={!cameraHealthy}/>
+      <Kpi icon="site" label="Demo centres loaded" value={data?.centres_monitored??'—'} note="Simulated command-centre dataset"/>
+      <Kpi icon="cases" label="Pending review cases" value={data?.open_cases??'—'} note="Persistent exceptions awaiting action" attention={(data?.open_cases??0)>0}/>
+      <Kpi
+        icon="camera"
+        label="Open camera-integrity cases"
+        value={data==null?'—':`${data.camera_issues} open`}
+        note="Case-derived status · not a live camera-health reading"
+        attention={(data?.camera_issues??0)>0}
+      />
       <Kpi
         icon="sync"
         label="Edge sync"
@@ -1076,9 +1079,9 @@ function CentreProgress({
 
   const meta:Record<WorkflowStepState,{label:string;symbol:string}> = {
     pending:{label:'Pending',symbol:'•'},
-    passed:{label:'Compliant / complete',symbol:'✓'},
-    attention:{label:'Review attention',symbol:'!'},
-    blocked:{label:'Blocked / unavailable',symbol:'×'},
+    passed:{label:'Completed · no exception',symbol:'✓'},
+    attention:{label:'Exception · review',symbol:'!'},
+    blocked:{label:'Could not verify',symbol:'×'},
   };
 
   return <section className="centreProgress" aria-label="Centre verification progress">
