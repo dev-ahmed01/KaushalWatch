@@ -693,13 +693,15 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,profile,setProfile,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   auth:'valid'|'absent'|'unknown';
   setAuth:(value:'valid'|'absent'|'unknown')=>void;
+  profile:'authorized'|'unauthorized'|'default';
+  setProfile:(value:'authorized'|'unauthorized'|'default')=>void;
   centreId:string;
   setCentreId:(value:string)=>void;
   batchId:string;
@@ -772,7 +774,7 @@ function PracticalView({
             <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
           <Field label="Bundled zone profile" help="Works without uploading JSON. Same-camera geometry auto-scales if the clip resolution changes.">
-            <select name="zone_profile" defaultValue="authorized">
+            <select name="zone_profile" value={profile} onChange={event=>setProfile(event.target.value as 'authorized'|'unauthorized'|'default')}>
               <option value="authorized">Authorized demo layout</option>
               <option value="unauthorized">Unauthorized demo layout</option>
               <option value="default">Default demo layout</option>
@@ -782,6 +784,12 @@ function PracticalView({
 
         <div className="formSection">
           <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>External authorization</h3><p>This state comes from the training schedule or work order—not the camera.</p></div></div>
+          <div className="scenarioPresetRow">
+            <span>Quick demo</span>
+            <button type="button" className={profile==='authorized'&&auth==='valid'?'presetChip active':'presetChip'} onClick={()=>{setProfile('authorized');setAuth('valid');}}>Authorized activity</button>
+            <button type="button" className={profile==='unauthorized'&&auth==='absent'?'presetChip attention active':'presetChip attention'} onClick={()=>{setProfile('unauthorized');setAuth('absent');}}>Unauthorized alert</button>
+            <button type="button" className={auth==='unknown'?'presetChip active':'presetChip'} onClick={()=>{setProfile('authorized');setAuth('unknown');}}>Needs review</button>
+          </div>
           <div className="authSelector">
             <AuthChoice active={auth==='valid'} tone="good" title="Valid" detail="Matching training/work authorization exists" onClick={()=>setAuth('valid')}/>
             <AuthChoice active={auth==='absent'} tone="danger" title="Not found" detail="No matching authorization was supplied" onClick={()=>setAuth('absent')}/>
