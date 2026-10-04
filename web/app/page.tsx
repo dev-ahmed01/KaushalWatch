@@ -1162,13 +1162,22 @@ function PipelineStrip({items}:{items:[string,string][]}){
 }
 
 function VideoDrop({name,preview,onPreview}:{name:string;preview:string;onPreview:(event:ChangeEvent<HTMLInputElement>)=>void}){
+  const [fileMeta,setFileMeta]=useState<{name:string;size:number}|null>(null);
+  function handleChange(event:ChangeEvent<HTMLInputElement>){
+    const file=event.target.files?.[0];
+    setFileMeta(file?{name:file.name,size:file.size}:null);
+    onPreview(event);
+  }
   return <label className={preview?'videoDrop hasPreview':'videoDrop'}>
     {preview
       ? <video src={preview} controls muted playsInline/>
-      : <div className="dropPlaceholder"><span className="dropIcon"><Icon name="video"/></span><strong>Choose CCTV clip</strong><small>MP4 or AVI · fixed camera recommended</small></div>
+      : <div className="dropPlaceholder"><span className="dropIcon"><Icon name="video"/></span><strong>Choose CCTV clip</strong><small>MP4 / AVI / MOV / MKV · fixed camera recommended</small></div>
     }
-    <div className="dropFooter"><span>{preview?'Replace video':'Browse video'}</span><small>Local preview only</small></div>
-    <input name={name} type="file" accept="video/*,.avi,.mp4" required onChange={onPreview}/>
+    <div className="dropFooter">
+      <span>{preview?'Replace video':'Browse video'}</span>
+      <small>{fileMeta?`${fileMeta.name} · ${formatFileSize(fileMeta.size)}`:'Local preview only · max 500 MB by default'}</small>
+    </div>
+    <input name={name} type="file" accept="video/*,.avi,.mp4,.mov,.mkv,.mpeg,.mpg" required onChange={handleChange}/>
   </label>;
 }
 
@@ -1399,6 +1408,12 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function formatFileSize(bytes:number){
+  if(bytes<1024) return `${bytes} B`;
+  if(bytes<1024*1024) return `${(bytes/1024).toFixed(1)} KB`;
+  return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+}
 
 function shortHash(value:string|undefined){
   if(!value) return '—';
