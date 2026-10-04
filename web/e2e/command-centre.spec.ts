@@ -52,7 +52,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/decision withheld/i)).toBeVisible();
+  await expect(page.getByText(/decision withheld/i).first()).toBeVisible();
   await expect(page.locator('.overlayMode')).toContainText(/Diagnostic detector overlay/i);
   const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(attendanceOverflow).toBeLessThanOrEqual(2);
