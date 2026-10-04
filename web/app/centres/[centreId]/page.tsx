@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { getCentre } from '../../lib/api';
 import type { Centre } from '../../lib/types';
+import { workflowStatesForCentre } from '../../lib/workflow';
 import AssistantPanel from '../../components/AssistantPanel';
 import WorkflowStepper from '../../components/WorkflowStepper';
 import { PageHeader, Status, Skeleton } from '../../components/Ui';
@@ -15,12 +16,7 @@ export default function CentreOverview(){
   const [centre,setCentre]=useState<Centre|null>(null);
   useEffect(()=>{getCentre(centreId).then(setCentre).catch(()=>setCentre(null));},[centreId]);
 
-  const stepStates=useMemo(()=>({
-    attendance: centre?.attendance_status==='compliant'?'complete' as const:'attention' as const,
-    practical: centre?.practical_status==='compliant'?'complete' as const:'attention' as const,
-    infrastructure: centre?.infrastructure_status==='compliant'?'complete' as const:'attention' as const,
-    review: centre?.pending_cases ? 'attention' as const:'pending' as const,
-  }),[centre]);
+  const stepStates=useMemo(()=>workflowStatesForCentre(centre),[centre]);
 
   if(!centre) return <div className="pageScene"><Skeleton lines={8}/></div>;
 
