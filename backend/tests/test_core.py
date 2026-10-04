@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.services.camera_trust import assess_camera
 from app.services.evidence import dhash, hamming_hex
-from app.services.infrastructure import compare_manifest
+from app.services.infrastructure import compare_manifest, aggregate_cached_observations
 from app.services.occupancy import discrepancy_pct, OccupancySmoother
 from app.services.operability import apparent_motion_state
 from app.services.person_detector import build_person_detector, HogPersonDetector
