@@ -560,7 +560,41 @@ def process_practical_activity(
         )
         return result.model_dump(mode="json")
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        message = str(exc)
+        HISTORY.append(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            analysis_type="practical_work",
+            outcome="blocked",
+            summary=message,
+            details={
+                "decision": "detector_unavailable",
+                "active_work_cells": 0,
+                "peak_stable_workers": 0,
+                "activity_fraction": 0.0,
+            },
+        )
+        return {
+            "centre_id": centre_id,
+            "batch_id": batch_id,
+            "camera_id": camera_id,
+            "authorization": authorization,
+            "decision": "detector_unavailable",
+            "detector_authoritative": False,
+            "detector_message": message,
+            "zone_scaled": False,
+            "zone_reference_width": zone_reference_size[0] if zone_reference_size else None,
+            "zone_reference_height": zone_reference_size[1] if zone_reference_size else None,
+            "frames_processed": 0,
+            "duration_sec": 0.0,
+            "trusted_frame_ratio": 0.0,
+            "peak_stable_workers": 0,
+            "practical_activity_fraction": 0.0,
+            "first_practical_activity_time_sec": None,
+            "active_work_cells": 0,
+            "work_cells": [],
+            "case": None,
+        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
