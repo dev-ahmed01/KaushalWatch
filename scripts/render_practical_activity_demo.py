@@ -280,6 +280,7 @@ def main() -> int:
 
     frame_rows: list[dict] = []
     previous_frame: np.ndarray | None = None
+    worker_motion_scores: dict[str, list[float]] = defaultdict(list)
     zone_motion_scores: dict[str, list[float]] = defaultdict(list)
     zone_active_frames: dict[str, int] = defaultdict(int)
     zone_presence_frames: dict[str, int] = defaultdict(int)
