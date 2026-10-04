@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import os
 import json
@@ -235,6 +236,18 @@ def centre_report(
     if not centre:
         raise HTTPException(status_code=404, detail="Centre not found")
     history = HISTORY.list(centre_id=centre_id, limit=200)
+    now = datetime.now(timezone.utc)
+    if period in {"yesterday", "7d", "30d"}:
+        delta = timedelta(days=1 if period == "yesterday" else 7 if period == "7d" else 30)
+        cutoff = now - delta
+        def _recent(row):
+            try:
+                created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
+            except ValueError:
+                return True
+            return created >= cutoff
+        history = [row for row in history if _recent(row)]
+
     cases = [case for case in STORE.list() if case.centre_id == centre_id]
     pending = [
         case for case in cases
