@@ -13,6 +13,7 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.config import demo_manifest_path, equipment_cache_path, demo_scenario_path
+from app.services.person_detector import build_person_detector
 
 
 REQUIRED_SCENARIO_EVENTS = {
@@ -207,8 +208,9 @@ def main() -> None:
             "KAUSHALWATCH_DEMO_VIDEO/--video not configured",
         ))
 
-    detector = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "hog").strip().lower()
-    if args.require_openvino or args.final or detector == "openvino":
+    configured_detector = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "auto").strip().lower()
+    detector = configured_detector
+    if args.require_openvino or args.final or configured_detector == "openvino":
         raw = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
         if raw:
             model = Path(raw).expanduser()
@@ -228,6 +230,23 @@ def main() -> None:
         bin_path = model.with_suffix(".bin")
         checks.append(("openvino_xml", model.exists(), str(model)))
         checks.append(("openvino_bin", bin_path.exists(), str(bin_path)))
+
+    if args.final:
+        try:
+            runtime_detector = build_person_detector().info
+        except Exception as exc:
+            checks.append((
+                "person_detector_runtime",
+                False,
+                f"could not initialize configured detector: {exc}",
+            ))
+        else:
+            detector = runtime_detector.backend
+            checks.append((
+                "person_detector_runtime",
+                bool(runtime_detector.authoritative),
+                runtime_detector.message,
+            ))
 
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     cache = json.loads(cache_path.read_text()) if cache_path.exists() else []
