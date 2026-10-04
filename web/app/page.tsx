@@ -179,7 +179,11 @@ export default function Page(){
   }
 
   const priority=useMemo(
-    ()=>[...(data?.pending_cases||data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
+    ()=>sortPriorityCases(
+      data?.pending_cases
+      || data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))
+      || [],
+    ),
     [data]
   );
   const history=useMemo(
@@ -336,8 +340,8 @@ export default function Page(){
           <div className="workspaceRow">
             <span className="liveDot"></span>
             <div>
-              <strong>DEMO-KA-104</strong>
-              <small>Bengaluru · demonstration workspace</small>
+              <strong>{centreId}</strong>
+              <small>{batchId} · demonstration workspace</small>
             </div>
           </div>
         </div>
@@ -365,7 +369,7 @@ export default function Page(){
     <main className="main">
       <header className="topbar">
         <div>
-          <span className="topEyebrow">KAUSHALWATCH / DEMO-KA-104</span>
+          <span className="topEyebrow">KAUSHALWATCH / {centreId} / {batchId}</span>
           <strong>{navItems.find(item=>item.key===activeView)?.label}</strong>
         </div>
         <div className="topStatus">
@@ -1303,6 +1307,25 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function sortPriorityCases(cases:Case[]){
+  const severityRank:Record<string,number>={high:0,medium:1,low:2};
+  const statusRank:Record<CaseStatus,number>={
+    open:0,
+    under_review:1,
+    virtual_verification:2,
+    confirmed:3,
+    false_positive:3,
+    resolved:3,
+  };
+  return [...cases].sort((a,b)=>{
+    const severity=(severityRank[a.severity]??9)-(severityRank[b.severity]??9);
+    if(severity!==0) return severity;
+    const status=(statusRank[a.status]??9)-(statusRank[b.status]??9);
+    if(status!==0) return status;
+    return String(b.created_at||'').localeCompare(String(a.created_at||''));
+  });
+}
 
 function tierLabel(value:string|undefined){
   if(value==='camera_verifiable') return 'Camera-verifiable';
