@@ -14,6 +14,7 @@ from app.services.person_detector import build_person_detector
 from app.services.privacy import anonymize_person_regions
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.evidence import persist_evidence
+from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
 
 class VideoCompliancePipeline:
@@ -33,6 +34,9 @@ class VideoCompliancePipeline:
         mismatch_threshold_pct: float = 15.0,
         persistence_threshold: float = 0.6,
         minimum_trusted_ratio: float = 0.5,
+        track_confirmation_seconds: float = 1.0,
+        attendance_registration_seconds: float = 2.0,
+        track_grace_seconds: float = 0.8,
     ) -> ProcessSummary:
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
@@ -42,6 +46,20 @@ class VideoCompliancePipeline:
         step = max(1, int(round(fps * sample_every_seconds)))
         smoother = OccupancySmoother(window=5)
         tracker = AnonymousCentroidTracker(max_distance=140.0, max_missed=2)
+
+        # The grace period must be long enough to bridge one sampled observation.
+        # This keeps a real person stable through a brief detector miss while the
+        # stricter registration threshold prevents short-lived false positives
+        # from entering attendance occupancy.
+        effective_grace_seconds = max(
+            float(track_grace_seconds),
+            float(sample_every_seconds) * 1.25,
+        )
+        presence = TrackPresenceRegistry(
+            confirmation_seconds=track_confirmation_seconds,
+            registration_seconds=attendance_registration_seconds,
+            grace_seconds=effective_grace_seconds,
+        )
 
         observations: list[AttendanceObservation] = []
         mismatch_flags: list[bool] = []
@@ -81,22 +99,54 @@ class VideoCompliancePipeline:
 
                 detections = self.detector.detect(frame) if trust.trusted else []
                 raw_count = len(detections)
+
+                presence_observations: list[TrackObservation] = []
                 if trust.trusted:
                     tracks = tracker.update(detections)
-                    # Keep a track for one missed observation to bridge short detector dropouts.
-                    # IDs are positional only and are discarded when this pipeline run ends.
+                    # Tracker count remains diagnostic. Presence registration below is
+                    # the value allowed to affect attendance occupancy.
                     tracker_count = sum(track.missed <= 1 for track in tracks)
+                    for track in tracks:
+                        if track.missed != 0:
+                            continue
+                        presence_observations.append(
+                            TrackObservation(
+                                track_id=track.track_id,
+                                x1=track.x1,
+                                y1=track.y1,
+                                x2=track.x2,
+                                y2=track.y2,
+                            )
+                        )
                 else:
                     tracker_count = 0
-                smooth = smoother.update(tracker_count)
+
+                presence.update(sec, presence_observations)
+                candidate_count = presence.candidate_count
+                confirmed_count = presence.confirmed_count
+                registered_count = presence.registered_count
+
+                # Only attendance-registered tracks enter occupancy smoothing.
+                # A one-second detector flash can therefore never become a new
+                # attendance person under the default two-second threshold.
+                smooth = smoother.update(registered_count)
                 d_pct = discrepancy_pct(reported_attendance, smooth)
-                is_mismatch = trust.trusted and d_pct >= mismatch_threshold_pct
+
+                warmup_complete = sec >= attendance_registration_seconds
+                is_mismatch = (
+                    trust.trusted
+                    and warmup_complete
+                    and d_pct >= mismatch_threshold_pct
+                )
 
                 observations.append(
                     AttendanceObservation(
                         second=round(sec, 2),
                         raw_count=raw_count,
                         tracker_count=tracker_count,
+                        candidate_count=candidate_count,
+                        confirmed_count=confirmed_count,
+                        registered_count=registered_count,
                         smoothed_count=smooth,
                         camera_trust=trust.score,
                     )
@@ -120,11 +170,21 @@ class VideoCompliancePipeline:
         trusted_counts = [
             o.smoothed_count
             for o, is_trusted in zip(observations, trust_flags)
-            if is_trusted
+            if is_trusted and o.second >= attendance_registration_seconds
         ]
         estimated = int(np.median(trusted_counts)) if trusted_counts else 0
         overall_pct = discrepancy_pct(reported_attendance, estimated)
-        persistence = sum(mismatch_flags) / len(mismatch_flags)
+
+        eligible_mismatch_flags = [
+            flag
+            for observation, flag in zip(observations, mismatch_flags)
+            if observation.second >= attendance_registration_seconds
+        ]
+        persistence = (
+            sum(eligible_mismatch_flags) / len(eligible_mismatch_flags)
+            if eligible_mismatch_flags
+            else 0.0
+        )
 
         case: ComplianceCase | None = None
 
@@ -179,6 +239,7 @@ class VideoCompliancePipeline:
                     "reported_attendance": reported_attendance,
                     "visual_occupancy": evidence_count,
                     "privacy_transform": "person_regions_blurred_before_central_retention",
+                    "track_registration_seconds": attendance_registration_seconds,
                 },
             )
             case = ComplianceCase(
@@ -189,8 +250,8 @@ class VideoCompliancePipeline:
                 severity="high" if overall_pct >= 25 else "medium",
                 summary=(
                     f"Reported attendance {reported_attendance}; privacy-preserving "
-                    f"visual occupancy estimated at {estimated}. Persistent mismatch "
-                    f"across {persistence:.0%} of sampled observations."
+                    f"stable visual occupancy estimated at {estimated}. Persistent mismatch "
+                    f"across {persistence:.0%} of eligible observations."
                 ),
                 reported_attendance=reported_attendance,
                 visual_occupancy=estimated,
@@ -199,6 +260,10 @@ class VideoCompliancePipeline:
                 details={
                     "camera_id": camera_id,
                     "trusted_sample_ratio": round(trusted_ratio, 3),
+                    "track_confirmation_seconds": track_confirmation_seconds,
+                    "attendance_registration_seconds": attendance_registration_seconds,
+                    "track_grace_seconds": effective_grace_seconds,
+                    "individual_identification": False,
                 },
                 evidence=[evidence],
             )
