@@ -89,10 +89,18 @@ export default function PracticalVerification(){
         />}
         {!result&&<div className="resultEmpty"><span>⌁</span><b>No analysis yet</b><p>The system confirms stable worker presence and local motion before calling a work cell active.</p></div>}
 
-        <div className="analysisControls">
-          <label><span>Authorization source</span><select value={authorization} onChange={e=>setAuthorization(e.target.value)}><option value="valid">Valid authorization</option><option value="absent">Authorization not found</option><option value="unknown">Unknown / officer review</option></select></label>
-          <label><span>Bundled work-zone profile</span><select value={profile} onChange={e=>setProfile(e.target.value)}><option value="authorized">Authorized demo layout</option><option value="unauthorized">Unauthorized demo layout</option><option value="default">Default layout</option></select></label>
-          <label className="optionalFile"><span>Work-zone JSON · optional override</span><input type="file" accept=".json,application/json" onChange={e=>setZonesFile(e.target.files?.[0]||null)}/></label>
+        <div className="practicalSetup">
+          <span className="setupLabel">Authorization source</span>
+          <div className="segmentedChoice">
+            <button type="button" className={authorization==='valid'?'active good':''} onClick={()=>setAuthorization('valid')}>✓ Valid</button>
+            <button type="button" className={authorization==='absent'?'active danger':''} onClick={()=>setAuthorization('absent')}>! Not found</button>
+            <button type="button" className={authorization==='unknown'?'active warn':''} onClick={()=>setAuthorization('unknown')}>? Unknown</button>
+          </div>
+          <details className="advancedCompact">
+            <summary>Advanced setup</summary>
+            <label><span>Bundled work-zone profile</span><select value={profile} onChange={e=>setProfile(e.target.value)}><option value="authorized">Authorized demo layout</option><option value="unauthorized">Unauthorized demo layout</option><option value="default">Default layout</option></select></label>
+            <label className="optionalFile"><span>Work-zone JSON · optional override</span><input type="file" accept=".json,application/json" onChange={e=>setZonesFile(e.target.files?.[0]||null)}/></label>
+          </details>
         </div>
       </section>
 
