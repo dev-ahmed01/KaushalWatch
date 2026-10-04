@@ -506,7 +506,15 @@ function Overview({
 
     <section className="kpis">
       <Kpi icon="site" label="Demo centres loaded" value={data?.centres_monitored??'—'} note="Simulated command-centre dataset"/>
-      <Kpi icon="cases" label="Pending review cases" value={data?.open_cases??'—'} note="Persistent exceptions awaiting action" attention={(data?.open_cases??0)>0}/>
+      <Kpi
+        icon="cases"
+        label="Pending in active batch"
+        value={data?.open_cases??'—'}
+        note={(data?.global_open_cases??data?.open_cases??0)>(data?.open_cases??0)
+          ? `${data?.global_open_cases} pending across all demo contexts`
+          : 'Scoped to the active centre / batch'}
+        attention={(data?.open_cases??0)>0}
+      />
       <Kpi
         icon="camera"
         label="Open camera-integrity cases"
