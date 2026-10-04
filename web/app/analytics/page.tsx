@@ -48,14 +48,14 @@ export default function AnalyticsPage(){
   },[history]);
 
   const trendPoints=useMemo(()=>{
-    const data=trend.filter(bucket=>bucket.total>0);
-    if(!data.length) return '';
-    return trend.map((bucket,index)=>{
-      const rate=bucket.total?bucket.compliant/bucket.total:0;
+    const points=trend.flatMap((bucket,index)=>{
+      if(!bucket.total) return [];
+      const rate=bucket.compliant/bucket.total;
       const x=20+(index/(trend.length-1))*560;
       const y=200-(rate*150);
-      return x.toFixed(1)+','+y.toFixed(1);
-    }).join(' ');
+      return [x.toFixed(1)+','+y.toFixed(1)];
+    });
+    return points.join(' ');
   },[trend]);
 
   const issueMix=useMemo(()=>{
