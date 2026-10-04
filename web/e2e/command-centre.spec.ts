@@ -106,7 +106,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   const firstInfraCase = infraCases.first();
   await firstInfraCase.getByRole('button', { name: 'Inspect evidence' }).click();
-  await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT')).toBeVisible();
+  await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT', { exact: true })).toBeVisible();
   await expect(firstInfraCase.getByRole('img', { name: /Evidence for CASE-/ })).toBeVisible();
 
   // Final decisions require both an active review state and an auditable rationale.
