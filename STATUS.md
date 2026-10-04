@@ -24,6 +24,8 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.\n- Strict final-demo readiness validation for readable video metadata, ROI bounds, required scenario events, non-example final assets, OpenVINO selection/model assets, and manifest/cache alignment that excludes officer-only items.
 - Privacy-preserving design note matching the PS conditional on individual identification.
 - Next.js Command Centre connected to the live API.
+- Practical-work verification now reuses the shared person-detector abstraction plus anonymous short-lived tracking; it can process clips without a hard Ultralytics dependency, while non-authoritative detector modes explicitly withhold the final conclusion.
+- Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
 
@@ -56,6 +58,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
 - Apparent operability is visual activity evidence only, never mechanical/electrical health.
+- Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
 - AEBAS/SIDH integrations remain simulated because the prototype does not have production government credentials.
 
 ## Remaining final-demo milestones
