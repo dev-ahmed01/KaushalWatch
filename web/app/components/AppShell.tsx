@@ -12,14 +12,6 @@ const primary=[
   ['/analytics', 'Analytics', 'analytics'],
 ] as const;
 
-const selected=[
-  ['/centres/DEMO-KA-104/attendance','Attendance','attendance'],
-  ['/centres/DEMO-KA-104/practical','Practical Work','activity'],
-  ['/centres/DEMO-KA-104/infrastructure','Infrastructure','infrastructure'],
-  ['/centres/DEMO-KA-104/review','Review Queue','review'],
-  ['/centres/DEMO-KA-104/history','History & Audit','history'],
-] as const;
-
 function Icon({name}:{name:string}){
   const p={width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round' as const,strokeLinejoin:'round' as const};
   if(name==='network') return <svg {...p}><circle cx="6" cy="6" r="2"/><circle cx="18" cy="7" r="2"/><circle cx="12" cy="18" r="2"/><path d="m7.7 7.1 3.1 8M16.3 8.2l-3 7.7M8 6.2l8 .6"/></svg>;
@@ -43,6 +35,16 @@ function active(pathname:string,href:string){
 
 export default function AppShell({children}:{children:ReactNode}){
   const pathname=usePathname();
+  const centreMatch=pathname.match(/^\/centres\/([^/]+)/);
+  const activeCentre=centreMatch?.[1]||'DEMO-KA-104';
+  const selected=[
+    [`/centres/${activeCentre}`,'Centre Overview','centres'],
+    [`/centres/${activeCentre}/attendance`,'Attendance','attendance'],
+    [`/centres/${activeCentre}/practical`,'Practical Work','activity'],
+    [`/centres/${activeCentre}/infrastructure`,'Infrastructure','infrastructure'],
+    [`/centres/${activeCentre}/review`,'Review Queue','review'],
+    [`/centres/${activeCentre}/history`,'History & Audit','history'],
+  ] as const;
   return <div className="appFrame">
     <aside className="appSidebar">
       <Link href="/" className="appBrand">
