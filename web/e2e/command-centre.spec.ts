@@ -89,10 +89,20 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   const pendingBefore = await page.locator('.queueCount').first().textContent();
 
+  // Final decisions require an auditable officer rationale.
+  const firstInfraCase = infraCases.first();
+  const confirmButton = firstInfraCase.getByRole('button', { name: 'Confirm exception' });
+  await expect(confirmButton).toBeDisabled();
+  await firstInfraCase.getByPlaceholder(/What did you verify/i).fill(
+    'Reviewed the visual manifest evidence and confirmed the persistent gap.'
+  );
+  await expect(confirmButton).toBeEnabled();
+
   // Resolve one pending case and verify it leaves the live priority queue.
-  await infraCases.first().getByRole('button', { name: 'Confirm exception' }).click();
+  await confirmButton.click();
   await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.resolvedCase').first()).toBeVisible();
+  await expect(page.getByText(/Reviewed the visual manifest evidence/i)).toBeVisible();
 
   const pendingAfter = await page.locator('.queueCount').first().textContent();
   expect(pendingAfter).not.toBe(pendingBefore);
