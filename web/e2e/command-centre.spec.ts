@@ -9,6 +9,9 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('heading', { name: 'Training Centre Network' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Network Overview' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Bengaluru TC-04/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Requires Review/ })).toContainText('0');
+  await expect(page.getByRole('button', { name: /Camera Issues/ })).toContainText('0');
+  await expect(page.getByRole('button', { name: /Verification Incomplete/ })).toContainText('6');
 
   // Keep the command-centre UI readable at normal presentation distance.
   const navFontSize = await page.getByRole('link', { name: 'Network Overview' }).evaluate((element) =>
