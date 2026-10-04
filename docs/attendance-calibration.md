@@ -63,3 +63,35 @@ The 0.45 tiled candidate was preferred over 0.40 tiled because both reached the 
 This calibration fixes a concrete undercount observed on the supplied five-worker target clip. It does **not** replace the existing EPFL benchmark and does not establish general CCTV accuracy.
 
 The selected profile should be tested on held-out fixed-camera footage before making broader precision/recall or occupancy claims. The compliance discrepancy threshold remains unchanged; the fix improves the vision input rather than hiding the error downstream.
+
+
+## End-to-end API verification
+
+After freezing the selected profile, the same manually counted five-worker clip was rerun through the live FastAPI endpoints with the calibrated launcher.
+
+Attendance endpoint result:
+
+- Reported attendance: **5**
+- Estimated stable occupancy: **5**
+- Discrepancy: **0.0%**
+- Decision: **compliant**
+- Trusted sample ratio: **1.0**
+- Mismatch persistence ratio: **0.20**
+- Detector: **OpenVINO primary, authoritative, confidence 0.45, tiled on**
+- Detector failures: **0**
+- Compliance case: **none**
+
+Practical-work endpoint result on the same clip:
+
+- Decision: **authorized_practical_activity**
+- Peak stable workers: **5**
+- Active work cells: **2**
+- Practical-activity fraction: **0.6286**
+- Trusted frame ratio: **1.0**
+- Detector: **OpenVINO primary, authoritative, confidence 0.45, tiled on**
+- Detector failures: **0**
+- Compliance case: **none**
+
+The raw detector still produced transient counts outside the true count, but the temporal registration/smoothing path rejected those flashes and converged to the correct stable occupancy. This is the intended behavior of the attendance pipeline.
+
+Held-out validation on a different original fixed-camera clip is still required before making broader claims.
