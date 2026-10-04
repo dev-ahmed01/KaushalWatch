@@ -237,3 +237,11 @@ button,input,select,textarea{font:inherit}
 .advancedCompact[open] summary{border-bottom:1px solid #e8edf3}
 .advancedCompact label{display:grid;gap:4px;padding:8px 9px 0}.advancedCompact label:last-child{padding-bottom:9px}
 .advancedCompact label>span{font-size:7px;color:#738297}.advancedCompact input,.advancedCompact select{border:1px solid #dfe6ee;border-radius:8px;padding:7px;font-size:8px;background:#fff}
+
+/* cycle 2 — simplified attendance setup */
+.attendanceSetup{display:grid;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid #eef2f6}
+.attendanceCountControl{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.attendanceCountControl>span{font-size:7px;color:#68798f;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+.attendanceCountControl>div{display:grid;grid-template-columns:28px 44px 28px;align-items:center;border:1px solid #dfe6ee;border-radius:9px;overflow:hidden;background:#fff}
+.attendanceCountControl button{height:30px;border:0;background:#f8fafc;color:#466078;font-size:14px}
+.attendanceCountControl strong{text-align:center;font-size:12px;color:#143463}
