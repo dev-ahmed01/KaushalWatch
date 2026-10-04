@@ -13,6 +13,7 @@ export type Centre = {
   connectivity_mode:string;
   status:CentreStatus;
   pending_cases:number;
+  confirmed_cases?:number;
   attendance_status:string;
   practical_status:string;
   infrastructure_status:string;
