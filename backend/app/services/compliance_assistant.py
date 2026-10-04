@@ -7,15 +7,16 @@ from typing import Any
 from app.models import ComplianceCase
 
 
-def _period_start(period: str) -> datetime:
+def _period_bounds(period: str) -> tuple[datetime, datetime]:
     now = datetime.now(timezone.utc)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
     if period == "today":
-        return now - timedelta(days=1)
+        return today_start, now
     if period == "yesterday":
-        return now - timedelta(days=2)
+        return today_start - timedelta(days=1), today_start
     if period == "30d":
-        return now - timedelta(days=30)
-    return now - timedelta(days=7)
+        return now - timedelta(days=30), now
+    return now - timedelta(days=7), now
 
 
 def _period_for_question(question: str, fallback: str) -> str:
@@ -36,7 +37,8 @@ def _in_period(row: dict[str, Any], period: str) -> bool:
         created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
     except ValueError:
         return True
-    return created >= _period_start(period)
+    start, end = _period_bounds(period)
+    return start <= created < end
 
 
 def answer_question(
