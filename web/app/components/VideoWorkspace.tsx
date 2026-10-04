@@ -10,6 +10,7 @@ export default function VideoWorkspace({
   label='Camera / recorded video',
   badge,
   overlay,
+  onTimeChange,
 }:{
   preview:string;
   inputName:string;
@@ -17,6 +18,7 @@ export default function VideoWorkspace({
   label?:string;
   badge?:string;
   overlay?:ReactNode;
+  onTimeChange?:(seconds:number)=>void;
 }){
   const ref=useRef<HTMLInputElement>(null);
   return <div className="videoWorkspace">
@@ -26,7 +28,15 @@ export default function VideoWorkspace({
     </div>
     {preview
       ? <div className="videoStage">
-          <video src={preview} controls muted playsInline className="analysisVideo"/>
+          <video
+            src={preview}
+            controls
+            muted
+            playsInline
+            className="analysisVideo"
+            onTimeUpdate={event=>onTimeChange?.(event.currentTarget.currentTime)}
+            onSeeked={event=>onTimeChange?.(event.currentTarget.currentTime)}
+          />
           {overlay&&<div className="videoOverlayLayer" aria-hidden="true">{overlay}</div>}
         </div>
       : <EmptyMedia onUpload={()=>ref.current?.click()}/>
