@@ -11,6 +11,7 @@ const statusTone=(status:string)=>status==='compliant'?'good':status==='high_pri
 export default function NetworkOverview(){
   const [centres,setCentres]=useState<Centre[]>([]);
   const [error,setError]=useState('');
+  const [filter,setFilter]=useState<'all'|'review'|'camera'|'incomplete'>('all');
   useEffect(()=>{getCentres().then(r=>setCentres(r.centres)).catch(e=>setError(e.message));},[]);
 
   const stats=useMemo(()=>{
@@ -19,6 +20,13 @@ export default function NetworkOverview(){
     const high=centres.filter(c=>c.status==='high_priority').length;
     return {total:centres.length,compliant,review,high};
   },[centres]);
+
+  const filtered=useMemo(()=>{
+    if(filter==='review') return centres.filter(c=>c.status!=='compliant');
+    if(filter==='camera') return centres.filter(c=>c.camera_status!=='nominal');
+    if(filter==='incomplete') return centres.filter(c=>['blocked','unknown','pending'].some(token=>String(c.infrastructure_status).includes(token)));
+    return centres;
+  },[centres,filter]);
 
   return <div className="pageScene fadeIn">
     <PageHeader
@@ -66,7 +74,13 @@ export default function NetworkOverview(){
     </section>
 
     <section className="panel centresTablePanel">
-      <div className="panelHead"><div><span className="sectionKicker">All centres</span><h2>Operational status</h2></div><Link href="/centres">View directory →</Link></div>
+      <div className="networkFilterTabs">
+        <button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>All Centres <span>{centres.length}</span></button>
+        <button className={filter==='review'?'active':''} onClick={()=>setFilter('review')}>Requires Review <span>{centres.filter(c=>c.status!=='compliant').length}</span></button>
+        <button className={filter==='camera'?'active':''} onClick={()=>setFilter('camera')}>Camera Issues <span>{centres.filter(c=>c.camera_status!=='nominal').length}</span></button>
+        <button className={filter==='incomplete'?'active':''} onClick={()=>setFilter('incomplete')}>Verification Incomplete</button>
+      </div>
+      <div className="panelHead"><div><span className="sectionKicker">Centre directory</span><h2>Operational status</h2></div><Link href="/centres">View directory →</Link></div>
       <div className="dataTableWrap">
         <table className="dataTable">
           <thead><tr><th>Centre</th><th>Location</th><th>Batch</th><th>Attendance</th><th>Practical</th><th>Infrastructure</th><th>Exceptions</th><th>Status</th></tr></thead>

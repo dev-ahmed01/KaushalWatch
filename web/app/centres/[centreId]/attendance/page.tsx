@@ -87,13 +87,19 @@ export default function AttendanceVerification(){
         />}
         {!result&&<div className="resultEmpty"><span>◎</span><b>No analysis yet</b><p>Choose a clip, confirm the reported count, then start analysis.</p></div>}
 
-        <div className="analysisControls">
-          <label><span>Reported attendance</span><input type="number" min="0" value={reported} onChange={e=>setReported(Number(e.target.value))}/></label>
-          <div className="quickPresets"><button type="button" onClick={()=>setReported(3)}>Matching · 3</button><button type="button" onClick={()=>setReported(12)}>Mismatch · 12</button></div>
-          <label><span>Camera ID</span><input value={cameraId} onChange={e=>setCameraId(e.target.value)}/></label>
+        <div className="attendanceSetup">
+          <div className="attendanceCountControl">
+            <span>Centre-reported attendance</span>
+            <div><button type="button" onClick={()=>setReported(Math.max(0,reported-1))}>−</button><strong>{reported}</strong><button type="button" onClick={()=>setReported(reported+1)}>+</button></div>
+          </div>
+          <div className="quickPresets"><button type="button" onClick={()=>setReported(3)}>Demo match · 3</button><button type="button" onClick={()=>setReported(12)}>Demo mismatch · 12</button></div>
+          <details className="advancedCompact">
+            <summary>Advanced setup</summary>
+            <label><span>Camera ID</span><input value={cameraId} onChange={e=>setCameraId(e.target.value)}/></label>
+          </details>
         </div>
 
-        <div className="privacyCallout">✓ Anonymous presence tracking · no face recognition · detector failure never appears as a real zero count.</div>
+        <div className="privacyCallout">✓ Anonymous stable occupancy · no facial identification · detector failure is shown as unavailable, never as a real zero.</div>
       </section>
 
       <AssistantPanel centreId={id}/>
