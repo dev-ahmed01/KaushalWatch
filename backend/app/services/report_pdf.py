@@ -68,6 +68,33 @@ def build_report_pdf(report: dict[str, Any]) -> bytes:
                 f"{case.get('status', '')} | {case.get('severity', '')}",
                 8,
             ))
+            for evidence in (case.get("evidence") or [])[:4]:
+                digest = str(evidence.get("sha256") or "")
+                duplicate = evidence.get("duplicate_of")
+                suffix = f" | duplicate of {duplicate}" if duplicate else ""
+                lines.append((
+                    f"  Evidence {evidence.get('evidence_id', '')} | sha256 {digest[:20]}...{suffix}",
+                    7,
+                ))
+            edge_integrity = (case.get("details") or {}).get("edge_evidence_integrity") or []
+            for evidence in edge_integrity[:4]:
+                digest = str(evidence.get("sha256") or "")
+                duplicate = evidence.get("duplicate_of")
+                suffix = f" | duplicate of {duplicate}" if duplicate else ""
+                lines.append((
+                    f"  Edge evidence {evidence.get('evidence_id', '')} | sha256 {digest[:20]}...{suffix}",
+                    7,
+                ))
+            for review in (case.get("review_history") or [])[-3:]:
+                lines.append((
+                    f"  Review {review.get('timestamp', '')[:19]} | "
+                    f"{review.get('from_status', '')} -> {review.get('to_status', '')} | "
+                    f"{review.get('actor', 'officer')}",
+                    7,
+                ))
+                if review.get("note"):
+                    for segment in wrap(str(review["note"]), width=86):
+                        lines.append((f"    {segment}", 7))
     else:
         lines.append(("No compliance cases recorded in this report.", 8))
 
