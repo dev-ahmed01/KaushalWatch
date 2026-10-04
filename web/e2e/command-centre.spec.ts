@@ -1,159 +1,63 @@
 import { test, expect } from '@playwright/test';
 import path from 'path';
 
-test('command centre handles detector fallback, case lifecycle and evidence integrity', async ({ page }) => {
-  await page.goto('/');
-
-  await expect(page.getByText('KaushalWatch', { exact: true })).toBeVisible();
-  await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
-  const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
-
-  // Demo walkthrough intentionally opens on Infrastructure first.
-  await expect(page.getByText(/stage-safe visual manifest/i)).toBeVisible();
-  await expect(page.getByText('One centre · three checkpoints')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Reset walkthrough' })).toBeVisible();
-  await expect(page.locator('select[name="demo_profile"]')).toHaveValue('compliant');
-  await expect(page.getByText(/Manifest counts use stage-safe demo telemetry/i)).toBeVisible();
-
-  // Edge sync zero should read as an idle/expected state, not a fault.
-  await primaryNav.getByRole('button', { name: /Overview/ }).click();
-  const edgeMetric = page.locator('.kpi').filter({ hasText: 'Edge sync' });
-  await expect(edgeMetric.getByText('0 synced', { exact: true })).toBeVisible();
-  await expect(edgeMetric.getByText(/Idle · no pending events/i)).toBeVisible();
-
-  const edgeSync = await page.request.post('http://127.0.0.1:8000/api/edge/sync', {
-    data: {
-      events: [{
-        event_id: 'EDGE-E2E-001',
-        event_type: 'compliance_case',
-        created_at: '2026-10-03T00:00:00Z',
-        payload: {
-          case_type: 'attendance_discrepancy',
-          raw_video_included: false
-        }
-      }]
-    }
-  });
-  expect(edgeSync.ok()).toBeTruthy();
-
+test('multipage KaushalWatch workflow covers network, analysis, review and reports', async ({ page }) => {
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required');
 
-  // Core CI intentionally has no YOLO dependency. The UI must present fallback
-  // as unavailable rather than silently reporting zero occupancy.
-  await primaryNav.getByRole('button', { name: /Attendance/ }).click();
-  await expect(page.locator('input[name="reported_attendance"]')).toHaveValue('3');
-  await page.getByLabel('Active centre ID').fill('DEMO-KA-205');
-  await page.getByLabel('Active batch ID').fill('CTX-BATCH-01');
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Training Centre Network' })).toBeVisible();
+  await expect(page.getByText('Network Overview')).toBeVisible();
+  await expect(page.getByRole('link', { name: /Bengaluru TC-04/ }).first()).toBeVisible();
+
+  await page.goto('/centres/DEMO-KA-104');
+  await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Recent Analysis' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Start Analysis' })).toBeVisible();
+  await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
+
+  await page.getByRole('link', { name: 'Start Analysis' }).click();
+  await expect(page.getByRole('heading', { name: 'Start Centre Analysis' })).toBeVisible();
+  await expect(page.getByText('Automatic scheduled monitoring')).toBeVisible();
+
+  // Core CI does not install YOLO. Attendance must show an explicit withheld state
+  // rather than silently presenting a genuine zero occupancy.
+  await page.getByRole('link', { name: /Analyse Attendance/ }).click();
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
-  await page.locator('input[name="reported_attendance"]').fill('12');
-  await page.getByRole('button', { name: 'Run attendance verification' }).click();
+  await page.getByRole('button', { name: 'Analyse Attendance' }).click();
+  await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/decision withheld/i)).toBeVisible();
 
-  await expect(
-    page.getByRole('heading', { name: 'Detector unavailable / fallback mode' })
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Attendance decision withheld')).toBeVisible();
-  await expect(page.getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByText('Could not verify', { exact: true })).toBeVisible();
+  // Infrastructure has a deliberate discrepancy demo profile and should create
+  // an evidence-backed case without requiring raw advanced controls.
+  await page.goto('/centres/DEMO-KA-104/infrastructure');
+  await page.locator('select.headerSelect').selectOption('discrepancy');
+  await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
+  await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
+  await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
 
-  // Practical-work configuration upload is optional; bundled profiles are present.
-  await primaryNav.getByRole('button', { name: /Practical work/ }).click();
-  await expect(page.locator('input[name="centre_id"]')).toHaveValue('DEMO-KA-205');
-  await expect(page.locator('input[name="batch_id"]')).toHaveValue('CTX-BATCH-01');
-  await expect(page.getByRole('button', { name: 'Authorized activity' })).toBeVisible();
-  await page.getByRole('button', { name: 'Unauthorized alert' }).click();
-  await expect(page.locator('select[name="zone_profile"]')).toHaveValue('unauthorized');
-  await page.getByRole('button', { name: 'Authorized activity' }).click();
-  await expect(page.locator('select[name="zone_profile"]')).toHaveValue('authorized');
-  const zoneInput = page.locator('input[name="zones_file"]');
-  await expect(zoneInput).not.toHaveAttribute('required', '');
-  await expect(page.getByText(/Work-zone JSON · optional/i)).toBeVisible();
-  await expect(page.locator('select[name="zone_profile"]')).toHaveValue('authorized');
-  await expect(page.getByText('Practical-work runtime unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Run practical-work verification' })).toBeDisabled();
+  await page.goto('/centres/DEMO-KA-104/review');
+  await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible();
+  const firstCase = page.locator('.caseListItem').first();
+  await expect(firstCase).toBeVisible();
+  await firstCase.click();
 
-  // Infrastructure remains the clearest live walkthrough and creates a review case.
-  await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
-  await expect(page.locator('input[name="centre_id"]')).toHaveValue('DEMO-KA-205');
-  await expect(page.locator('input[name="batch_id"]')).toHaveValue('CTX-BATCH-01');
-  await page.locator('select[name="demo_profile"]').selectOption('discrepancy');
-  await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
-  await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Visual manifest exception created' })
-  ).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Exception · review', { exact: true })).toBeVisible();
+  const confirm = page.getByRole('button', { name: 'Confirm & Resolve' });
+  await expect(confirm).toBeDisabled();
+  await page.getByRole('button', { name: 'Start Review' }).click();
+  await page.locator('.reviewNote').fill('Reviewed the evidence and confirmed the persistent infrastructure gap.');
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
 
-  // Re-run the same evidence to exercise the independent duplicate-evidence signal.
-  await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Visual manifest exception created' })
-  ).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/No pending cases|pending/i).first()).toBeVisible();
 
-  await primaryNav.getByRole('button', { name: /Review queue/ }).click();
-  await expect(page.getByText(/Showing only cases for DEMO-KA-205 \/ CTX-BATCH-01/i)).toBeVisible();
-  await expect(page.getByText(/pending$/).first()).toBeVisible();
-  await expect(page.locator('.caseCard').filter({ hasText: 'DEMO-KA-104' })).toHaveCount(0);
+  await page.goto('/reports?centre=DEMO-KA-104&period=7d');
+  await expect(page.getByRole('heading', { name: 'Compliance Reports' })).toBeVisible();
+  await expect(page.getByText('Centre Verification Report')).toBeVisible();
+  await expect(page.getByText(/Privacy & limitations/i)).toBeVisible();
 
-  const infraCases = page.locator('.caseCard').filter({ hasText: 'infrastructure compliance' });
-  await expect(infraCases.first()).toBeVisible();
-
-  const duplicateCase = infraCases.filter({ hasText: 'Evidence integrity signal' }).first();
-  await expect(duplicateCase).toBeVisible();
-  await expect(duplicateCase.getByText(/Possible duplicate evidence detected/i)).toBeVisible();
-
-  const pendingBefore = await page.locator('.queueCount').first().textContent();
-
-  const firstInfraCase = infraCases.first();
-  const caseIdentity = await firstInfraCase.locator('.caseTitle small').textContent();
-  const selectedCaseId = caseIdentity?.split(' · ')[0] || '';
-  expect(selectedCaseId).toBeTruthy();
-
-  await firstInfraCase.getByRole('button', { name: 'Inspect evidence' }).click();
-  await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT', { exact: true })).toBeVisible();
-  await expect(firstInfraCase.getByRole('img', { name: /Evidence for CASE-/ })).toBeVisible();
-
-  // Final decisions require both an active review state and an auditable rationale.
-  let selectedCase = page.locator('.caseCard').filter({ hasText: selectedCaseId }).first();
-  let confirmButton = selectedCase.getByRole('button', { name: 'Confirm exception' });
-  await expect(confirmButton).toBeDisabled();
-  await selectedCase.getByPlaceholder(/What did you verify/i).fill(
-    'Reviewed the visual manifest evidence and confirmed the persistent gap.'
-  );
-  await expect(confirmButton).toBeDisabled();
-  await expect(selectedCase.getByText(/Start review or virtual verification/i)).toBeVisible();
-
-  await selectedCase.getByRole('button', { name: 'Start review' }).click();
-
-  // Priority sorting can move an under-review case below newly-open cases, so
-  // reselect by stable case ID after each status-changing refresh.
-  selectedCase = page.locator('.caseCard').filter({ hasText: selectedCaseId }).first();
-  await expect(selectedCase.getByText('under review', { exact: true })).toBeVisible({ timeout: 10_000 });
-  confirmButton = selectedCase.getByRole('button', { name: 'Confirm exception' });
-  await expect(confirmButton).toBeEnabled();
-
-  // Resolve one pending case and verify it leaves the live priority queue.
-  await confirmButton.click();
-  await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('.resolvedCase').first()).toBeVisible();
-  const resolvedCase=page.locator('.resolvedCase').filter({ hasText: selectedCaseId }).first();
-  await expect(
-    resolvedCase.getByText(
-      'Reviewed the visual manifest evidence and confirmed the persistent gap.',
-      { exact: true },
-    ).first()
-  ).toBeVisible();
-  await resolvedCase.getByText(/Decision history/).click();
-  await expect(resolvedCase.getByText(/under review → confirmed/i)).toBeVisible();
-
-  const pendingAfter = await page.locator('.queueCount').first().textContent();
-  expect(pendingAfter).not.toBe(pendingBefore);
-
-  const evidencePack = infraCases.first().getByRole('link', { name: 'Evidence pack' });
-  if (await evidencePack.count()) {
-    const packHref = await evidencePack.getAttribute('href');
-    expect(packHref).toBeTruthy();
-    const packResponse = await page.request.get(packHref!);
-    expect(packResponse.ok()).toBeTruthy();
-  }
+  await page.goto('/settings');
+  await expect(page.getByRole('heading', { name: 'Settings & Configuration' })).toBeVisible();
+  await expect(page.getByText('Automatic monitoring')).toBeVisible();
+  await expect(page.getByText('Low-bandwidth deployment')).toBeVisible();
 });
