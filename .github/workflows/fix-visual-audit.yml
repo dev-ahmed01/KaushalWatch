@@ -1,0 +1,53 @@
+name: fix-visual-audit
+
+on:
+  push:
+    branches: ["fix/audit-product-consistency"]
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package.json
+      - run: python -m pip install --upgrade pip
+      - run: pip install -r backend/requirements.txt
+      - run: python scripts/create_e2e_video.py --out /tmp/kaushalwatch-e2e.avi
+      - name: Start API
+        run: |
+          uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 > /tmp/kw-api.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:8000/api/health && exit 0; sleep 1; done
+          cat /tmp/kw-api.log
+          exit 1
+      - name: Install web and browser
+        working-directory: web
+        run: |
+          npm install
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Start web
+        working-directory: web
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3000 > /tmp/kw-web.log 2>&1 &
+          for i in {1..30}; do curl -fsS http://127.0.0.1:3000 && exit 0; sleep 1; done
+          cat /tmp/kw-web.log
+          exit 1
+      - name: Render corrected product
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_VIDEO_PATH: /tmp/kaushalwatch-e2e.avi
+        run: npx playwright test e2e/fix-visual-audit.spec.ts --workers=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kaushalwatch-fix-visual-audit
+          path: web/fix-visual-audit
+          if-no-files-found: warn
