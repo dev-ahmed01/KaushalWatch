@@ -13,7 +13,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(page.getByText('One centre · three checkpoints')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset walkthrough' })).toBeVisible();
   await expect(page.locator('select[name="demo_profile"]')).toHaveValue('compliant');
-  await expect(page.getByText(/Equipment counts: stage-safe demo telemetry/i)).toBeVisible();
+  await expect(page.getByText(/Manifest counts use stage-safe demo telemetry/i)).toBeVisible();
 
   // Edge sync zero should read as an idle/expected state, not a fault.
   await primaryNav.getByRole('button', { name: /Overview/ }).click();
