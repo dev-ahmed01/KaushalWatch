@@ -1221,12 +1221,13 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
   const pillar=casePillar(item.case_type);
   const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
   const [reviewNote,setReviewNote]=useState('');
+  const [showEvidence,setShowEvidence]=useState(false);
   const finalReady=reviewNote.trim().length>0;
   const latestReview=item.review_history?.at(-1);
 
   return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
-      <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
+      <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id} · {item.batch_id}</small></div></div>
       <span className={`statusBadge ${item.status}`}>{item.status.replaceAll('_',' ')}</span>
     </div>
     <div className="pillarLabel"><Icon name={pillar.icon}/><span>{pillar.label}</span></div>
@@ -1245,9 +1246,23 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       <span>Severity <b>{item.severity}</b></span>
     </div>
     <div className="caseLinks">
-      {item.evidence?.[0]&&<a href={`${API}/evidence/${item.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer"><Icon name="image"/>Open evidence</a>}
+      {item.evidence?.[0]&&<button type="button" className="evidenceToggle" onClick={()=>setShowEvidence(value=>!value)}><Icon name="image"/>{showEvidence?'Hide evidence':'Inspect evidence'}</button>}
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
+    {showEvidence&&item.evidence?.[0]&&<div className="evidenceInspector">
+      <div className="evidenceImageWrap">
+        <img src={`${API}/evidence/${item.evidence[0].evidence_id}.jpg`} alt={`Evidence for ${item.case_id}`}/>
+      </div>
+      <div className="evidenceMeta">
+        <span className="eyebrow">EVIDENCE SNAPSHOT</span>
+        <strong>{item.evidence[0].evidence_id}</strong>
+        <dl>
+          <div><dt>SHA-256</dt><dd title={item.evidence[0].sha256}>{shortHash(item.evidence[0].sha256)}</dd></div>
+          <div><dt>Integrity</dt><dd>{item.evidence[0].duplicate_of?`Possible duplicate · ${item.evidence[0].duplicate_of}`:'No duplicate signal'}</dd></div>
+          <div><dt>Captured</dt><dd>{formatTimestamp(item.created_at)}</dd></div>
+        </dl>
+      </div>
+    </div>}
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
     {resolved&&latestReview?.note&&<div className="resolvedRationale">
       <span>Officer rationale</span>
@@ -1331,6 +1346,24 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function shortHash(value:string|undefined){
+  if(!value) return '—';
+  return value.length>18?`${value.slice(0,10)}…${value.slice(-6)}`:value;
+}
+
+function formatTimestamp(value:string|undefined){
+  if(!value) return '—';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined,{
+    year:'numeric',
+    month:'short',
+    day:'numeric',
+    hour:'2-digit',
+    minute:'2-digit',
+  });
+}
 
 function sortPriorityCases(cases:Case[]){
   const severityRank:Record<string,number>={high:0,medium:1,low:2};
