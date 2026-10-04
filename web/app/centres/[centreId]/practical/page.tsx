@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import AnalysisProgressOverlay from '../../../components/AnalysisProgressOverlay';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
@@ -62,8 +63,9 @@ export default function PracticalVerification(){
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">
-      <form id="practical-form" className="analysisPrimary" onSubmit={analyse}>
+      <form id="practical-form" className="analysisPrimary analysisProgressHost" onSubmit={analyse}>
         <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="Work Zone A · Workshop" badge={preview?'Recorded clip':'No feed'}/>
+        {busy&&<AnalysisProgressOverlay mode="practical"/>}
         <div className="workZoneStrip">
           {(result?.work_cells||[{zone_id:'Work Zone A'},{zone_id:'Work Zone B'},{zone_id:'Work Zone C'}]).slice(0,3).map((cell:any)=><div className="zoneMini" key={cell.zone_id}>
             <span className={cell.activity_fraction>0.3?'zoneDot active':'zoneDot'}></span>
