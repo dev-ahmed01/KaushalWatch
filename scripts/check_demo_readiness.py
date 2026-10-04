@@ -209,13 +209,22 @@ def main() -> None:
 
     detector = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "hog").strip().lower()
     if args.require_openvino or args.final or detector == "openvino":
-        raw = os.getenv(
-            "KAUSHALWATCH_OPENVINO_MODEL_XML",
-            "../models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml",
-        )
-        model = Path(raw).expanduser()
-        if not model.is_absolute():
-            model = (BACKEND / model).resolve()
+        raw = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
+        if raw:
+            model = Path(raw).expanduser()
+            if not model.is_absolute():
+                repo_relative = (ROOT / model).resolve()
+                backend_relative = (BACKEND / model).resolve()
+                model = repo_relative if repo_relative.exists() else backend_relative
+        else:
+            model = (
+                ROOT
+                / "models"
+                / "openvino"
+                / "person-detection-retail-0013"
+                / "FP16"
+                / "person-detection-retail-0013.xml"
+            )
         bin_path = model.with_suffix(".bin")
         checks.append(("openvino_xml", model.exists(), str(model)))
         checks.append(("openvino_bin", bin_path.exists(), str(bin_path)))
