@@ -32,8 +32,8 @@ export default function NetworkOverview(){
   },[centres]);
 
   const filtered=useMemo(()=>{
-    if(filter==='review') return centres.filter(c=>c.status!=='compliant');
-    if(filter==='camera') return centres.filter(c=>c.camera_status!=='nominal');
+    if(filter==='review') return centres.filter(c=>c.status==='attention'||c.status==='high_priority');
+    if(filter==='camera') return centres.filter(c=>c.camera_status==='attention'||c.camera_status==='blocked');
     if(filter==='incomplete') return centres.filter(c=>c.status==='incomplete'||[c.attendance_status,c.practical_status,c.infrastructure_status].some(state=>['blocked','pending'].includes(String(state))));
     return centres;
   },[centres,filter]);
@@ -93,8 +93,8 @@ export default function NetworkOverview(){
     <section className="panel centresTablePanel">
       <div className="networkFilterTabs">
         <button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>All Centres <span>{centres.length}</span></button>
-        <button className={filter==='review'?'active':''} onClick={()=>setFilter('review')}>Requires Review <span>{centres.filter(c=>c.status!=='compliant').length}</span></button>
-        <button className={filter==='camera'?'active':''} onClick={()=>setFilter('camera')}>Camera Issues <span>{centres.filter(c=>c.camera_status!=='nominal').length}</span></button>
+        <button className={filter==='review'?'active':''} onClick={()=>setFilter('review')}>Requires Review <span>{centres.filter(c=>c.status==='attention'||c.status==='high_priority').length}</span></button>
+        <button className={filter==='camera'?'active':''} onClick={()=>setFilter('camera')}>Camera Issues <span>{centres.filter(c=>c.camera_status==='attention'||c.camera_status==='blocked').length}</span></button>
         <button className={filter==='incomplete'?'active':''} onClick={()=>setFilter('incomplete')}>Verification Incomplete <span>{centres.filter(c=>c.status==='incomplete').length}</span></button>
       </div>
       <div className="panelHead"><div><span className="sectionKicker">Centre directory</span><h2>Operational status</h2></div><Link href="/centres">View directory →</Link></div>
