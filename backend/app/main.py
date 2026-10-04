@@ -16,7 +16,7 @@ from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
-from app.services.demo_assets import load_demo_manifest_and_cache
+from app.services.demo_assets import load_demo_manifest_and_cache, build_compliant_demo_cache
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -24,6 +24,7 @@ EVIDENCE = DATA / "evidence"
 STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
 PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json")
+DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.json"
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
@@ -48,13 +49,23 @@ def dashboard():
     cases = STORE.list()
     edge_events_path = DATA / "edge_events.json"
     edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
+    pending_statuses = {"open", "under_review", "virtual_verification"}
+    pending_cases = [c for c in cases if c.status.value in pending_statuses]
+    resolved_cases = [c for c in cases if c.status.value not in pending_statuses]
     return {
         "banner": "Prototype — Simulated Operational Data",
         "centres_monitored": 4,
-        "open_cases": sum(c.status.value in {"open", "under_review", "virtual_verification"} for c in cases),
-        "camera_issues": sum(c.case_type == "camera_integrity" and c.status.value != "resolved" for c in cases),
+        "open_cases": len(pending_cases),
+        "resolved_cases": len(resolved_cases),
+        "camera_issues": sum(
+            c.case_type == "camera_integrity" and c.status.value in pending_statuses
+            for c in cases
+        ),
         "synced_edge_events": len(edge_events),
-        "cases": [c.model_dump(mode="json") for c in cases[-20:]],
+        "edge_sync_state": "idle" if not edge_events else "synced",
+        "pending_cases": [c.model_dump(mode="json") for c in pending_cases[-20:]],
+        "resolved_case_history": [c.model_dump(mode="json") for c in resolved_cases[-20:]],
+        "cases": [c.model_dump(mode="json") for c in cases[-40:]],
     }
 
 
@@ -84,9 +95,9 @@ def process_video(
 @app.post("/api/process-practical-activity")
 def process_practical_activity(
     file: UploadFile = File(...),
-    zones_json: str = Form(...),
+    zones_json: str | None = Form(None),
     authorization: str = Form("unknown"),
-    zone_profile: str = Form(""),
+    zone_profile: str = Form("default"),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-03"),
@@ -96,19 +107,28 @@ def process_practical_activity(
     Authorization is supplied externally. Vision does not infer identity,
     authorization, skill quality, or exact task semantics.
     """
+    source_text = zones_json
+    if not source_text:
+        if not DEFAULT_WORK_ZONES.exists():
+            raise HTTPException(
+                status_code=500,
+                detail="Bundled practical-work zone configuration is missing",
+            )
+        source_text = DEFAULT_WORK_ZONES.read_text(encoding="utf-8")
+
     try:
-        parsed = json.loads(zones_json)
+        parsed = json.loads(source_text)
     except json.JSONDecodeError as exc:
         raise HTTPException(status_code=400, detail="Invalid work-zone JSON") from exc
 
+    selected_profile = zone_profile or "default"
     if isinstance(parsed, dict) and isinstance(parsed.get("zones"), list):
         zones = parsed["zones"]
     elif (
         isinstance(parsed, dict)
-        and zone_profile
-        and isinstance(parsed.get(zone_profile), list)
+        and isinstance(parsed.get(selected_profile), list)
     ):
-        zones = parsed[zone_profile]
+        zones = parsed[selected_profile]
     elif isinstance(parsed, list):
         zones = parsed
     else:
@@ -116,7 +136,7 @@ def process_practical_activity(
             status_code=400,
             detail=(
                 "Work-zone JSON must be a list, contain a 'zones' list, or contain "
-                "a list matching the supplied zone profile"
+                f"a list matching profile '{selected_profile}'"
             ),
         )
 
@@ -203,6 +223,7 @@ def process_infrastructure_video(
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-02"),
+    demo_profile: str = Form("compliant"),
     operability_item_id: str | None = Form("drill_machine"),
     roi_x1: int | None = Form(None),
     roi_y1: int | None = Form(None),
@@ -219,6 +240,17 @@ def process_infrastructure_video(
         manifest, rows = load_demo_manifest_and_cache()
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if demo_profile == "compliant":
+        rows = build_compliant_demo_cache(manifest)
+    elif demo_profile != "discrepancy":
+        raise HTTPException(
+            status_code=400,
+            detail="demo_profile must be 'compliant' or 'discrepancy'",
+        )
+
+    observed_preview = aggregate_cached_observations(rows)
+    preview_items = compare_manifest(manifest, observed_preview)
 
     roi_values = (roi_x1, roi_y1, roi_x2, roi_y2)
     if any(v is not None for v in roi_values) and not all(v is not None for v in roi_values):
@@ -244,7 +276,14 @@ def process_infrastructure_video(
         if not case:
             return {
                 "created": False,
-                "banner": "Prototype — cached equipment detections; no persistent visual manifest exception",
+                "banner": (
+                    "Prototype — explicit compliant demo profile; no persistent "
+                    "visual manifest exception"
+                    if demo_profile == "compliant"
+                    else "Prototype — cached equipment detections; no persistent visual manifest exception"
+                ),
+                "demo_profile": demo_profile,
+                "items": preview_items,
             }
         STORE.save(case)
         return {
@@ -253,6 +292,8 @@ def process_infrastructure_video(
                 "Prototype — uploaded video evidence with cached equipment detections; "
                 "not official live compliance data"
             ),
+            "demo_profile": demo_profile,
+            "items": preview_items,
             "case": case.model_dump(mode="json"),
         }
     except Exception as exc:

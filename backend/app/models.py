@@ -68,9 +68,15 @@ class ProcessSummary(BaseModel):
     centre_id: str
     batch_id: str
     reported_attendance: int
-    estimated_occupancy: int
-    discrepancy_pct: float
+    estimated_occupancy: int | None
+    discrepancy_pct: float | None
     observations: list[AttendanceObservation]
+    detector_backend: str
+    detector_mode: str
+    detector_authoritative: bool
+    detector_message: str
+    frames_sampled: int
+    detector_failures: int = 0
     case: ComplianceCase | None = None
     note: str = "Prototype output; external scheme records are simulated unless explicitly sourced."
 

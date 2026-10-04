@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.services.camera_trust import assess_camera
 from app.services.evidence import dhash, hamming_hex
-from app.services.infrastructure import compare_manifest
+from app.services.infrastructure import compare_manifest, aggregate_cached_observations
 from app.services.occupancy import discrepancy_pct, OccupancySmoother
 from app.services.operability import apparent_motion_state
 from app.services.person_detector import build_person_detector, HogPersonDetector
@@ -16,6 +16,7 @@ from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.person_detector import Detection
 from app.services.offline_queue import EdgeEventQueue, bandwidth_measurement
 from app.services.case_store import CaseStore
+from app.services.demo_assets import build_compliant_demo_cache
 from app.models import ComplianceCase, CaseStatus
 
 
@@ -64,9 +65,12 @@ def test_manifest_compare():
     assert rows[1]["state"] == "OFFICER_VERIFICATION_REQUIRED"
 
 
-def test_default_detector_factory(monkeypatch):
-    monkeypatch.delenv("KAUSHALWATCH_PERSON_DETECTOR", raising=False)
-    assert isinstance(build_person_detector(), HogPersonDetector)
+def test_explicit_hog_detector_factory(monkeypatch):
+    monkeypatch.setenv("KAUSHALWATCH_PERSON_DETECTOR", "hog")
+    detector = build_person_detector()
+    assert isinstance(detector, HogPersonDetector)
+    assert detector.info.mode == "fallback"
+    assert detector.info.authoritative is False
 
 
 def test_infrastructure_case_builder():
@@ -197,3 +201,34 @@ def test_infrastructure_temporal_proof_flags_persistent_deficit():
     row = compare_manifest(manifest, observed)[0]
     assert row["state"] == "DISCREPANCY"
     assert row["deficit_ratio"] == 1.0
+
+
+
+def test_compliant_demo_cache_produces_no_camera_verifiable_discrepancy():
+    manifest = {
+        "job_role": "Demo",
+        "items": [
+            {
+                "id": "panel",
+                "label": "Training Panel",
+                "required": 4,
+                "verification_tier": "camera_verifiable",
+                "temporal_required_ratio": 0.8,
+            },
+            {
+                "id": "ppe",
+                "label": "PPE",
+                "required": 1,
+                "verification_tier": "officer_verification_required",
+            },
+        ],
+    }
+    rows = build_compliant_demo_cache(manifest)
+    observed = aggregate_cached_observations(rows)
+    results = compare_manifest(manifest, observed)
+
+    panel = next(item for item in results if item["id"] == "panel")
+    ppe = next(item for item in results if item["id"] == "ppe")
+    assert panel["state"] == "COMPLIANT"
+    assert panel["observed"] == 4
+    assert ppe["state"] == "OFFICER_VERIFICATION_REQUIRED"

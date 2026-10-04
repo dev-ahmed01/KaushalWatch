@@ -21,3 +21,29 @@ def load_demo_manifest_and_cache() -> tuple[dict, list[dict]]:
         raise ValueError(f"Equipment cache must contain a JSON list: {cache_path}")
 
     return manifest, rows
+
+
+
+def build_compliant_demo_cache(manifest: dict, samples: int = 5) -> list[dict]:
+    """Create an explicit stage-safe compliant detector cache for demo portrayal.
+
+    This is synthetic demo telemetry, not measured equipment inference. It exists
+    so the walkthrough can demonstrate the system correctly *not* creating a case.
+    """
+    rows: list[dict] = []
+    for sample_index in range(samples):
+        detections = []
+        for item in manifest.get("items", []):
+            if item.get("verification_tier") == "officer_verification_required":
+                continue
+            detections.append({
+                "label": item["id"],
+                "count": int(item.get("required", 0)),
+                "confidence": 0.95,
+            })
+        rows.append({
+            "second": float(sample_index),
+            "detections": detections,
+            "source": "synthetic_compliant_demo_profile",
+        })
+    return rows

@@ -106,6 +106,29 @@ svg{display:block}
 .healthChip.warn i{background:#f79009}
 
 .page{max-width:1540px;margin:0 auto;padding:30px 34px 50px}
+.centreProgress{
+  display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;
+  box-shadow:0 2px 8px rgba(16,24,40,.02)
+}
+.centreProgressLead strong{display:block;font-size:11px;margin-top:3px;color:#344054}
+.centreProgressSteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.centreProgressStep{
+  border:1px solid #e4e7ec;background:#f8fafc;border-radius:10px;padding:9px 10px;color:#475467;
+  display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;text-align:left
+}
+.centreProgressStep>span{
+  width:23px;height:23px;border-radius:50%;display:grid;place-items:center;background:#eaecf0;
+  color:#667085;font-size:8px;font-weight:900
+}
+.centreProgressStep strong,.centreProgressStep small{display:block}
+.centreProgressStep strong{font-size:9px}
+.centreProgressStep small{font-size:8px;color:#98a2b3;margin-top:2px}
+.centreProgressStep.active{border-color:#9bb8ff;background:#f5f8ff}
+.centreProgressStep.active>span{background:#dbe7ff;color:#175cd3}
+.centreProgressStep.done{border-color:#abefc6;background:#f6fef9}
+.centreProgressStep.done>span{background:#dcfae6;color:#067647}
+
 .errorBanner{
   display:flex;align-items:center;gap:9px;background:var(--red-soft);border:1px solid #fecdca;color:var(--red);
   border-radius:11px;padding:10px 12px;font-size:11px;margin-bottom:16px
@@ -327,6 +350,15 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 .resultMetric span,.resultMetric strong{display:block}
 .resultMetric span{font-size:8px;color:#98a2b3;text-transform:uppercase;letter-spacing:.05em;font-weight:800}
 .resultMetric strong{font-size:12px;color:#101828;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.detectorNotice{
+  margin:0 18px 16px;display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;
+  border:1px solid #fedf89;background:#fffaeb;color:#b54708;border-radius:10px;padding:10px 11px
+}
+.detectorNotice svg{width:16px;height:16px;margin-top:1px}
+.detectorNotice strong,.detectorNotice span{display:block}
+.detectorNotice strong{font-size:9px}
+.detectorNotice span{font-size:8px;line-height:1.45;color:#7a5a19;margin-top:2px}
+
 .cellResults{border-top:1px solid #eef0f3;padding:14px 18px 18px}
 .subHead h3{font-size:13px}
 .cellGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
@@ -372,6 +404,29 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 .statusBadge.under_review,.statusBadge.virtual_verification{color:#175cd3;background:#eff4ff}
 .statusBadge.false_positive,.statusBadge.resolved{color:var(--green);background:var(--green-soft)}
 .caseCard>p{font-size:9px;color:#475467;line-height:1.5;margin:11px 0}
+.pillarLabel{
+  display:inline-flex;align-items:center;gap:5px;margin-top:9px;color:#475467;background:#f2f4f7;
+  border-radius:999px;padding:4px 7px;font-size:8px;font-weight:850;text-transform:uppercase;letter-spacing:.04em
+}
+.pillarLabel svg{width:11px;height:11px}
+.duplicateAlert{
+  margin:10px 0;display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;
+  border:1px solid #d9d6fe;background:#f4f3ff;border-radius:9px;padding:9px 10px;color:#5925dc
+}
+.duplicateIcon{
+  width:27px;height:27px;border-radius:8px;background:#ebe9fe;display:grid;place-items:center;color:#6938ef
+}
+.duplicateIcon svg{width:14px;height:14px}
+.duplicateAlert strong,.duplicateAlert span,.duplicateAlert small{display:block}
+.duplicateAlert strong{font-size:9px}
+.duplicateAlert span{font-size:8px;margin-top:2px;color:#53389e}
+.duplicateAlert small{font-size:7px;margin-top:3px;color:#7f56d9}
+.resolvedSection{margin-top:8px;border-top:1px solid #eef0f3}
+.resolvedHead{background:#f8fafc}
+.resolvedGrid{opacity:.72}
+.resolvedCase{background:#f9fafb;border-color:#eaecf0}
+.historyEmpty{padding:20px 18px;color:#98a2b3;font-size:9px}
+
 .caseFacts{display:flex;gap:7px;flex-wrap:wrap}
 .caseFacts span{font-size:8px;color:#98a2b3;background:#f8fafc;border-radius:6px;padding:5px 6px}
 .caseFacts b{color:#475467}
@@ -423,6 +478,7 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
   .navText small,.navArrow{display:none}
   .topbar{position:static;padding:0 16px}
   .page{padding:20px 16px 34px}
+  .centreProgress{grid-template-columns:1fr}
   .hero,.moduleHero{grid-template-columns:1fr}
   .hero h1,.moduleHero h1{font-size:30px}
   .kpis{grid-template-columns:repeat(2,1fr)}
@@ -443,6 +499,7 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
   .kpi{grid-template-columns:1fr}
   .kpiIcon{display:none}
   .formGrid.two,.formGrid.three,.formGrid.four,.filePair,.authSelector{grid-template-columns:1fr}
+  .centreProgressSteps{grid-template-columns:1fr}
   .formGrid.three{padding:0 18px}
   .submitBar{align-items:stretch;flex-direction:column}
   .primaryButton{width:100%}

@@ -26,9 +26,19 @@ type Dashboard = {
   banner:string;
   centres_monitored:number;
   open_cases:number;
+  resolved_cases?:number;
   camera_issues:number;
   synced_edge_events:number;
+  edge_sync_state?:string;
+  pending_cases?:Case[];
+  resolved_case_history?:Case[];
   cases:Case[];
+};
+
+type WorkflowProgress = {
+  attendance:boolean;
+  practical:boolean;
+  infrastructure:boolean;
 };
 
 type InfraItem = {
@@ -52,7 +62,7 @@ const navItems:{key:ViewKey;label:string;description:string;icon:string}[] = [
 ];
 
 export default function Page(){
-  const [activeView,setActiveView]=useState<ViewKey>('overview');
+  const [activeView,setActiveView]=useState<ViewKey>('infrastructure');
   const [data,setData]=useState<Dashboard|null>(null);
   const [infra,setInfra]=useState<InfraItem[]>([]);
   const [attendanceResult,setAttendanceResult]=useState<any>(null);
@@ -66,6 +76,11 @@ export default function Page(){
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('unknown');
+  const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
+    attendance:false,
+    practical:false,
+    infrastructure:false,
+  });
 
   const refresh=async()=>{
     const [dashboardResponse,infraResponse]=await Promise.all([
@@ -81,9 +96,27 @@ export default function Page(){
   };
 
   useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  useEffect(()=>{
+    try{
+      const saved=window.localStorage.getItem('kaushalwatch-centre-progress');
+      if(saved) setWorkflowProgress(JSON.parse(saved));
+    }catch{}
+  },[]);
+
+  function markWorkflowComplete(step:keyof WorkflowProgress){
+    setWorkflowProgress(current=>{
+      const next={...current,[step]:true};
+      try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+      return next;
+    });
+  }
 
   const priority=useMemo(
-    ()=>[...(data?.cases||[])].reverse(),
+    ()=>[...(data?.pending_cases||data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
+    [data]
+  );
+  const history=useMemo(
+    ()=>[...(data?.resolved_case_history||data?.cases?.filter(item=>!['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
     [data]
   );
   const cameraHealthy=(data?.camera_issues??0)===0;
@@ -110,6 +143,7 @@ export default function Page(){
       const body=await response.json();
       if(!response.ok) throw new Error(body.detail||'Attendance analysis failed');
       setAttendanceResult(body);
+      markWorkflowComplete('attendance');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -128,11 +162,12 @@ export default function Page(){
       const video=incoming.get('practical_file');
       const zonesFile=incoming.get('zones_file');
       if(!(video instanceof File)) throw new Error('Choose a practical-work CCTV video');
-      if(!(zonesFile instanceof File)) throw new Error('Choose a work-zone JSON file');
 
       const body=new FormData();
       body.append('file',video);
-      body.append('zones_json',await zonesFile.text());
+      if(zonesFile instanceof File && zonesFile.size>0){
+        body.append('zones_json',await zonesFile.text());
+      }
       body.append('authorization',practicalAuth);
 
       for(const key of ['zone_profile','centre_id','batch_id','camera_id']){
@@ -147,6 +182,7 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Practical-work analysis failed');
       setPracticalResult(payload);
+      markWorkflowComplete('practical');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -167,7 +203,7 @@ export default function Page(){
 
       const body=new FormData();
       body.append('file',video);
-      for(const key of ['centre_id','batch_id','camera_id','operability_item_id','roi_x1','roi_y1','roi_x2','roi_y2']){
+      for(const key of ['centre_id','batch_id','camera_id','demo_profile','operability_item_id','roi_x1','roi_y1','roi_x2','roi_y2']){
         const value=incoming.get(key);
         if(value!==null&&String(value).trim()!=='') body.append(key,String(value));
       }
@@ -179,6 +215,7 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Infrastructure analysis failed');
       setInfraResult(payload);
+      markWorkflowComplete('infrastructure');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -256,6 +293,11 @@ export default function Page(){
       </header>
 
       <div className="page">
+        <CentreProgress
+          progress={workflowProgress}
+          activeView={activeView}
+          onOpen={setActiveView}
+        />
         {error&&<div className="errorBanner"><Icon name="alert"/><span>{error}</span></div>}
 
         {activeView==='overview'&&<Overview
@@ -294,6 +336,7 @@ export default function Page(){
 
         {activeView==='cases'&&<CasesView
           cases={priority}
+          history={history}
           review={review}
         />}
 
@@ -332,7 +375,12 @@ function Overview({
       <Kpi icon="site" label="Centres monitored" value={data?.centres_monitored??'—'} note="Demo workspace"/>
       <Kpi icon="cases" label="Open review cases" value={data?.open_cases??'—'} note="Persistent exceptions only" attention={(data?.open_cases??0)>0}/>
       <Kpi icon="camera" label="Camera integrity" value={cameraHealthy?'Nominal':`${data?.camera_issues??0} issue`} note="Trust gates every inference" attention={!cameraHealthy}/>
-      <Kpi icon="sync" label="Edge events synced" value={data?.synced_edge_events??'—'} note="Raw video not required"/>
+      <Kpi
+        icon="sync"
+        label="Edge sync"
+        value={data==null?'—':`${data.synced_edge_events} synced`}
+        note={(data?.synced_edge_events??0)===0?'Idle · no pending events':'Synced · raw video not required'}
+      />
     </section>
 
     <section className="sectionBlock">
@@ -462,20 +510,32 @@ function AttendanceView({
     </section>
 
     {result&&<section className="resultSection">
-      <DecisionHeader
-        tone={result.case?'warn':'good'}
-        eyebrow="ATTENDANCE RESULT"
-        title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
-        text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
-      />
+      {!result.detector_authoritative
+        ? <DecisionHeader
+            tone="warn"
+            eyebrow="ATTENDANCE RESULT"
+            title="Detector unavailable / fallback mode"
+            text={result.detector_message||'Attendance conclusions are suspended because the primary detector was not available.'}
+          />
+        : <DecisionHeader
+            tone={result.case?'warn':'good'}
+            eyebrow="ATTENDANCE RESULT"
+            title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
+            text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
+          />
+      }
       <div className="resultGrid">
+        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
+        <ResultMetric label="Frames sampled" value={result.frames_sampled??'—'}/>
         <ResultMetric label="Reported" value={result.reported_attendance}/>
-        <ResultMetric label="Stable occupancy" value={result.estimated_occupancy}/>
-        <ResultMetric label="Mismatch" value={`${result.discrepancy_pct}%`}/>
-        <ResultMetric label="Registered now" value={latest?.registered_count??'—'}/>
-        <ResultMetric label="Confirmed now" value={latest?.confirmed_count??'—'}/>
+        <ResultMetric label="Stable occupancy" value={result.detector_authoritative?(result.estimated_occupancy??'—'):'Unavailable'}/>
+        <ResultMetric label="Mismatch" value={result.detector_authoritative&&result.discrepancy_pct!=null?`${result.discrepancy_pct}%`:'Suspended'}/>
         <ResultMetric label="Raw detections now" value={latest?.raw_count??'—'}/>
       </div>
+      {!result.detector_authoritative&&<div className="detectorNotice">
+        <Icon name="alert"/>
+        <div><strong>Attendance decision withheld</strong><span>Fallback detector counts are diagnostic only and are never presented as real occupancy.</span></div>
+      </div>}
     </section>}
   </>;
 }
@@ -523,11 +583,15 @@ function PracticalView({
         <div className="filePair">
           <label className="fileBox">
             <span className="fileIcon"><Icon name="zones"/></span>
-            <span><strong>Work-zone JSON</strong><small>Configured practical work cells</small></span>
-            <input name="zones_file" type="file" accept=".json,application/json" required/>
+            <span><strong>Work-zone JSON · optional</strong><small>Override the bundled demo profile only when needed</small></span>
+            <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
-          <Field label="Zone profile" help="Use the named profile inside your JSON, e.g. authorized or unauthorized.">
-            <input name="zone_profile" placeholder="authorized"/>
+          <Field label="Bundled zone profile" help="Works without uploading JSON. Choose the profile that matches the demo clip.">
+            <select name="zone_profile" defaultValue="authorized">
+              <option value="authorized">Authorized demo layout</option>
+              <option value="unauthorized">Unauthorized demo layout</option>
+              <option value="default">Default demo layout</option>
+            </select>
           </Field>
         </div>
 
@@ -634,10 +698,16 @@ function InfrastructureView({
 
         <VideoDrop name="infra_file" preview={preview} onPreview={onPreview}/>
 
-        <div className="formGrid three">
+        <div className="formGrid four">
+          <Field label="Demo outcome">
+            <select name="demo_profile" defaultValue="compliant">
+              <option value="compliant">Compliant / matching</option>
+              <option value="discrepancy">Persistent discrepancy</option>
+            </select>
+          </Field>
           <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
           <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
-          <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
+          <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
         <div className="formSection">
@@ -677,36 +747,59 @@ function InfrastructureView({
         title={result.created?'Visual manifest exception created':'No persistent visual manifest exception'}
         text={result.case?.summary||result.banner||'No persistent infrastructure exception was created.'}
       />
-      {result.created&&<div className="resultGrid">
-        <ResultMetric label="Case" value={result.case.case_id}/>
-        <ResultMetric label="Type" value="Infrastructure"/>
-        <ResultMetric label="Evidence" value={result.case.evidence?.length?'Captured':'Missing'}/>
-        <ResultMetric label="Operability" value={result.case.details?.apparent_operability?.state?.replaceAll('_',' ')||'Not evaluated'}/>
+      <div className="resultGrid">
+        <ResultMetric label="Outcome" value={result.created?'Exception':'Compliant'}/>
+        <ResultMetric label="Profile" value={result.demo_profile||'—'}/>
+        <ResultMetric label="Case" value={result.created?result.case.case_id:'No case created'}/>
+        <ResultMetric label="Evidence" value={result.created?(result.case.evidence?.length?'Captured':'Missing'):'Not required'}/>
+        <ResultMetric label="Items checked" value={result.items?.length??'—'}/>
+        <ResultMetric label="Operability" value={result.created?(result.case.details?.apparent_operability?.state?.replaceAll('_',' ')||'Not evaluated'):'Not escalated'}/>
+      </div>
+      {!!result.items?.length&&<div className="cellResults">
+        <div className="subHead"><span className="eyebrow">MANIFEST DECISIONS</span><h3>Camera-verifiable, partial and officer-only outcomes</h3></div>
+        <div className="cellGrid">
+          {result.items.map((item:any)=><div className="cellResult" key={item.id}>
+            <div className="cellResultHead"><div><strong>{item.label}</strong><span>Required {item.required} · observed {item.observed??'officer'}</span></div><b>{String(item.state).replaceAll('_',' ')}</b></div>
+          </div>)}
+        </div>
       </div>}
     </section>}
   </>;
 }
 
-function CasesView({cases,review}:{cases:Case[];review:(caseId:string,action:CaseStatus)=>void}){
+function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus)=>void}){
   return <>
     <ModuleHero
       eyebrow="HUMAN REVIEW"
       title="AI surfaces evidence. Officers make the decision."
-      text="Every persistent exception lands in one queue with its evidence, integrity metadata and review history. KaushalWatch does not issue penalties automatically."
-      badge={`${cases.length} cases`}
+      text="Pending exceptions stay in the priority queue. Confirmed and false-positive decisions move into resolved history so the live counter reflects work still requiring attention."
+      badge={`${cases.length} pending`}
       policy={['Open evidence','Inspect hashes','Virtual verification','Officer decision']}
     />
 
     <section className="caseWorkspace">
       <div className="queueHeader">
-        <div><span className="eyebrow">PRIORITY QUEUE</span><h2>Reviewable exceptions</h2></div>
-        <span className="queueCount">{cases.filter(item=>!['resolved','false_positive'].includes(item.status)).length} unresolved</span>
+        <div><span className="eyebrow">PRIORITY EXCEPTIONS</span><h2>Pending review</h2></div>
+        <span className="queueCount">{cases.length} pending</span>
       </div>
 
-      {cases.length===0&&<div className="card"><EmptyState title="No cases yet" text="Run one of the verification lanes to generate evidence-backed exceptions."/></div>}
+      {cases.length===0&&<EmptyState title="Priority queue clear" text="No pending cases require an officer decision."/>}
 
       <div className="caseGrid">
         {cases.map(item=><CaseCard key={item.case_id} item={item} review={review}/>)}
+      </div>
+
+      <div className="resolvedSection">
+        <div className="queueHeader resolvedHead">
+          <div><span className="eyebrow">RESOLVED / HISTORY</span><h2>Closed decisions</h2></div>
+          <span className="queueCount">{history.length} archived</span>
+        </div>
+        {history.length===0
+          ? <div className="historyEmpty">Confirmed and false-positive decisions will move here.</div>
+          : <div className="caseGrid resolvedGrid">
+              {history.map(item=><CaseCard key={item.case_id} item={item} review={review} resolved/>)}
+            </div>
+        }
       </div>
     </section>
   </>;
@@ -742,6 +835,43 @@ function EvidenceView(){
       </div>
     </section>
   </>;
+}
+
+function CentreProgress({progress,activeView,onOpen}:{progress:WorkflowProgress;activeView:ViewKey;onOpen:(view:ViewKey)=>void}){
+  const steps:[
+    keyof WorkflowProgress,
+    ViewKey,
+    string
+  ][]=[
+    ['attendance','attendance','Attendance'],
+    ['practical','practical','Practical Work'],
+    ['infrastructure','infrastructure','Infrastructure'],
+  ];
+  return <section className="centreProgress" aria-label="Centre verification progress">
+    <div className="centreProgressLead">
+      <span className="eyebrow">CENTRE VERIFICATION</span>
+      <strong>One centre · three checkpoints</strong>
+    </div>
+    <div className="centreProgressSteps">
+      {steps.map(([key,view,label],index)=><button
+        key={key}
+        type="button"
+        className={`centreProgressStep ${progress[key]?'done':''} ${activeView===view?'active':''}`}
+        onClick={()=>onOpen(view)}
+      >
+        <span>{progress[key]?'✓':index+1}</span>
+        <div><strong>{label}</strong><small>{progress[key]?'Run completed':'Pending'}</small></div>
+      </button>)}
+    </div>
+  </section>;
+}
+
+function casePillar(caseType:string){
+  if(caseType==='attendance_discrepancy') return {label:'Attendance discrepancy',icon:'attendance'};
+  if(caseType.startsWith('practical_activity')) return {label:'Practical-work authorization',icon:'activity'};
+  if(caseType==='infrastructure_compliance') return {label:'Infrastructure gap',icon:'infrastructure'};
+  if(caseType==='camera_integrity') return {label:'Camera integrity',icon:'camera'};
+  return {label:'Compliance review',icon:'cases'};
 }
 
 function ModuleHero({eyebrow,title,text,badge,policy}:{eyebrow:string;title:string;text:string;badge:string;policy:string[]}){
@@ -808,13 +938,24 @@ function WorkCellResult({cell}:{cell:any}){
   </div>;
 }
 
-function CaseCard({item,review}:{item:Case;review:(caseId:string,action:CaseStatus)=>void}){
-  return <article className="caseCard">
+function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus)=>void;resolved?:boolean}){
+  const pillar=casePillar(item.case_type);
+  const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
+  return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
       <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
       <span className={`statusBadge ${item.status}`}>{item.status.replaceAll('_',' ')}</span>
     </div>
+    <div className="pillarLabel"><Icon name={pillar.icon}/><span>{pillar.label}</span></div>
     <p>{item.summary}</p>
+    {duplicate&&<div className="duplicateAlert">
+      <span className="duplicateIcon"><Icon name="fingerprint"/></span>
+      <div>
+        <strong>Evidence integrity signal</strong>
+        <span>Possible duplicate evidence detected · matches {duplicate.duplicate_of}</span>
+        <small>This is independent of the compliance finding above.</small>
+      </div>
+    </div>}
     <div className="caseFacts">
       {item.persistence_ratio!=null&&<span>Persistence <b>{Math.round(item.persistence_ratio*100)}%</b></span>}
       {item.evidence?.length?<span>Evidence <b>{item.evidence.length}</b></span>:null}
@@ -825,12 +966,12 @@ function CaseCard({item,review}:{item:Case;review:(caseId:string,action:CaseStat
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
-    <div className="reviewActions">
+    {!resolved&&<div className="reviewActions">
       <button type="button" onClick={()=>review(item.case_id,'under_review')}>Start review</button>
       <button type="button" onClick={()=>review(item.case_id,'virtual_verification')}>Virtual verify</button>
       <button type="button" onClick={()=>review(item.case_id,'false_positive')}>False positive</button>
       <button type="button" className="confirm" onClick={()=>review(item.case_id,'confirmed')}>Confirm exception</button>
-    </div>
+    </div>}
   </article>;
 }
 
@@ -915,5 +1056,6 @@ function Icon({name}:{name:string}){
   if(name==='image') return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4-4L5 20"/></svg>;
   if(name==='history') return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>;
   if(name==='zones') return <svg {...common}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 17h6M17 14v6"/></svg>;
+  if(name==='fingerprint') return <svg {...common}><path d="M8 11a4 4 0 0 1 8 0v2"/><path d="M6 11a6 6 0 0 1 12 0v3"/><path d="M10 13v2a4 4 0 0 0 4 4"/><path d="M14 11v3a6 6 0 0 0 2 4.5"/><path d="M6.5 15a8 8 0 0 0 3 5"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
 }
