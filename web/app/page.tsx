@@ -552,13 +552,17 @@ function Overview({
 }
 
 function AttendanceView({
-  result,busy,preview,reported,setReported,onPreview,onSubmit,
+  result,busy,preview,reported,setReported,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   reported:number;
   setReported:(value:number)=>void;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -629,8 +633,8 @@ function AttendanceView({
               />
             </Field>
             <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-01"/></Field>
-            <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-            <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+            <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+            <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           </div>
         </div>
 
@@ -686,13 +690,17 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   auth:'valid'|'absent'|'unknown';
   setAuth:(value:'valid'|'absent'|'unknown')=>void;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -779,8 +787,8 @@ function PracticalView({
         </div>
 
         <div className="formGrid three">
-          <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-          <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-03"/></Field>
         </div>
 
@@ -838,12 +846,16 @@ function PracticalView({
 }
 
 function InfrastructureView({
-  infra,result,busy,preview,onPreview,onSubmit,
+  infra,result,busy,preview,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   infra:InfraItem[];
   result:any;
   busy:boolean;
   preview:string;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -880,8 +892,8 @@ function InfrastructureView({
               <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </Field>
-          <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-          <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
