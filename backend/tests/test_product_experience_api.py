@@ -280,3 +280,41 @@ def test_practical_runtime_unavailable_becomes_blocked_history(tmp_path, monkeyp
     latest = history.json()["rows"][0]
     assert latest["analysis_type"] == "practical_work"
     assert latest["outcome"] == "blocked"
+
+
+
+def test_edge_sync_updates_history_without_raw_video(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, monkeypatch)
+    response = client.post(
+        "/api/edge/sync",
+        json={
+            "events": [
+                {
+                    "event_id": "EDGE-SUMMARY-1",
+                    "event_type": "analysis_summary",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "payload": {
+                        "centre_id": "DEMO-KA-104",
+                        "batch_id": "ELEC-2026-08",
+                        "analysis_type": "attendance",
+                        "outcome": "blocked",
+                        "summary": "Primary detector unavailable on edge device.",
+                        "details": {"detector_authoritative": False},
+                        "privacy": {"raw_video_included": False},
+                    },
+                }
+            ]
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["accepted_count"] == 1
+    assert response.json()["raw_video_required"] is False
+
+    history = client.get("/api/analysis-history?centre_id=DEMO-KA-104").json()["rows"]
+    assert history[0]["outcome"] == "blocked"
+    assert history[0]["details"]["edge_synced"] is True
+    assert history[0]["details"]["raw_video_uploaded"] is False
+
+    centre = client.get("/api/centres/DEMO-KA-104").json()
+    assert centre["attendance_status"] == "blocked"
+    assert centre["status"] == "incomplete"
