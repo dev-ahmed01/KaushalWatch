@@ -54,7 +54,7 @@ export type CaseRecord = {
   severity:string;
   summary:string;
   created_at?:string;
-  evidence?:{evidence_id:string;duplicate_of?:string|null;sha256?:string}[];
+  evidence?:{evidence_id:string;created_at?:string;duplicate_of?:string|null;sha256?:string;perceptual_hash?:string;metadata?:Record<string,unknown>}[];
   review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null;actor?:string|null}[];
   details?:Record<string,any>;
 };
