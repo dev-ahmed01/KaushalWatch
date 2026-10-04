@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 
 type ViewKey = 'overview'|'attendance'|'practical'|'infrastructure'|'cases'|'evidence';
 type CaseStatus = 'open'|'under_review'|'confirmed'|'false_positive'|'virtual_verification'|'resolved';
@@ -871,7 +871,7 @@ function SignalRow({label,state,detail}:{label:string;state:string;detail:string
   return <div className="signalRow"><div><strong>{label}</strong><p>{detail}</p></div><span>{state}</span></div>;
 }
 
-function Field({label,help,children}:{label:string;help?:string;children:React.ReactNode}){
+function Field({label,help,children}:{label:string;help?:string;children:ReactNode}){
   return <label className="field"><span>{label}</span>{children}{help&&<small>{help}</small>}</label>;
 }
 
