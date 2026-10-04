@@ -610,6 +610,46 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 .resolvedRationale span{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#98a2b3;font-weight:850}
 .resolvedRationale strong{font-size:10px;color:#475467;margin-top:3px;font-weight:650;line-height:1.45}
 
+.reviewGuardrail{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:11px;
+  padding-top:10px;border-top:1px solid #eef0f3
+}
+.reviewStage{
+  display:grid;grid-template-columns:auto 1fr;gap:7px;align-items:start;border:1px solid #e4e7ec;
+  background:#f8fafc;border-radius:9px;padding:8px
+}
+.reviewStage>span{
+  width:19px;height:19px;border-radius:50%;display:grid;place-items:center;background:#eaecf0;
+  color:#667085;font-size:7px;font-weight:900
+}
+.reviewStage strong,.reviewStage small{display:block}
+.reviewStage strong{font-size:8px;color:#475467}
+.reviewStage small{font-size:7px;line-height:1.35;color:#98a2b3;margin-top:2px}
+.reviewStage.done{border-color:#abefc6;background:#f6fef9}
+.reviewStage.done>span{background:#dcfae6;color:#067647}
+.reviewStage.done strong{color:#067647}
+.decisionGateNotice{
+  display:flex;align-items:center;gap:6px;margin-top:8px;border:1px solid #fedf89;background:#fffcf5;
+  color:#b54708;border-radius:8px;padding:7px 8px;font-size:8px
+}
+.decisionGateNotice svg{width:12px;height:12px;flex:0 0 auto}
+.auditTimeline{
+  margin-top:10px;border:1px solid #e4e7ec;border-radius:9px;background:#fcfcfd;overflow:hidden
+}
+.auditTimeline summary{
+  cursor:pointer;list-style:none;padding:8px 9px;font-size:8px;font-weight:850;color:#475467
+}
+.auditTimeline summary::-webkit-details-marker{display:none}
+.auditTimeline[open] summary{border-bottom:1px solid #eef0f3}
+.auditTimeline>div{padding:4px 9px 7px}
+.auditEvent{display:grid;grid-template-columns:auto 1fr;gap:8px;padding:7px 0;border-top:1px solid #f0f2f5}
+.auditEvent:first-child{border-top:0}
+.auditEventDot{width:8px;height:8px;border-radius:50%;background:#84adff;margin-top:3px;box-shadow:0 0 0 3px #eff4ff}
+.auditEvent strong,.auditEvent small{display:block}
+.auditEvent strong{font-size:8px;text-transform:capitalize;color:#344054}
+.auditEvent small{font-size:7px;color:#98a2b3;margin-top:2px}
+.auditEvent p{font-size:8px;line-height:1.4;color:#667085;margin:4px 0 0}
+
 .reviewActions{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #eef0f3}
 .reviewActions button{
   border:1px solid #d0d5dd;background:#fff;color:#475467;border-radius:7px;padding:8px 10px;font-size:10px;min-height:36px;font-weight:800
@@ -679,6 +719,7 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
   .kpiIcon{display:none}
   .formGrid.two,.formGrid.three,.formGrid.four,.filePair,.authSelector{grid-template-columns:1fr}
   .contextFields{grid-template-columns:1fr}
+  .reviewGuardrail{grid-template-columns:1fr}
   .centreProgressSteps{grid-template-columns:1fr}
   .centreOutcome{grid-template-columns:auto 1fr}
   .centreOutcome button{grid-column:1/-1;width:100%}
