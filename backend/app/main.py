@@ -253,15 +253,24 @@ def centre_report(
         raise HTTPException(status_code=404, detail="Centre not found")
     history = HISTORY.list(centre_id=centre_id, limit=200)
     now = datetime.now(timezone.utc)
-    if period in {"yesterday", "7d", "30d"}:
-        delta = timedelta(days=1 if period == "yesterday" else 7 if period == "7d" else 30)
-        cutoff = now - delta
+    if period in {"today", "yesterday", "7d", "30d"}:
+        today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+        if period == "today":
+            start, end = today_start, now
+        elif period == "yesterday":
+            start, end = today_start - timedelta(days=1), today_start
+        elif period == "30d":
+            start, end = now - timedelta(days=30), now
+        else:
+            start, end = now - timedelta(days=7), now
+
         def _recent(row):
             try:
                 created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
             except ValueError:
                 return True
-            return created >= cutoff
+            return start <= created < end
+
         history = [row for row in history if _recent(row)]
 
     cases = [case for case in STORE.list() if case.centre_id == centre_id]
