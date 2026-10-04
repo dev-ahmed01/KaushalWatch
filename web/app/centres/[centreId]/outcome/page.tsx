@@ -7,6 +7,7 @@ import AssistantPanel from '../../../components/AssistantPanel';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { getCentre, getDashboard } from '../../../lib/api';
 import type { Centre } from '../../../lib/types';
+import { workflowStatesForCentre } from '../../../lib/workflow';
 import { PageHeader, Status } from '../../../components/Ui';
 
 export default function FinalOutcome(){
@@ -28,7 +29,7 @@ export default function FinalOutcome(){
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Selected Centre / Final Review" title="Final Review Outcome" subtitle="One centre-level summary across attendance, practical work, infrastructure, camera integrity and evidence integrity."
       actions={<><Link href={`/centres/${id}/review`} className="secondaryBtn">Open Review Queue</Link><Link href={`/reports?centre=${id}&period=7d`} className="secondaryBtn">Download / Print Report</Link><Link href={`/centres/${id}`} className="primaryBtn">Close Analysis</Link></>}/>
-    <WorkflowStepper centreId={id} states={{attendance:'complete',practical:'complete',infrastructure:centre?.infrastructure_status==='compliant'?'complete':'attention',review:hasAttention?'attention':'complete'}}/>
+    <WorkflowStepper centreId={id} states={workflowStatesForCentre(centre)}/>
 
     <div className="outcomeLayout">
       <section className={`finalOutcomeHero ${hasAttention?'attention':'good'}`}>
