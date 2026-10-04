@@ -68,6 +68,8 @@ type InfraItem = {
   observed:number|null;
   state:string;
   confidence:number|null;
+  verification_tier?:string;
+  presence_method?:string;
 };
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -95,7 +97,8 @@ export default function Page(){
   const [attendancePreview,setAttendancePreview]=useState('');
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
-  const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('unknown');
+  const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
+  const [attendanceReported,setAttendanceReported]=useState(3);
   const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
     attendance:'pending',
     practical:'pending',
@@ -195,7 +198,11 @@ export default function Page(){
       setAttendanceResult(body);
       markWorkflow(
         'attendance',
-        !body.detector_authoritative ? 'blocked' : body.case ? 'attention' : 'passed',
+        body.decision==='detector_unavailable'
+          ? 'blocked'
+          : body.decision==='compliant'
+            ? 'passed'
+            : 'attention',
       );
       await refresh();
     }catch(err:any){
@@ -377,6 +384,8 @@ export default function Page(){
           result={attendanceResult}
           busy={attendanceBusy}
           preview={attendancePreview}
+          reported={attendanceReported}
+          setReported={setAttendanceReported}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -512,15 +521,38 @@ function Overview({
 }
 
 function AttendanceView({
-  result,busy,preview,onPreview,onSubmit,
+  result,busy,preview,reported,setReported,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
+  reported:number;
+  setReported:(value:number)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
   const latest=result?.observations?.[result.observations.length-1];
+  const attendanceDecision=String(result?.decision||'unknown');
+  const attendanceTone:'good'|'warn'|'danger'=
+    attendanceDecision==='compliant'
+      ? 'good'
+      : attendanceDecision==='attendance_exception'
+        ? 'danger'
+        : 'warn';
+  const attendanceTitle=
+    attendanceDecision==='compliant'
+      ? 'Attendance evidence is within policy'
+      : attendanceDecision==='attendance_exception'
+        ? 'Persistent attendance discrepancy'
+        : attendanceDecision==='camera_integrity_exception'
+          ? 'Camera integrity prevents attendance verification'
+          : 'Detector unavailable / fallback mode';
+  const attendanceText=
+    attendanceDecision==='compliant'
+      ? 'Stable anonymous occupancy is consistent with the reported attendance under the configured persistence policy.'
+      : result?.case?.summary
+        || result?.detector_message
+        || 'Attendance conclusions were withheld because the evidence pipeline could not produce an authoritative result.';
   return <>
     <ModuleHero
       eyebrow="ATTENDANCE / STABLE OCCUPANCY"
@@ -549,8 +581,22 @@ function AttendanceView({
 
         <div className="formSection">
           <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>Reported context</h3><p>Values supplied by the training-centre record.</p></div></div>
+          <div className="scenarioPresetRow">
+            <span>Quick demo</span>
+            <button type="button" className={reported===3?'presetChip active':'presetChip'} onClick={()=>setReported(3)}>Matching report · 3</button>
+            <button type="button" className={reported===12?'presetChip active attention':'presetChip attention'} onClick={()=>setReported(12)}>Mismatch report · 12</button>
+          </div>
           <div className="formGrid two">
-            <Field label="Reported attendance"><input name="reported_attendance" type="number" min="0" defaultValue="12" required/></Field>
+            <Field label="Reported attendance" help="Demo clean preset = 3. Use 12 to demonstrate a deliberate mismatch.">
+              <input
+                name="reported_attendance"
+                type="number"
+                min="0"
+                value={reported}
+                onChange={event=>setReported(Number(event.target.value))}
+                required
+              />
+            </Field>
             <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-01"/></Field>
             <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
             <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
@@ -576,27 +622,29 @@ function AttendanceView({
     </section>
 
     {result&&<section className="resultSection">
-      {!result.detector_authoritative
-        ? <DecisionHeader
-            tone="warn"
-            eyebrow="ATTENDANCE RESULT"
-            title="Detector unavailable / fallback mode"
-            text={result.detector_message||'Attendance conclusions are suspended because the primary detector was not available.'}
-          />
-        : <DecisionHeader
-            tone={result.case?'warn':'good'}
-            eyebrow="ATTENDANCE RESULT"
-            title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
-            text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
-          />
-      }
+      <DecisionHeader
+        tone={attendanceTone}
+        eyebrow="ATTENDANCE RESULT"
+        title={attendanceTitle}
+        text={attendanceText}
+      />
       <div className="resultGrid">
-        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
-        <ResultMetric label="Frames sampled" value={result.frames_sampled??'—'}/>
         <ResultMetric label="Reported" value={result.reported_attendance}/>
         <ResultMetric label="Stable occupancy" value={result.detector_authoritative?(result.estimated_occupancy??'—'):'Unavailable'}/>
         <ResultMetric label="Mismatch" value={result.detector_authoritative&&result.discrepancy_pct!=null?`${result.discrepancy_pct}%`:'Suspended'}/>
-        <ResultMetric label="Raw detections now" value={latest?.raw_count??'—'}/>
+        <ResultMetric label="Trusted samples" value={pct(result.trusted_sample_ratio)}/>
+        <ResultMetric label="Mismatch persistence" value={result.detector_authoritative?pct(result.mismatch_persistence_ratio):'Suspended'}/>
+        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
+      </div>
+      {result.detector_authoritative&&<OccupancyTimeline
+        observations={result.observations||[]}
+        reported={result.reported_attendance}
+      />}
+      <div className="analysisMetaBar">
+        <span>Frames sampled <b>{result.frames_sampled??'—'}</b></span>
+        <span>Sample interval <b>{result.sample_every_seconds??'—'}s</b></span>
+        <span>Latest raw detections <b>{latest?.raw_count??'—'}</b></span>
+        <span>Detector failures <b>{result.detector_failures??0}</b></span>
       </div>
       {!result.detector_authoritative&&<div className="detectorNotice">
         <Icon name="alert"/>
@@ -618,7 +666,36 @@ function PracticalView({
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
   const decision=String(result?.decision||'');
-  const tone=decision.includes('unauthorized')?'danger':decision.includes('authorized_')?'good':'warn';
+  const tone:'good'|'warn'|'danger'=
+    decision==='authorized_practical_activity'
+      ? 'good'
+      : decision==='unauthorized_practical_activity'
+        ? 'danger'
+        : 'warn';
+  const practicalTitle=
+    decision==='authorized_practical_activity'
+      ? 'Authorized practical activity observed'
+      : decision==='unauthorized_practical_activity'
+        ? 'Practical activity without matching authorization'
+        : decision==='authorization_review_required'
+          ? 'Practical activity needs authorization review'
+          : decision==='camera_evidence_insufficient'
+            ? 'Camera evidence is insufficient'
+            : decision==='no_persistent_practical_activity'
+              ? 'No persistent practical-work activity observed'
+              : 'Practical-work result';
+  const practicalText=
+    decision==='authorized_practical_activity'
+      ? 'Persistent work-cell activity was observed and a valid external authorization was supplied. No compliance exception is created.'
+      : decision==='unauthorized_practical_activity'
+        ? 'Persistent work-cell activity was observed without a supplied matching authorization. A human-review case was created.'
+        : decision==='authorization_review_required'
+          ? 'Persistent work-cell activity was observed, but authorization state is unknown. The case requires officer verification.'
+          : decision==='camera_evidence_insufficient'
+            ? 'The camera-trust gate suspended the practical-work conclusion. Review the camera-integrity evidence before interpreting activity.'
+            : decision==='no_persistent_practical_activity'
+              ? 'No configured work cell crossed the sustained worker-motion threshold during trusted imagery. No authorization conclusion is made from absence alone.'
+              : 'The result requires officer verification before any compliance action.';
 
   return <>
     <ModuleHero
@@ -699,14 +776,8 @@ function PracticalView({
       <DecisionHeader
         tone={tone}
         eyebrow="PRACTICAL-WORK RESULT"
-        title={decision.replaceAll('_',' ')}
-        text={
-          decision.includes('unauthorized')
-            ? 'Persistent practical-work activity was observed without a supplied matching authorization. A human-review case was created.'
-            : decision.includes('authorized_')
-              ? 'Persistent practical-work activity was observed and a valid external authorization was supplied. No compliance exception is created.'
-              : 'The result requires officer verification before any compliance action.'
-        }
+        title={practicalTitle}
+        text={practicalText}
       />
 
       <div className="resultGrid">
@@ -765,10 +836,10 @@ function InfrastructureView({
         <VideoDrop name="infra_file" preview={preview} onPreview={onPreview}/>
 
         <div className="formGrid four">
-          <Field label="Demo outcome">
+          <Field label="Demo evidence profile" help="Equipment counts below are demo telemetry, not live detections from the uploaded clip.">
             <select name="demo_profile" defaultValue="compliant">
-              <option value="compliant">Compliant / matching</option>
-              <option value="discrepancy">Persistent discrepancy</option>
+              <option value="compliant">Compliant demo telemetry</option>
+              <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </Field>
           <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
@@ -776,16 +847,27 @@ function InfrastructureView({
           <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
-        <div className="formSection">
-          <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>Optional operability proxy</h3><p>Visual activity inside an equipment ROI. This is not a mechanical diagnosis.</p></div></div>
-          <input type="hidden" name="operability_item_id" value="drill_machine"/>
-          <div className="formGrid four">
-            <Field label="x1"><input name="roi_x1" type="number" defaultValue="0"/></Field>
-            <Field label="y1"><input name="roi_y1" type="number" defaultValue="20"/></Field>
-            <Field label="x2"><input name="roi_x2" type="number" defaultValue="220"/></Field>
-            <Field label="y2"><input name="roi_y2" type="number" defaultValue="190"/></Field>
+        <div className="sourceDisclosure">
+          <Icon name="info"/>
+          <div>
+            <strong>What comes from where</strong>
+            <span>Manifest counts use stage-safe demo telemetry. The uploaded CCTV supplies the evidence frame and optional visual-motion proxy.</span>
           </div>
         </div>
+
+        <details className="advancedOptions">
+          <summary><span>Advanced · operability ROI</span><small>Optional visual-motion proxy</small></summary>
+          <div className="advancedBody">
+            <input type="hidden" name="operability_item_id" value="drill_machine"/>
+            <p>Use only when the equipment region is known. This measures visible motion, not mechanical or electrical health.</p>
+            <div className="formGrid four">
+              <Field label="x1"><input name="roi_x1" type="number" defaultValue="0"/></Field>
+              <Field label="y1"><input name="roi_y1" type="number" defaultValue="20"/></Field>
+              <Field label="x2"><input name="roi_x2" type="number" defaultValue="220"/></Field>
+              <Field label="y2"><input name="roi_y2" type="number" defaultValue="190"/></Field>
+            </div>
+          </div>
+        </details>
 
         <SubmitBar
           busy={busy}
@@ -799,7 +881,10 @@ function InfrastructureView({
         <div className="cardHead"><div><span className="eyebrow">DEMO MANIFEST</span><h2>Construction Electrician - LV</h2><p>Configured quantities are demonstration data.</p></div></div>
         <div className="manifestList">
           {infra.map(item=><div className="manifestRow" key={item.id}>
-            <div><strong>{item.label}</strong><small>{item.state.replaceAll('_',' ')}</small></div>
+            <div>
+              <strong>{item.label}</strong>
+              <small>{tierLabel(item.verification_tier)} · {item.state.replaceAll('_',' ')}</small>
+            </div>
             <div className="manifestNumbers"><span>Required <b>{item.required}</b></span><span>Observed <b>{item.observed??'Officer'}</b></span></div>
           </div>)}
         </div>
@@ -813,6 +898,10 @@ function InfrastructureView({
         title={result.created?'Visual manifest exception created':'No persistent visual manifest exception'}
         text={result.case?.summary||result.banner||'No persistent infrastructure exception was created.'}
       />
+      <div className="resultSourceBanner">
+        <Icon name="info"/>
+        <div><strong>Observation source</strong><span>Equipment counts: stage-safe demo telemetry · CCTV: evidence / optional motion proxy</span></div>
+      </div>
       <div className="resultGrid">
         <ResultMetric label="Outcome" value={result.created?'Exception':'Compliant'}/>
         <ResultMetric label="Profile" value={result.demo_profile||'—'}/>
@@ -824,8 +913,11 @@ function InfrastructureView({
       {!!result.items?.length&&<div className="cellResults">
         <div className="subHead"><span className="eyebrow">MANIFEST DECISIONS</span><h3>Camera-verifiable, partial and officer-only outcomes</h3></div>
         <div className="cellGrid">
-          {result.items.map((item:any)=><div className="cellResult" key={item.id}>
-            <div className="cellResultHead"><div><strong>{item.label}</strong><span>Required {item.required} · observed {item.observed??'officer'}</span></div><b>{String(item.state).replaceAll('_',' ')}</b></div>
+          {result.items.map((item:any)=><div className={`cellResult state-${String(item.state).toLowerCase()}`} key={item.id}>
+            <div className="cellResultHead">
+              <div><strong>{item.label}</strong><span>{tierLabel(item.verification_tier)} · required {item.required} · observed {item.observed??'officer'}</span></div>
+              <b>{String(item.state).replaceAll('_',' ')}</b>
+            </div>
           </div>)}
         </div>
       </div>}
@@ -1006,6 +1098,46 @@ function AuthChoice({active,tone,title,detail,onClick}:{active:boolean;tone:'goo
   </button>;
 }
 
+function OccupancyTimeline({observations,reported}:{observations:any[];reported:number}){
+  const samples=(observations||[]).filter(item=>Number.isFinite(Number(item?.smoothed_count)));
+  if(samples.length<2) return null;
+
+  const width=600;
+  const height=160;
+  const padX=28;
+  const padY=22;
+  const maxCount=Math.max(
+    1,
+    reported,
+    ...samples.map(item=>Number(item.smoothed_count||0)),
+    ...samples.map(item=>Number(item.raw_count||0)),
+  );
+  const x=(index:number)=>padX+(index/(samples.length-1))*(width-padX*2);
+  const y=(value:number)=>height-padY-(value/maxCount)*(height-padY*2);
+  const stablePoints=samples.map((item,index)=>`${x(index)},${y(Number(item.smoothed_count||0))}`).join(' ');
+  const rawPoints=samples.map((item,index)=>`${x(index)},${y(Number(item.raw_count||0))}`).join(' ');
+  const reportY=y(reported);
+
+  return <div className="timelineCard">
+    <div className="timelineHead">
+      <div><span className="eyebrow">TEMPORAL PROOF</span><strong>Occupancy over sampled time</strong></div>
+      <div className="timelineLegend">
+        <span><i className="legendStable"></i>Stable occupancy</span>
+        <span><i className="legendRaw"></i>Raw detections</span>
+        <span><i className="legendReported"></i>Reported</span>
+      </div>
+    </div>
+    <svg className="occupancyChart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Attendance occupancy timeline">
+      <line x1={padX} y1={reportY} x2={width-padX} y2={reportY} className="reportedLine"/>
+      <polyline points={rawPoints} className="rawLine"/>
+      <polyline points={stablePoints} className="stableLine"/>
+      <text x={padX} y={14} className="chartLabel">{maxCount}</text>
+      <text x={padX} y={height-5} className="chartLabel">0</text>
+      <text x={width-padX-5} y={height-5} textAnchor="end" className="chartLabel">{samples.at(-1)?.second??'—'}s</text>
+    </svg>
+  </div>;
+}
+
 function DecisionHeader({tone,eyebrow,title,text}:{tone:'good'|'warn'|'danger';eyebrow:string;title:string;text:string}){
   return <div className={`decisionHeader ${tone}`}>
     <span className="decisionIcon"><Icon name={tone==='good'?'check':'alert'}/></span>
@@ -1118,6 +1250,13 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function tierLabel(value:string|undefined){
+  if(value==='camera_verifiable') return 'Camera-verifiable';
+  if(value==='camera_partially_verifiable') return 'Partially verifiable';
+  if(value==='officer_verification_required') return 'Officer-only';
+  return 'Verification tier';
+}
 
 function pct(value:number|undefined|null){
   if(value==null||Number.isNaN(Number(value))) return '—';

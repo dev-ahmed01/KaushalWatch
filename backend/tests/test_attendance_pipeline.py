@@ -90,6 +90,9 @@ def test_full_attendance_pipeline_returns_known_nonzero_occupancy(tmp_path):
     assert result.frames_sampled >= 20
     assert result.estimated_occupancy == 3
     assert result.discrepancy_pct == 0
+    assert result.decision == "compliant"
+    assert result.trusted_sample_ratio > 0.5
+    assert result.mismatch_persistence_ratio == 0
     assert result.case is None
     assert max(o.raw_count for o in result.observations) == 3
 
@@ -115,6 +118,7 @@ def test_fallback_detector_never_presents_zero_or_nonzero_as_attendance_truth(tm
     assert result.detector_mode == "fallback"
     assert result.estimated_occupancy is None
     assert result.discrepancy_pct is None
+    assert result.decision == "detector_unavailable"
     assert result.case is None
     assert "fallback" in result.detector_message.lower()
 

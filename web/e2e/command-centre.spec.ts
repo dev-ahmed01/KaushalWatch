@@ -13,6 +13,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(page.getByText('One centre · three checkpoints')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Reset walkthrough' })).toBeVisible();
   await expect(page.locator('select[name="demo_profile"]')).toHaveValue('compliant');
+  await expect(page.getByText(/Manifest counts use stage-safe demo telemetry/i)).toBeVisible();
 
   // Edge sync zero should read as an idle/expected state, not a fault.
   await primaryNav.getByRole('button', { name: /Overview/ }).click();
@@ -41,6 +42,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // Core CI intentionally has no YOLO dependency. The UI must present fallback
   // as unavailable rather than silently reporting zero occupancy.
   await primaryNav.getByRole('button', { name: /Attendance/ }).click();
+  await expect(page.locator('input[name="reported_attendance"]')).toHaveValue('3');
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.locator('input[name="reported_attendance"]').fill('12');
   await page.getByRole('button', { name: 'Run attendance verification' }).click();
