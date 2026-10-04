@@ -1,5 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
+import importlib.util
 import json
 import shutil
 import tempfile
@@ -47,6 +48,35 @@ def health():
 @app.get("/api/runtime-readiness")
 def runtime_readiness():
     detector = PIPELINE.detector.info
+
+    zones_ready = DEFAULT_WORK_ZONES.exists()
+    yolo_available = importlib.util.find_spec("ultralytics") is not None
+    practical_ready = zones_ready and yolo_available
+
+    try:
+        load_demo_manifest_and_cache()
+        infrastructure_ready = True
+        infrastructure_message = (
+            "Stage-safe infrastructure manifest and cached detector telemetry are available."
+        )
+    except (FileNotFoundError, ValueError) as exc:
+        infrastructure_ready = False
+        infrastructure_message = f"Infrastructure demo assets unavailable: {exc}"
+
+    if practical_ready:
+        practical_message = "YOLO runtime and bundled work-zone profiles are available."
+    elif not yolo_available and not zones_ready:
+        practical_message = (
+            "Practical-work runtime unavailable: install YOLO demo dependencies and "
+            "restore bundled work-zone profiles."
+        )
+    elif not yolo_available:
+        practical_message = (
+            "Practical-work runtime unavailable: install backend/requirements-yolo-demo.txt."
+        )
+    else:
+        practical_message = "Practical-work runtime unavailable: bundled work-zone profiles are missing."
+
     return {
         "attendance": {
             "ready": bool(detector.authoritative),
@@ -55,21 +85,15 @@ def runtime_readiness():
             "message": detector.message,
         },
         "practical_work": {
-            "ready": DEFAULT_WORK_ZONES.exists(),
+            "ready": practical_ready,
+            "backend": "yolo11",
             "default_zone_profiles": ["default", "authorized", "unauthorized"],
-            "message": (
-                "Bundled work-zone profiles available"
-                if DEFAULT_WORK_ZONES.exists()
-                else "Bundled work-zone profiles missing"
-            ),
+            "message": practical_message,
         },
         "infrastructure": {
-            "ready": True,
+            "ready": infrastructure_ready,
             "mode": "stage_safe_cached_adapter",
-            "message": (
-                "Infrastructure demo uses reviewed cached/synthetic detector telemetry; "
-                "uploaded video supplies evidence/operability frames."
-            ),
+            "message": infrastructure_message,
         },
         "evidence": {
             "ready": EVIDENCE.exists(),
@@ -209,6 +233,8 @@ def process_practical_activity(
         if result.case:
             STORE.save(result.case)
         return result.model_dump(mode="json")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
