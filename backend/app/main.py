@@ -161,6 +161,14 @@ def runtime_readiness():
         )
 
     return {
+        "vision_setup": {
+            "selected_demo_detector": "openvino",
+            "command": "python scripts/prepare_demo_vision.py --install",
+            "note": (
+                "Run the setup command in the same Python environment used to start "
+                "the API. Auto mode will then prefer the benchmarked local OpenVINO model."
+            ),
+        },
         "attendance": {
             "ready": bool(detector.authoritative),
             "backend": detector.backend,
