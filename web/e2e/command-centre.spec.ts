@@ -10,6 +10,16 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('link', { name: 'Network Overview' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Bengaluru TC-04/ }).first()).toBeVisible();
 
+  // Keep the command-centre UI readable at normal presentation distance.
+  const navFontSize = await page.getByRole('link', { name: 'Network Overview' }).evaluate((element) =>
+    Number.parseFloat(window.getComputedStyle(element).fontSize)
+  );
+  const firstTableCellFontSize = await page.locator('.dataTable td').first().evaluate((element) =>
+    Number.parseFloat(window.getComputedStyle(element).fontSize)
+  );
+  expect(navFontSize).toBeGreaterThanOrEqual(11);
+  expect(firstTableCellFontSize).toBeGreaterThanOrEqual(11);
+
   await page.goto('/centres/DEMO-KA-104');
   await expect(page.locator('h1').filter({ hasText: 'Bengaluru TC-04' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Recent Analysis' })).toBeVisible();
