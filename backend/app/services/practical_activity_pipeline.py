@@ -68,6 +68,36 @@ def _assign_zone(
     return best_zone
 
 
+def scale_work_zones(
+    zones: list[dict],
+    reference_width: int,
+    reference_height: int,
+    width: int,
+    height: int,
+) -> list[dict]:
+    """Scale scene-specific zones when the same camera view is resized.
+
+    This does not make a profile transferable to another camera angle. It only
+    preserves geometry for the same scene at another resolution.
+    """
+    if reference_width <= 0 or reference_height <= 0:
+        raise ValueError("Zone reference dimensions must be positive")
+
+    scale_x = width / reference_width
+    scale_y = height / reference_height
+    scaled: list[dict] = []
+
+    for zone in zones:
+        copy = dict(zone)
+        copy["x"] = int(round(float(zone["x"]) * scale_x))
+        copy["y"] = int(round(float(zone["y"]) * scale_y))
+        copy["w"] = max(1, int(round(float(zone["w"]) * scale_x)))
+        copy["h"] = max(1, int(round(float(zone["h"]) * scale_y)))
+        scaled.append(copy)
+
+    return scaled
+
+
 def validate_work_zones(
     zones: list[dict],
     width: int,
@@ -137,6 +167,7 @@ class PracticalActivityPipeline:
         motion_pixel_delta: int = 18,
         minimum_zone_overlap: float = 0.15,
         minimum_trusted_ratio: float = 0.50,
+        zone_reference_size: tuple[int, int] | None = None,
     ) -> PracticalActivitySummary:
         authorization = authorization.strip().lower()
         if authorization not in {"valid", "absent", "unknown"}:
@@ -159,6 +190,21 @@ class PracticalActivityPipeline:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
+
+        zone_scaled = False
+        reference_width: int | None = None
+        reference_height: int | None = None
+        if zone_reference_size is not None:
+            reference_width, reference_height = zone_reference_size
+            if (reference_width, reference_height) != (width, height):
+                zones = scale_work_zones(
+                    zones,
+                    reference_width,
+                    reference_height,
+                    width,
+                    height,
+                )
+                zone_scaled = True
 
         validate_work_zones(zones, width, height)
 
@@ -461,6 +507,9 @@ class PracticalActivityPipeline:
             camera_id=camera_id,
             authorization=authorization,
             decision=decision,
+            zone_scaled=zone_scaled,
+            zone_reference_width=reference_width,
+            zone_reference_height=reference_height,
             frames_processed=frame_no,
             duration_sec=round(duration_sec, 3),
             trusted_frame_ratio=round(trusted_ratio, 4),
