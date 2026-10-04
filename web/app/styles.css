@@ -448,6 +448,12 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 .cellResultHead strong{font-size:9px;text-transform:capitalize}
 .cellResultHead span{font-size:8px;color:#98a2b3;margin-top:2px}
 .cellResultHead>b{font-size:10px;color:var(--blue)}
+.cellStateLine{font-size:8px;color:#667085;margin-top:7px}
+.technicalDetails{margin-top:8px;border-top:1px solid #eef0f3;padding-top:7px}
+.technicalDetails summary{cursor:pointer;font-size:7px;font-weight:800;color:#98a2b3;list-style:none}
+.technicalDetails summary::-webkit-details-marker{display:none}
+.technicalDetails[open] summary{color:#667085;margin-bottom:6px}
+
 .progressTrack{height:5px;background:#eaecf0;border-radius:999px;overflow:hidden;margin:9px 0}
 .progressTrack i{display:block;height:100%;background:#528bff;border-radius:999px}
 .cellSignals{display:flex;gap:8px;flex-wrap:wrap}
