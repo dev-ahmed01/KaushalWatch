@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import EvidenceGallery from '../../../components/EvidenceGallery';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import VideoSampleStrip from '../../../components/VideoSampleStrip';
 import WorkflowStepper from '../../../components/WorkflowStepper';
@@ -83,6 +84,7 @@ export default function AttendanceVerification(){
           title={result.decision==='compliant'?'Attendance matches reported count':result.decision==='detector_unavailable'?'Detector unavailable — decision withheld':'Attendance needs review'}
           text={result.case?.summary||result.detector_message||'Attendance analysis completed.'}
         />}
+        {result?.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Attendance evidence" compact/>}
         {!result&&<div className="resultEmpty"><span>◎</span><b>No analysis yet</b><p>Choose a clip, confirm the reported count, then start analysis.</p></div>}
 
         <div className="attendanceSetup">
