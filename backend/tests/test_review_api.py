@@ -33,6 +33,16 @@ def test_final_review_decision_requires_officer_note(tmp_path, monkeypatch):
     assert missing.status_code == 422
     assert "review note is required" in missing.json()["detail"].lower()
 
+    started = client.post(
+        "/api/cases/CASE-REVIEW-NOTE/review",
+        json={
+            "action": "under_review",
+            "note": "Evidence inspection started.",
+        },
+    )
+    assert started.status_code == 200
+    assert started.json()["status"] == "under_review"
+
     decided = client.post(
         "/api/cases/CASE-REVIEW-NOTE/review",
         json={

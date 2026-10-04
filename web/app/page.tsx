@@ -1375,7 +1375,8 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
   const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
   const [reviewNote,setReviewNote]=useState('');
   const [showEvidence,setShowEvidence]=useState(false);
-  const finalReady=reviewNote.trim().length>0;
+  const reviewActive=item.status==='under_review'||item.status==='virtual_verification';
+  const finalReady=reviewActive&&reviewNote.trim().length>0;
   const latestReview=item.review_history?.at(-1);
 
   return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
@@ -1422,6 +1423,26 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       <strong>{latestReview.note}</strong>
     </div>}
     {!resolved&&<>
+      <div className="reviewGuardrail">
+        <ReviewStage
+          number="1"
+          title="Inspect evidence"
+          done={showEvidence||Boolean(item.review_history?.length)}
+          detail="Review the evidence snapshot and integrity signal."
+        />
+        <ReviewStage
+          number="2"
+          title="Enter review"
+          done={reviewActive}
+          detail="A final decision cannot be made directly from Open."
+        />
+        <ReviewStage
+          number="3"
+          title="Record rationale"
+          done={reviewNote.trim().length>0}
+          detail="Explain what was verified before closing the case."
+        />
+      </div>
       <label className="reviewNoteField">
         <span>Officer note <b>required for final decision</b></span>
         <textarea
@@ -1431,14 +1452,50 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
           rows={3}
         />
       </label>
+      {!reviewActive&&<div className="decisionGateNotice">
+        <Icon name="info"/>
+        <span>Start review or virtual verification before choosing a final decision.</span>
+      </div>}
       <div className="reviewActions">
-        <button type="button" onClick={()=>review(item.case_id,'under_review',reviewNote)}>Start review</button>
-        <button type="button" onClick={()=>review(item.case_id,'virtual_verification',reviewNote)}>Virtual verify</button>
+        <button
+          type="button"
+          disabled={item.status==='under_review'}
+          onClick={()=>review(item.case_id,'under_review',reviewNote)}
+        >
+          {item.status==='under_review'?'Review active':'Start review'}
+        </button>
+        <button
+          type="button"
+          disabled={item.status==='virtual_verification'}
+          onClick={()=>review(item.case_id,'virtual_verification',reviewNote)}
+        >
+          {item.status==='virtual_verification'?'Virtual verification active':'Virtual verify'}
+        </button>
         <button type="button" disabled={!finalReady} onClick={()=>review(item.case_id,'false_positive',reviewNote)}>False positive</button>
         <button type="button" disabled={!finalReady} className="confirm" onClick={()=>review(item.case_id,'confirmed',reviewNote)}>Confirm exception</button>
       </div>
     </>}
+    {!!item.review_history?.length&&<details className="auditTimeline">
+      <summary>Decision history · {item.review_history.length} event{item.review_history.length===1?'':'s'}</summary>
+      <div>
+        {item.review_history.map((event,index)=><div className="auditEvent" key={`${event.timestamp}-${index}`}>
+          <span className="auditEventDot"></span>
+          <div>
+            <strong>{String(event.from_status).replaceAll('_',' ')} → {String(event.to_status).replaceAll('_',' ')}</strong>
+            <small>{formatTimestamp(event.timestamp)} · {event.actor||'prototype_officer'}</small>
+            {event.note&&<p>{event.note}</p>}
+          </div>
+        </div>)}
+      </div>
+    </details>}
   </article>;
+}
+
+function ReviewStage({number,title,done,detail}:{number:string;title:string;done:boolean;detail:string}){
+  return <div className={done?'reviewStage done':'reviewStage'}>
+    <span>{done?'✓':number}</span>
+    <div><strong>{title}</strong><small>{detail}</small></div>
+  </div>;
 }
 
 function CompactCase({item}:{item:Case}){
