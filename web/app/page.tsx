@@ -821,6 +821,43 @@ function EvidenceView(){
   </>;
 }
 
+function CentreProgress({progress,activeView,onOpen}:{progress:WorkflowProgress;activeView:ViewKey;onOpen:(view:ViewKey)=>void}){
+  const steps:[
+    keyof WorkflowProgress,
+    ViewKey,
+    string
+  ][]=[
+    ['attendance','attendance','Attendance'],
+    ['practical','practical','Practical Work'],
+    ['infrastructure','infrastructure','Infrastructure'],
+  ];
+  return <section className="centreProgress" aria-label="Centre verification progress">
+    <div className="centreProgressLead">
+      <span className="eyebrow">CENTRE VERIFICATION</span>
+      <strong>One centre · three checkpoints</strong>
+    </div>
+    <div className="centreProgressSteps">
+      {steps.map(([key,view,label],index)=><button
+        key={key}
+        type="button"
+        className={`centreProgressStep ${progress[key]?'done':''} ${activeView===view?'active':''}`}
+        onClick={()=>onOpen(view)}
+      >
+        <span>{progress[key]?'✓':index+1}</span>
+        <div><strong>{label}</strong><small>{progress[key]?'Run completed':'Pending'}</small></div>
+      </button>)}
+    </div>
+  </section>;
+}
+
+function casePillar(caseType:string){
+  if(caseType==='attendance_discrepancy') return {label:'Attendance discrepancy',icon:'attendance'};
+  if(caseType.startsWith('practical_activity')) return {label:'Practical-work authorization',icon:'activity'};
+  if(caseType==='infrastructure_compliance') return {label:'Infrastructure gap',icon:'infrastructure'};
+  if(caseType==='camera_integrity') return {label:'Camera integrity',icon:'camera'};
+  return {label:'Compliance review',icon:'cases'};
+}
+
 function ModuleHero({eyebrow,title,text,badge,policy}:{eyebrow:string;title:string;text:string;badge:string;policy:string[]}){
   return <section className="moduleHero">
     <div>
@@ -885,13 +922,24 @@ function WorkCellResult({cell}:{cell:any}){
   </div>;
 }
 
-function CaseCard({item,review}:{item:Case;review:(caseId:string,action:CaseStatus)=>void}){
-  return <article className="caseCard">
+function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus)=>void;resolved?:boolean}){
+  const pillar=casePillar(item.case_type);
+  const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
+  return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
       <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
       <span className={`statusBadge ${item.status}`}>{item.status.replaceAll('_',' ')}</span>
     </div>
+    <div className="pillarLabel"><Icon name={pillar.icon}/><span>{pillar.label}</span></div>
     <p>{item.summary}</p>
+    {duplicate&&<div className="duplicateAlert">
+      <span className="duplicateIcon"><Icon name="fingerprint"/></span>
+      <div>
+        <strong>Evidence integrity signal</strong>
+        <span>Possible duplicate evidence detected · matches {duplicate.duplicate_of}</span>
+        <small>This is independent of the compliance finding above.</small>
+      </div>
+    </div>}
     <div className="caseFacts">
       {item.persistence_ratio!=null&&<span>Persistence <b>{Math.round(item.persistence_ratio*100)}%</b></span>}
       {item.evidence?.length?<span>Evidence <b>{item.evidence.length}</b></span>:null}
@@ -902,12 +950,12 @@ function CaseCard({item,review}:{item:Case;review:(caseId:string,action:CaseStat
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
-    <div className="reviewActions">
+    {!resolved&&<div className="reviewActions">
       <button type="button" onClick={()=>review(item.case_id,'under_review')}>Start review</button>
       <button type="button" onClick={()=>review(item.case_id,'virtual_verification')}>Virtual verify</button>
       <button type="button" onClick={()=>review(item.case_id,'false_positive')}>False positive</button>
       <button type="button" className="confirm" onClick={()=>review(item.case_id,'confirmed')}>Confirm exception</button>
-    </div>
+    </div>}
   </article>;
 }
 
@@ -992,5 +1040,6 @@ function Icon({name}:{name:string}){
   if(name==='image') return <svg {...common}><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4-4L5 20"/></svg>;
   if(name==='history') return <svg {...common}><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></svg>;
   if(name==='zones') return <svg {...common}><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z"/><path d="M14 17h6M17 14v6"/></svg>;
+  if(name==='fingerprint') return <svg {...common}><path d="M8 11a4 4 0 0 1 8 0v2"/><path d="M6 11a6 6 0 0 1 12 0v3"/><path d="M10 13v2a4 4 0 0 0 4 4"/><path d="M14 11v3a6 6 0 0 0 2 4.5"/><path d="M6.5 15a8 8 0 0 0 3 5"/></svg>;
   return <svg {...common}><circle cx="12" cy="12" r="8"/></svg>;
 }
