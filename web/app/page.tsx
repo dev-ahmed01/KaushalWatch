@@ -730,7 +730,7 @@ function PracticalView({
             <span><strong>Work-zone JSON · optional</strong><small>Override the bundled demo profile only when needed</small></span>
             <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
-          <Field label="Bundled zone profile" help="Works without uploading JSON. Choose the profile that matches the demo clip.">
+          <Field label="Bundled zone profile" help="Works without uploading JSON. Same-camera geometry auto-scales if the clip resolution changes.">
             <select name="zone_profile" defaultValue="authorized">
               <option value="authorized">Authorized demo layout</option>
               <option value="unauthorized">Unauthorized demo layout</option>
@@ -984,7 +984,7 @@ function EvidenceView(){
     <section className="evidenceGrid">
       <PolicyCard icon="privacy" title="Identity minimisation" text="Person detections are used for short-lived positional tracking. The current prototype does not create face embeddings or cross-camera identity."/>
       <PolicyCard icon="camera" title="Camera trust first" text="Darkness, blur, freeze and scene-shift checks can suspend downstream conclusions instead of fabricating confidence from poor imagery."/>
-      <PolicyCard icon="evidence" title="Minimal exception evidence" text="When a review case is created, person regions are blurred before central evidence retention."/>
+      <PolicyCard icon="evidence" title="Minimal exception evidence" text="Detected person regions are blurred before retention; when trustworthy localisation is unavailable, KaushalWatch falls back to a conservative full-frame privacy blur."/>
       <PolicyCard icon="package" title="Integrity metadata" text="Evidence is recorded with a SHA-256 hash and perceptual duplicate signal to support review and audit."/>
     </section>
 
