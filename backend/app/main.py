@@ -183,6 +183,39 @@ def runtime_readiness():
     }
 
 
+@app.get("/api/practical-work-zones")
+def practical_work_zones(profile: str = "authorized"):
+    if not DEFAULT_WORK_ZONES.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Bundled practical-work zone configuration is missing",
+        )
+    try:
+        parsed = json.loads(DEFAULT_WORK_ZONES.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Bundled practical-work zone configuration is invalid",
+        ) from exc
+
+    zones = parsed.get(profile) if isinstance(parsed, dict) else None
+    if not isinstance(zones, list):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown practical-work zone profile: {profile}",
+        )
+    reference = parsed.get("_reference") if isinstance(parsed, dict) else None
+    return {
+        "profile": profile,
+        "reference": reference or {"width": 1920, "height": 1080},
+        "zones": zones,
+        "note": (
+            "Zones are fixed-camera geometry for the bundled demo scene. "
+            "They are visualized in the UI and scaled only for the same camera view."
+        ),
+    }
+
+
 @app.get("/api/centres")
 def list_centres():
     rows = centre_rows(
