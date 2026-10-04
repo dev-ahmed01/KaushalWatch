@@ -175,7 +175,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--zone-overlap", type=float, default=0.15)
     parser.add_argument("--activity-window-seconds", type=float, default=1.0)
     parser.add_argument("--activity-required-ratio", type=float, default=0.60)
-    parser.add_argument(\n        "--motion-threshold",\n        type=float,\n        default=0.02,\n        help="Minimum worker-box motion fraction for one positive activity sample.",\n    )
+    parser.add_argument(
+        "--motion-threshold",
+        type=float,
+        default=0.02,
+        help="Minimum worker-box motion fraction for one positive activity sample.",
+    )
     parser.add_argument("--motion-pixel-delta", type=int, default=18)
     parser.add_argument(
         "--mode",
