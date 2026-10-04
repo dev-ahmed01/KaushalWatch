@@ -53,6 +53,7 @@ type RuntimeReadiness = {
   };
   practical_work?:{
     ready:boolean;
+    backend?:string;
     message:string;
   };
   infrastructure?:{
@@ -109,6 +110,11 @@ export default function Page(){
     infrastructure:'pending',
   });
   const [runtimeReadiness,setRuntimeReadiness]=useState<RuntimeReadiness|null>(null);
+  const readyEngineCount=[
+    runtimeReadiness?.attendance?.ready,
+    runtimeReadiness?.practical_work?.ready,
+    runtimeReadiness?.infrastructure?.ready,
+  ].filter(Boolean).length;
 
   const refresh=async()=>{
     const [dashboardResponse,infraResponse,readinessResponse]=await Promise.all([
@@ -372,11 +378,9 @@ export default function Page(){
           <strong>{navItems.find(item=>item.key===activeView)?.label}</strong>
         </div>
         <div className="topStatus">
-          <span className={runtimeReadiness?.attendance?.ready?'healthChip good':'healthChip warn'}>
+          <span className={readyEngineCount===3?'healthChip good':'healthChip warn'}>
             <i></i>
-            Attendance detector {runtimeReadiness?.attendance?.ready
-              ? `${runtimeReadiness.attendance.backend} ready`
-              : 'fallback / unavailable'}
+            Verification runtime {runtimeReadiness?`${readyEngineCount}/3 ready`:'checking…'}
           </span>
           <span className="healthChip"><Icon name="human"/>Human review enforced</span>
         </div>
@@ -419,6 +423,7 @@ export default function Page(){
           setAuth={setPracticalAuth}
           profile={practicalProfile}
           setProfile={setPracticalProfile}
+          readiness={runtimeReadiness?.practical_work}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
@@ -432,6 +437,7 @@ export default function Page(){
           result={infraResult}
           busy={infraBusy}
           preview={infraPreview}
+          readiness={runtimeReadiness?.infrastructure}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
