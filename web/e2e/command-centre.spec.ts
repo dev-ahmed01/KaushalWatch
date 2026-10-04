@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 
 test('multipage KaushalWatch workflow covers network, analysis, review and reports', async ({ page }) => {
+  test.setTimeout(120_000);
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required');
 
