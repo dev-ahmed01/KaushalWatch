@@ -40,6 +40,14 @@ export function Skeleton({lines=4}:{lines?:number}){
   return <div className="skeletonBlock">{Array.from({length:lines}).map((_,i)=><span key={i}></span>)}</div>;
 }
 
+export function ProcessingBanner({title,text,step}:{title:string;text:string;step:string}){
+  return <div className="processingBanner" role="status" aria-live="polite">
+    <span className="processingSpinner"></span>
+    <div><strong>{title}</strong><small>{text}</small></div>
+    <em>{step}</em>
+  </div>;
+}
+
 export function OutcomeCard({tone,title,text}:{tone:'good'|'warn'|'danger'|'blocked';title:string;text:string}){
   return <div className={'outcomeCard '+tone}>
     <span className="outcomeIcon">{tone==='good'?'✓':tone==='blocked'?'×':'!'}</span>
