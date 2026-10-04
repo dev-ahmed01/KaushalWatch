@@ -68,6 +68,8 @@ type InfraItem = {
   observed:number|null;
   state:string;
   confidence:number|null;
+  verification_tier?:string;
+  presence_method?:string;
 };
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -834,10 +836,10 @@ function InfrastructureView({
         <VideoDrop name="infra_file" preview={preview} onPreview={onPreview}/>
 
         <div className="formGrid four">
-          <Field label="Demo outcome">
+          <Field label="Demo evidence profile" help="Equipment counts below are demo telemetry, not live detections from the uploaded clip.">
             <select name="demo_profile" defaultValue="compliant">
-              <option value="compliant">Compliant / matching</option>
-              <option value="discrepancy">Persistent discrepancy</option>
+              <option value="compliant">Compliant demo telemetry</option>
+              <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </Field>
           <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
@@ -845,16 +847,27 @@ function InfrastructureView({
           <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
-        <div className="formSection">
-          <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>Optional operability proxy</h3><p>Visual activity inside an equipment ROI. This is not a mechanical diagnosis.</p></div></div>
-          <input type="hidden" name="operability_item_id" value="drill_machine"/>
-          <div className="formGrid four">
-            <Field label="x1"><input name="roi_x1" type="number" defaultValue="0"/></Field>
-            <Field label="y1"><input name="roi_y1" type="number" defaultValue="20"/></Field>
-            <Field label="x2"><input name="roi_x2" type="number" defaultValue="220"/></Field>
-            <Field label="y2"><input name="roi_y2" type="number" defaultValue="190"/></Field>
+        <div className="sourceDisclosure">
+          <Icon name="info"/>
+          <div>
+            <strong>What comes from where</strong>
+            <span>Manifest counts use stage-safe demo telemetry. The uploaded CCTV supplies the evidence frame and optional visual-motion proxy.</span>
           </div>
         </div>
+
+        <details className="advancedOptions">
+          <summary><span>Advanced · operability ROI</span><small>Optional visual-motion proxy</small></summary>
+          <div className="advancedBody">
+            <input type="hidden" name="operability_item_id" value="drill_machine"/>
+            <p>Use only when the equipment region is known. This measures visible motion, not mechanical or electrical health.</p>
+            <div className="formGrid four">
+              <Field label="x1"><input name="roi_x1" type="number" defaultValue="0"/></Field>
+              <Field label="y1"><input name="roi_y1" type="number" defaultValue="20"/></Field>
+              <Field label="x2"><input name="roi_x2" type="number" defaultValue="220"/></Field>
+              <Field label="y2"><input name="roi_y2" type="number" defaultValue="190"/></Field>
+            </div>
+          </div>
+        </details>
 
         <SubmitBar
           busy={busy}
@@ -868,7 +881,10 @@ function InfrastructureView({
         <div className="cardHead"><div><span className="eyebrow">DEMO MANIFEST</span><h2>Construction Electrician - LV</h2><p>Configured quantities are demonstration data.</p></div></div>
         <div className="manifestList">
           {infra.map(item=><div className="manifestRow" key={item.id}>
-            <div><strong>{item.label}</strong><small>{item.state.replaceAll('_',' ')}</small></div>
+            <div>
+              <strong>{item.label}</strong>
+              <small>{tierLabel(item.verification_tier)} · {item.state.replaceAll('_',' ')}</small>
+            </div>
             <div className="manifestNumbers"><span>Required <b>{item.required}</b></span><span>Observed <b>{item.observed??'Officer'}</b></span></div>
           </div>)}
         </div>
@@ -882,6 +898,10 @@ function InfrastructureView({
         title={result.created?'Visual manifest exception created':'No persistent visual manifest exception'}
         text={result.case?.summary||result.banner||'No persistent infrastructure exception was created.'}
       />
+      <div className="resultSourceBanner">
+        <Icon name="info"/>
+        <div><strong>Observation source</strong><span>Equipment counts: stage-safe demo telemetry · CCTV: evidence / optional motion proxy</span></div>
+      </div>
       <div className="resultGrid">
         <ResultMetric label="Outcome" value={result.created?'Exception':'Compliant'}/>
         <ResultMetric label="Profile" value={result.demo_profile||'—'}/>
@@ -893,8 +913,11 @@ function InfrastructureView({
       {!!result.items?.length&&<div className="cellResults">
         <div className="subHead"><span className="eyebrow">MANIFEST DECISIONS</span><h3>Camera-verifiable, partial and officer-only outcomes</h3></div>
         <div className="cellGrid">
-          {result.items.map((item:any)=><div className="cellResult" key={item.id}>
-            <div className="cellResultHead"><div><strong>{item.label}</strong><span>Required {item.required} · observed {item.observed??'officer'}</span></div><b>{String(item.state).replaceAll('_',' ')}</b></div>
+          {result.items.map((item:any)=><div className={`cellResult state-${String(item.state).toLowerCase()}`} key={item.id}>
+            <div className="cellResultHead">
+              <div><strong>{item.label}</strong><span>{tierLabel(item.verification_tier)} · required {item.required} · observed {item.observed??'officer'}</span></div>
+              <b>{String(item.state).replaceAll('_',' ')}</b>
+            </div>
           </div>)}
         </div>
       </div>}
@@ -1227,6 +1250,13 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function tierLabel(value:string|undefined){
+  if(value==='camera_verifiable') return 'Camera-verifiable';
+  if(value==='camera_partially_verifiable') return 'Partially verifiable';
+  if(value==='officer_verification_required') return 'Officer-only';
+  return 'Verification tier';
+}
 
 function pct(value:number|undefined|null){
   if(value==null||Number.isNaN(Number(value))) return '—';
