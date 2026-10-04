@@ -9,9 +9,6 @@ ALLOWED_CASE_TRANSITIONS: dict[CaseStatus, set[CaseStatus]] = {
     CaseStatus.open: {
         CaseStatus.under_review,
         CaseStatus.virtual_verification,
-        CaseStatus.confirmed,
-        CaseStatus.false_positive,
-        CaseStatus.resolved,
     },
     CaseStatus.under_review: {
         CaseStatus.virtual_verification,
