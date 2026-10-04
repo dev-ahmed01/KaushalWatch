@@ -1,8 +1,8 @@
 from __future__ import annotations
 from pathlib import Path
 import importlib.util
+import os
 import json
-import shutil
 import tempfile
 import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -38,6 +38,51 @@ app.add_middleware(
 )
 EVIDENCE.mkdir(parents=True, exist_ok=True)
 app.mount("/evidence", StaticFiles(directory=str(EVIDENCE)), name="evidence")
+
+SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".mpeg", ".mpg"}
+
+
+def _materialize_video_upload(file: UploadFile) -> Path:
+    filename = file.filename or "video.mp4"
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_VIDEO_SUFFIXES:
+        allowed = ", ".join(sorted(SUPPORTED_VIDEO_SUFFIXES))
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported video format '{suffix or 'none'}'. Use one of: {allowed}",
+        )
+
+    max_upload_mb = int(os.getenv("KAUSHALWATCH_MAX_UPLOAD_MB", "500"))
+    max_bytes = max_upload_mb * 1024 * 1024
+    total = 0
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp_path = Path(tmp.name)
+        try:
+            while True:
+                chunk = file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            f"Video exceeds the {max_upload_mb} MB demo upload limit. "
+                            "Trim the clip before analysis."
+                        ),
+                    )
+                tmp.write(chunk)
+        except Exception:
+            tmp.close()
+            tmp_path.unlink(missing_ok=True)
+            raise
+
+    if total == 0:
+        tmp_path.unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="Uploaded video is empty")
+
+    return tmp_path
 
 
 @app.get("/api/health")
@@ -138,10 +183,7 @@ def process_video(
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-01"),
 ):
-    suffix = Path(file.filename or "video.avi").suffix or ".avi"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    tmp_path = _materialize_video_upload(file)
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
@@ -215,10 +257,7 @@ def process_practical_activity(
             ),
         )
 
-    suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    tmp_path = _materialize_video_upload(file)
 
     try:
         result = PRACTICAL_PIPELINE.run(
@@ -350,10 +389,7 @@ def process_infrastructure_video(
         raise HTTPException(status_code=400, detail="Provide all ROI coordinates or none")
     roi = tuple(int(v) for v in roi_values) if all(v is not None for v in roi_values) else None
 
-    suffix = Path(file.filename or "video.avi").suffix or ".avi"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    tmp_path = _materialize_video_upload(file)
 
     try:
         case = INFRA_PIPELINE.run(
@@ -400,10 +436,7 @@ def operability_check(
     file: UploadFile = File(...),
     x1: int = Form(...), y1: int = Form(...), x2: int = Form(...), y2: int = Form(...),
 ):
-    suffix = Path(file.filename or "video.avi").suffix or ".avi"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        shutil.copyfileobj(file.file, tmp)
-        tmp_path = Path(tmp.name)
+    tmp_path = _materialize_video_upload(file)
     frames = []
     cap = cv2.VideoCapture(str(tmp_path))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
