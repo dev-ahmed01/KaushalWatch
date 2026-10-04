@@ -5,8 +5,10 @@ import importlib.util
 import os
 import json
 import tempfile
+import html
 import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest, EdgeSyncRequest
@@ -299,6 +301,88 @@ def centre_report(
             "Apparent operability is a visual activity proxy, not a mechanical or electrical diagnosis.",
         ],
     }
+
+
+@app.get("/api/centres/{centre_id}/report.html", response_class=HTMLResponse)
+def centre_report_html(
+    centre_id: str,
+    period: str = "7d",
+):
+    report = centre_report(centre_id, period)
+    centre = report["centre"]
+    analyses = report["analyses"]
+    cases = report["cases"]
+
+    analysis_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(row.get('created_at', ''))[:10])}</td>"
+        f"<td>{html.escape(str(row.get('analysis_type', '')).replace('_', ' '))}</td>"
+        f"<td>{html.escape(str(row.get('outcome', '')))}</td>"
+        f"<td>{html.escape(str(row.get('summary', '')))}</td>"
+        "</tr>"
+        for row in analyses[:30]
+    ) or "<tr><td colspan='4'>No analysis records in this period.</td></tr>"
+
+    case_rows = "".join(
+        "<tr>"
+        f"<td>{html.escape(str(case.get('case_id', '')))}</td>"
+        f"<td>{html.escape(str(case.get('case_type', '')).replace('_', ' '))}</td>"
+        f"<td>{html.escape(str(case.get('status', '')))}</td>"
+        f"<td>{html.escape(str(case.get('summary', '')))}</td>"
+        "</tr>"
+        for case in cases[-20:]
+    ) or "<tr><td colspan='4'>No compliance cases recorded.</td></tr>"
+
+    privacy = html.escape(report["privacy_note"])
+    limitations = "".join(
+        f"<li>{html.escape(str(item))}</li>"
+        for item in report.get("limitations", [])
+    )
+    title = html.escape(report["title"])
+    centre_name = html.escape(str(centre.get("name", centre_id)))
+    location = html.escape(str(centre.get("location", "")))
+    escalation = html.escape(str(report["summary"]["escalation"].get("label", "Normal")))
+
+    return HTMLResponse(
+        f"""<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{title} — {centre_name}</title>
+<style>
+body{{font-family:Arial,sans-serif;color:#14213a;margin:0;background:#f5f7fb}}
+main{{max-width:980px;margin:0 auto;background:#fff;min-height:100vh;padding:42px}}
+header{{display:flex;justify-content:space-between;gap:20px;border-bottom:2px solid #163b7a;padding-bottom:20px}}
+h1{{font-size:28px;margin:4px 0}} h2{{font-size:16px;margin-top:28px}} p,li,td{{font-size:12px;line-height:1.5}}
+.badge{{padding:7px 10px;border-radius:999px;background:#eef4ff;color:#245ec5;font-size:11px;font-weight:bold;height:max-content}}
+.summary{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:20px 0}}
+.summary div{{border:1px solid #e3e9f1;border-radius:10px;padding:12px}}
+.summary span{{font-size:10px;color:#7a8799;display:block}} .summary b{{font-size:18px;display:block;margin-top:4px}}
+table{{width:100%;border-collapse:collapse;margin-top:10px}} th{{text-align:left;background:#f5f8fc;font-size:10px;color:#64748b}}
+th,td{{padding:9px;border-bottom:1px solid #e8edf4;vertical-align:top}}
+.notice{{background:#f7f9fc;border:1px solid #e3e9f1;border-radius:10px;padding:12px;margin-top:18px}}
+footer{{margin-top:32px;color:#8a97a8;font-size:10px;border-top:1px solid #e3e9f1;padding-top:12px}}
+@media print{{body{{background:#fff}}main{{padding:0}}}}
+</style>
+</head>
+<body>
+<main>
+<header><div><small>KAUSHALWATCH · CENTRE VERIFICATION REPORT</small><h1>{centre_name}</h1><p>{location} · Period: {html.escape(period)}</p></div><span class="badge">{escalation}</span></header>
+<section class="summary">
+<div><span>Analysis runs</span><b>{report["summary"]["analysis_runs"]}</b></div>
+<div><span>Pending cases</span><b>{report["summary"]["pending_cases"]}</b></div>
+<div><span>Escalation</span><b>{escalation}</b></div>
+</section>
+<h2>Analysis history</h2>
+<table><thead><tr><th>Date</th><th>Analysis</th><th>Outcome</th><th>Summary</th></tr></thead><tbody>{analysis_rows}</tbody></table>
+<h2>Compliance cases</h2>
+<table><thead><tr><th>Case</th><th>Type</th><th>Status</th><th>Summary</th></tr></thead><tbody>{case_rows}</tbody></table>
+<div class="notice"><strong>Privacy</strong><p>{privacy}</p><strong>Limitations</strong><ul>{limitations}</ul></div>
+<footer>Prototype report · Human review remains required for final compliance action.</footer>
+</main>
+</body>
+</html>"""
+    )
 
 
 @app.get("/api/dashboard")
