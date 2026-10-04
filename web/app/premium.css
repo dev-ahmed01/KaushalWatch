@@ -277,3 +277,8 @@ button,input,select,textarea{font:inherit}
 @media(max-width:1100px){.pillarDecisionGrid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:920px){.finalOutcomeGrid{grid-template-columns:1fr}.pillarDecisionGrid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:600px){.finalDecisionCard{grid-template-columns:auto 1fr}.finalDecisionCard>.statusChip{grid-column:1/-1;width:max-content}.pillarDecisionGrid{grid-template-columns:1fr}.nextActionGrid{grid-template-columns:1fr}}
+
+/* cycle 3 — explicit history periods */
+.historyPeriods{display:flex;gap:5px;align-items:center}
+.historyPeriods button{min-height:34px;border:1px solid #dbe4ee;background:#fff;color:#62738a;border-radius:8px;padding:0 9px;font-size:7px;font-weight:850}
+.historyPeriods button.active{background:#eef4ff;border-color:#cbd9ff;color:#245fcf}
