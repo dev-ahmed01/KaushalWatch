@@ -53,5 +53,10 @@
       "w": 87,
       "h": 192
     }
-  ]
+  ],
+  "_reference": {
+    "width": 1920,
+    "height": 1080,
+    "note": "Factory demo camera geometry; bundled profiles auto-scale for the same view at another resolution."
+  }
 }
