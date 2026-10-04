@@ -24,12 +24,12 @@ export function Metric({label,value,note,tone='default',icon}:{label:string;valu
   </article>;
 }
 
-export function EmptyMedia({title='No video available',text='No live feed or recorded clip is connected for this camera.',onUpload}:{title?:string;text?:string;onUpload?:()=>void}){
+export function EmptyMedia({title='No video available',text='No live feed or recorded clip is connected for this camera.',onUpload,onRetry}:{title?:string;text?:string;onUpload?:()=>void;onRetry?:()=>void}){
   return <div className="emptyMedia">
     <div className="emptyCamera"><span></span></div>
     <div className="emptyMediaCopy"><h3>{title}</h3><p>{text}</p></div>
     <div className="emptyActions">
-      <button type="button" className="secondaryBtn">Retry connection</button>
+      {onRetry&&<button type="button" className="secondaryBtn" onClick={onRetry}>Retry connection</button>}
       {onUpload&&<button type="button" className="primaryBtn" onClick={onUpload}>Upload recorded video</button>}
     </div>
     <div className="emptyMediaHint"><span>✓</span> Analysis can still run on an uploaded recording.</div>
