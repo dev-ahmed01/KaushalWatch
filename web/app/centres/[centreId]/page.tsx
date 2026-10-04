@@ -47,10 +47,15 @@ export default function CentreOverview(){
       <section className="centreOverviewMain">
         <div className="centreTopCards">
           <article className="panel centreProfileCard">
-            <div className="centrePhotoEmpty">
-              <span>▥</span>
-              <b>{centre.name}</b>
-              <small>Centre image optional</small>
+            <div className="centreVisualCard" aria-label="Stylised training-centre illustration">
+              <div className="centreVisualSky"></div>
+              <div className="centreVisualSun"></div>
+              <span className="centreVisualBadge">Fixed-camera centre view</span>
+              <div className="centreBuilding">
+                <div className="centreFloor one"><i></i><i></i><i></i><i></i><i></i></div>
+                <div className="centreFloor two"><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div className="centreSign"><b>{centre.name}</b><small>{centre.district} · {centre.camera_id}</small></div>
             </div>
             <div className="centreProfileCopy">
               <div className="centreStatusRow">
