@@ -11,6 +11,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // Demo walkthrough intentionally opens on Infrastructure first.
   await expect(page.getByText(/stage-safe visual manifest/i)).toBeVisible();
   await expect(page.getByText('One centre · three checkpoints')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset walkthrough' })).toBeVisible();
   await expect(page.locator('select[name="demo_profile"]')).toHaveValue('compliant');
 
   // Edge sync zero should read as an idle/expected state, not a fault.
@@ -49,7 +50,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Attendance decision withheld')).toBeVisible();
   await expect(page.getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByText('Run completed', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Blocked / unavailable', { exact: true })).toBeVisible();
 
   // Practical-work configuration upload is optional; bundled profiles are present.
   await primaryNav.getByRole('button', { name: /Practical work/ }).click();
@@ -66,7 +67,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(
     page.getByRole('heading', { name: 'Visual manifest exception created' })
   ).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Run completed', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Review attention', { exact: true })).toBeVisible();
 
   // Re-run the same evidence to exercise the independent duplicate-evidence signal.
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
