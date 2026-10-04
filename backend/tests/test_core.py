@@ -204,6 +204,7 @@ def test_terminal_case_status_cannot_reopen(tmp_path):
         summary="test",
     )
     store.save(case)
+    store.update_status("CASE-TERMINAL", CaseStatus.under_review)
     confirmed = store.update_status("CASE-TERMINAL", CaseStatus.confirmed)
     assert confirmed is not None
     assert confirmed.status == CaseStatus.confirmed
