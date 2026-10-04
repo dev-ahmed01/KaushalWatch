@@ -19,7 +19,7 @@ from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.demo_assets import load_demo_manifest_and_cache, build_compliant_demo_cache
-from app.services.demo_network import centre_rows, get_centre
+from app.services.demo_network import DEMO_CENTRES, centre_rows, get_centre
 from app.services.analysis_history import AnalysisHistoryStore
 from app.services.compliance_assistant import answer_question
 from app.services.centre_settings import CentreSettingsStore
@@ -34,6 +34,21 @@ DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.jso
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 HISTORY = AnalysisHistoryStore(DATA / "analysis_history.json")
 CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
+
+
+def _network_settings() -> dict[str, dict]:
+    return {
+        centre["centre_id"]: CENTRE_SETTINGS.get(centre["centre_id"])
+        for centre in DEMO_CENTRES
+    }
+
+
+def _centre_with_settings(centre_id: str):
+    return get_centre(
+        centre_id,
+        STORE.list(),
+        settings=CENTRE_SETTINGS.get(centre_id),
+    )
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
 app.add_middleware(
@@ -159,15 +174,16 @@ def runtime_readiness():
 
 @app.get("/api/centres")
 def list_centres():
+    rows = centre_rows(STORE.list(), settings_by_centre=_network_settings())
     return {
-        "centres": centre_rows(STORE.list()),
-        "total": len(centre_rows(STORE.list())),
+        "centres": rows,
+        "total": len(rows),
     }
 
 
 @app.get("/api/centres/{centre_id}")
 def centre_detail(centre_id: str):
-    centre = get_centre(centre_id, STORE.list())
+    centre = _centre_with_settings(centre_id)
     if not centre:
         raise HTTPException(status_code=404, detail="Centre not found")
     settings = CENTRE_SETTINGS.get(centre_id)
@@ -196,14 +212,14 @@ def analysis_history(
 
 @app.get("/api/centres/{centre_id}/settings")
 def centre_settings(centre_id: str):
-    if not get_centre(centre_id, STORE.list()):
+    if not _centre_with_settings(centre_id):
         raise HTTPException(status_code=404, detail="Centre not found")
     return CENTRE_SETTINGS.get(centre_id)
 
 
 @app.put("/api/centres/{centre_id}/settings")
 def update_centre_settings(centre_id: str, payload: dict = Body(...)):
-    if not get_centre(centre_id, STORE.list()):
+    if not _centre_with_settings(centre_id):
         raise HTTPException(status_code=404, detail="Centre not found")
     return CENTRE_SETTINGS.save(centre_id, payload)
 
@@ -213,7 +229,7 @@ def assistant_query(payload: dict = Body(...)):
     centre_id = str(payload.get("centre_id") or "DEMO-KA-104")
     period = str(payload.get("period") or "7d")
     question = str(payload.get("question") or "").strip()
-    centre = get_centre(centre_id, STORE.list())
+    centre = _centre_with_settings(centre_id)
     if not centre:
         raise HTTPException(status_code=404, detail="Centre not found")
     centre_cases = [case for case in STORE.list() if case.centre_id == centre_id]
@@ -232,7 +248,7 @@ def centre_report(
     centre_id: str,
     period: str = "7d",
 ):
-    centre = get_centre(centre_id, STORE.list())
+    centre = _centre_with_settings(centre_id)
     if not centre:
         raise HTTPException(status_code=404, detail="Centre not found")
     history = HISTORY.list(centre_id=centre_id, limit=200)
