@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
+import AnalysisProgress from '../../../components/AnalysisProgress';
 import { API } from '../../../lib/api';
 import { OutcomeCard, PageHeader } from '../../../components/Ui';
 
@@ -69,6 +70,7 @@ export default function InfrastructureVerification(){
       </>}
     />
     <WorkflowStepper centreId={id} states={{attendance:'complete',practical:'complete',infrastructure:busy?'running':result?(result.created?'attention':'complete'):'pending'}}/>
+    <AnalysisProgress busy={busy} type="infrastructure"/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="infrastructureLayout">
