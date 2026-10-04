@@ -32,12 +32,13 @@ export default function SettingsPage(){
     <div className="settingsLayout">
       <div className="settingsMain">
         <section className="panel settingsCard">
-          <div className="panelHead"><div><span className="sectionKicker">Analysis schedule</span><h2>Automatic monitoring</h2></div><Status tone={settings.automatic_analysis?'good':'neutral'}>{settings.automatic_analysis?'Enabled':'Manual'}</Status></div>
+          <div className="panelHead"><div><span className="sectionKicker">Analysis schedule</span><h2>Automatic monitoring policy</h2></div><Status tone={settings.automatic_analysis?'good':'neutral'}>{settings.automatic_analysis?'Configured':'Manual'}</Status></div>
           <div className="settingRows">
-            <label className="switchRow"><div><b>Automatic analysis</b><small>Run centre checks without requiring an officer to press Start Analysis.</small></div><input type="checkbox" checked={Boolean(settings.automatic_analysis)} onChange={e=>setSettings({...settings,automatic_analysis:e.target.checked})}/></label>
+            <label className="switchRow"><div><b>Automatic analysis policy</b><small>Allow a connected live/edge camera source to trigger checks in the configured windows. Without a connected source, no analysis is falsely recorded.</small></div><input type="checkbox" checked={Boolean(settings.automatic_analysis)} onChange={e=>setSettings({...settings,automatic_analysis:e.target.checked})}/></label>
             <label><span>Frequency</span><select value={settings.frequency} onChange={e=>setSettings({...settings,frequency:e.target.value})}><option value="every_training_day">Every training day</option><option value="daily">Daily</option><option value="manual">Manual only</option></select></label>
             <label><span>Monitoring windows</span><input value={(settings.monitoring_windows||[]).join(', ')} onChange={e=>setSettings({...settings,monitoring_windows:e.target.value.split(',').map((v:string)=>v.trim()).filter(Boolean)})}/></label>
           </div>
+          <div className="bandwidthNote">Scheduling policy is stored centrally. Unattended execution requires the centre's live/edge capture agent to be connected to a camera source.</div>
         </section>
 
         <section className="panel settingsCard">
