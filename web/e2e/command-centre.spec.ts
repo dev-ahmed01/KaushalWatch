@@ -22,7 +22,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
 
   // Core CI does not install YOLO. Attendance must show an explicit withheld state
   // rather than silently presenting a genuine zero occupancy.
-  await page.getByRole('link', { name: /Analyse Attendance/ }).click();
+  await page.getByRole('link', { name: 'Attendance' }).click();
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
@@ -31,7 +31,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   // Infrastructure has a deliberate discrepancy demo profile and should create
   // an evidence-backed case without requiring raw advanced controls.
   await page.goto('/centres/DEMO-KA-104/infrastructure');
-  await page.locator('select.headerSelect').selectOption('discrepancy');
+  await page.locator('.infraSetupCard select').selectOption('discrepancy');
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
   await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
