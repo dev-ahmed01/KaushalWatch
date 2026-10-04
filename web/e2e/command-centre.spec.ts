@@ -66,7 +66,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
 
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
-  await expect(page.getByText(/visual manifest exception/i)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: 'Visual manifest exception created' })).toBeVisible({ timeout: 20_000 });
   await expect(
     page.getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
   ).toBeVisible({ timeout: 10_000 });
