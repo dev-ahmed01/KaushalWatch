@@ -99,6 +99,7 @@ export default function Page(){
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
+  const [practicalProfile,setPracticalProfile]=useState<'authorized'|'unauthorized'|'default'>('authorized');
   const [attendanceReported,setAttendanceReported]=useState(3);
   const [centreId,setCentreId]=useState('DEMO-KA-104');
   const [batchId,setBatchId]=useState('ELEC-DEMO-01');
@@ -419,6 +420,8 @@ export default function Page(){
           preview={practicalPreview}
           auth={practicalAuth}
           setAuth={setPracticalAuth}
+          profile={practicalProfile}
+          setProfile={setPracticalProfile}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
