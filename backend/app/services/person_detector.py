@@ -232,7 +232,7 @@ def build_person_detector() -> Detector:
 
     backend = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "auto").strip().lower()
 
-    if backend == "yolo":
+    if backend in {"yolo", "yolo11", "ultralytics"}:
         return _build_yolo()
     if backend == "openvino":
         return _build_openvino()
