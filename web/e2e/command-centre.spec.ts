@@ -11,7 +11,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('link', { name: /Bengaluru TC-04/ }).first()).toBeVisible();
 
   await page.goto('/centres/DEMO-KA-104');
-  await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();
+  await expect(page.locator('h1').filter({ hasText: 'Bengaluru TC-04' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Recent Analysis' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Start Analysis' })).toBeVisible();
   await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
