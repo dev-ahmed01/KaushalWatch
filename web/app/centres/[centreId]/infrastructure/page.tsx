@@ -3,6 +3,8 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import EvidenceGallery from '../../../components/EvidenceGallery';
+import VideoSampleStrip from '../../../components/VideoSampleStrip';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
@@ -77,6 +79,7 @@ export default function InfrastructureVerification(){
     <div className="infrastructureLayout">
       <form id="infra-form" className="infraMediaPanel" onSubmit={analyse}>
         <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="Infrastructure camera" badge={preview?'Recorded clip':'No feed'}/>
+        <VideoSampleStrip file={file} count={4}/>
         <div className="infraSetupCard">
           <div>
             <span>Demo evidence profile</span>
@@ -98,14 +101,20 @@ export default function InfrastructureVerification(){
       <AssistantPanel centreId={id}/>
     </div>
 
-    {result&&<div className="infraOutcomeRow">
-      <OutcomeCard
-        tone={result.created?'danger':'good'}
-        title={result.created?'Infrastructure item not detected':'Infrastructure profile completed without a persistent exception'}
-        text={result.case?.summary||result.banner}
-      />
-      {result.created&&result.case?.evidence?.[0]&&
-        <a className="secondaryBtn" href={`${API}/evidence/${result.case.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer">View Evidence</a>}
+    {result&&<div className="infraOutcomeStack">
+      <div className="infraOutcomeRow">
+        <OutcomeCard
+          tone={result.created?'danger':'good'}
+          title={result.created?'Infrastructure item not detected':'Infrastructure profile completed without a persistent exception'}
+          text={result.case?.summary||result.banner}
+        />
+        <div className="infraEvidenceSource">
+          <span>Observation source</span>
+          <b>{result.case?.details?.observation_source||'stage-safe detector adapter'}</b>
+          <small>Uploaded video supplies the retained review frame; equipment counts currently come from the declared detector adapter/profile.</small>
+        </div>
+      </div>
+      {result.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence"/>}
     </div>}
   </div>;
 }

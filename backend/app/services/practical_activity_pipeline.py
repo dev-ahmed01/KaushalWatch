@@ -9,13 +9,14 @@ import numpy as np
 
 from app.models import PracticalActivitySummary, WorkCellActivity
 from app.services.activity_evidence import TemporalActivityGate, worker_motion_fraction
+from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.camera_trust import assess_camera
 from app.services.compliance_cases import (
     build_camera_integrity_case,
     build_practical_activity_case,
 )
 from app.services.evidence import persist_evidence
-from app.services.person_detector import Detection
+from app.services.person_detector import Detection, Detector, build_person_detector
 from app.services.privacy import anonymize_person_regions, full_frame_privacy_blur
 from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
@@ -146,14 +147,22 @@ def validate_work_zones(
 class PracticalActivityPipeline:
     """Worker-centric practical activity pipeline for fixed-camera CCTV.
 
-    Vision establishes anonymous stable presence and visual motion inside configured
-    work cells. Authorization is supplied externally and is never inferred from a
-    person's appearance.
+    The practical-work path now uses the same privacy-safe person-detector
+    abstraction as attendance instead of requiring Ultralytics tracking directly.
+    Short-lived centroid IDs have no identity meaning outside the video stream.
+    Authorization remains external; vision never infers a person's identity,
+    qualification or permission from appearance.
     """
 
-    def __init__(self, evidence_root: Path, index_path: Path):
+    def __init__(
+        self,
+        evidence_root: Path,
+        index_path: Path,
+        detector: Detector | None = None,
+    ):
         self.evidence_root = evidence_root
         self.index_path = index_path
+        self.detector = detector or build_person_detector()
 
     def run(
         self,
@@ -164,14 +173,10 @@ class PracticalActivityPipeline:
         batch_id: str,
         camera_id: str,
         *,
-        model_name: str = "yolo11n.pt",
-        imgsz: int = 640,
-        confidence: float = 0.35,
-        nms_iou: float = 0.50,
-        tracker_name: str = "bytetrack.yaml",
         confirmation_seconds: float = 1.0,
         registration_seconds: float = 2.0,
         grace_seconds: float = 0.8,
+        sample_every_seconds: float = 0.2,
         activity_window_seconds: float = 1.0,
         activity_required_ratio: float = 0.60,
         motion_threshold: float = 0.02,
@@ -184,14 +189,6 @@ class PracticalActivityPipeline:
         if authorization not in {"valid", "absent", "unknown"}:
             raise ValueError("authorization must be valid, absent, or unknown")
 
-        try:
-            from ultralytics import YOLO
-        except ImportError as exc:
-            raise RuntimeError(
-                "Practical-work video analysis requires optional YOLO dependencies. "
-                "Install backend/requirements-yolo-demo.txt."
-            ) from exc
-
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
             raise ValueError(f"Could not open video: {video_path}")
@@ -200,7 +197,9 @@ class PracticalActivityPipeline:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        cap.release()
+        if width <= 0 or height <= 0:
+            cap.release()
+            raise ValueError("Could not read practical-work video dimensions")
 
         zone_scaled = False
         reference_width: int | None = None
@@ -219,20 +218,26 @@ class PracticalActivityPipeline:
 
         validate_work_zones(zones, width, height)
 
-        model = YOLO(model_name)
+        detector_info = self.detector.info
+        step = max(1, int(round(fps * max(0.05, sample_every_seconds))))
+        effective_grace_seconds = max(
+            float(grace_seconds),
+            float(sample_every_seconds) * 1.25,
+        )
+        tracker = AnonymousCentroidTracker(max_distance=140.0, max_missed=2)
         presence = TrackPresenceRegistry(
             confirmation_seconds=confirmation_seconds,
             registration_seconds=registration_seconds,
-            grace_seconds=grace_seconds,
+            grace_seconds=effective_grace_seconds,
         )
 
-        activity_window_frames = max(
+        activity_window_samples = max(
             1,
-            int(round(activity_window_seconds * fps)),
+            int(round(activity_window_seconds / max(sample_every_seconds, 0.05))),
         )
         activity_gates = {
             _zone_name(zone, index): TemporalActivityGate(
-                window_frames=activity_window_frames,
+                window_frames=activity_window_samples,
                 motion_fraction_threshold=motion_threshold,
                 required_positive_ratio=activity_required_ratio,
             )
@@ -255,155 +260,141 @@ class PracticalActivityPipeline:
 
         previous_frame: np.ndarray | None = None
         reference_frame: np.ndarray | None = None
-        frame_no = 0
+        detector_failures = 0
+        detector_failure_messages: list[str] = []
+        frames_sampled = 0
+        frame_index = 0
 
-        stream = model.track(
-            source=str(video_path),
-            stream=True,
-            persist=True,
-            tracker=tracker_name,
-            classes=[0],
-            conf=confidence,
-            iou=nms_iou,
-            imgsz=imgsz,
-            verbose=False,
-        )
+        try:
+            while True:
+                ok, frame = cap.read()
+                if not ok:
+                    break
 
-        for result in stream:
-            frame = result.orig_img.copy()
-            timestamp = frame_no / fps
+                if reference_frame is None:
+                    reference_frame = frame.copy()
 
-            if reference_frame is None:
-                reference_frame = frame.copy()
-
-            trust = assess_camera(
-                frame,
-                previous_frame=previous_frame,
-                reference_frame=reference_frame,
-            )
-            trust_flags.append(trust.trusted)
-            trust_reason_counter.update(trust.reasons)
-
-            if not trust.trusted and (
-                worst_camera_evidence is None or trust.score < worst_camera_evidence[0]
-            ):
-                worst_camera_evidence = (
-                    trust.score,
-                    frame.copy(),
-                    list(trust.reasons),
-                )
-
-            boxes: list[list[float]] = []
-            confidences: list[float] = []
-            track_ids: list[int | None] = []
-
-            if trust.trusted and len(result.boxes):
-                boxes = result.boxes.xyxy.cpu().numpy().tolist()
-                confidences = result.boxes.conf.cpu().numpy().tolist()
-                track_ids = (
-                    result.boxes.id.int().cpu().tolist()
-                    if result.boxes.id is not None
-                    else [None] * len(boxes)
-                )
-
-            current_ids: set[int] = set()
-            observations: list[TrackObservation] = []
-            current_detections: list[Detection] = []
-
-            for index, raw_box in enumerate(boxes):
-                track_id = track_ids[index] if index < len(track_ids) else None
-                if track_id is None:
+                if frame_index % step != 0:
+                    frame_index += 1
                     continue
 
-                x1, y1, x2, y2 = [int(round(value)) for value in raw_box]
-                confidence_value = float(confidences[index])
-                box = (x1, y1, x2, y2)
-                zone_id = _assign_zone(box, zones, minimum_zone_overlap)
+                timestamp = frame_index / fps
+                frames_sampled += 1
 
-                current_ids.add(int(track_id))
-                observations.append(
-                    TrackObservation(
-                        track_id=int(track_id),
-                        x1=x1,
-                        y1=y1,
-                        x2=x2,
-                        y2=y2,
-                        confidence=confidence_value,
-                        zone_id=zone_id,
-                    )
-                )
-                current_detections.append(
-                    Detection(
-                        x1=x1,
-                        y1=y1,
-                        x2=x2,
-                        y2=y2,
-                        confidence=confidence_value,
-                    )
-                )
-
-            presence.update(timestamp, observations)
-            peak_stable_workers = max(
-                peak_stable_workers,
-                presence.registered_count,
-            )
-
-            registered_by_zone: dict[str, list] = defaultdict(list)
-            for track in presence.registered_tracks:
-                if track.track_id in current_ids and track.zone_id:
-                    registered_by_zone[track.zone_id].append(track)
-
-            any_active = False
-            active_now: list[str] = []
-
-            for index, zone in enumerate(zones):
-                name = _zone_name(zone, index)
-                worker_boxes = [
-                    track.bbox
-                    for track in registered_by_zone.get(name, [])
-                ]
-                motion = worker_motion_fraction(
-                    previous_frame,
+                trust = assess_camera(
                     frame,
-                    worker_boxes,
-                    pixel_delta_threshold=motion_pixel_delta,
+                    previous_frame=previous_frame,
+                    reference_frame=reference_frame,
                 )
-                worker_present = bool(worker_boxes) and trust.trusted
-                decision = activity_gates[name].update(worker_present, motion)
+                trust_flags.append(trust.trusted)
+                trust_reason_counter.update(trust.reasons)
 
-                zone_motion_scores[name].append(motion)
-                if worker_present:
-                    zone_presence_frames[name] += 1
-                if decision.active and trust.trusted:
-                    zone_active_frames[name] += 1
-                    active_zone_ids_seen.add(name)
-                    active_now.append(name)
-                    any_active = True
-
-            if any_active:
-                practical_activity_frames += 1
-                if first_activity_time is None:
-                    first_activity_time = timestamp
-
-                if authorization in {"absent", "unknown"} and first_exception_evidence is None:
-                    first_exception_evidence = (
+                if not trust.trusted and (
+                    worst_camera_evidence is None
+                    or trust.score < worst_camera_evidence[0]
+                ):
+                    worst_camera_evidence = (
+                        trust.score,
                         frame.copy(),
-                        current_detections,
-                        list(active_now),
+                        list(trust.reasons),
                     )
 
-            previous_frame = frame
-            frame_no += 1
+                detections: list[Detection] = []
+                if trust.trusted:
+                    try:
+                        detections = self.detector.detect(frame)
+                    except Exception as exc:
+                        detector_failures += 1
+                        detector_failure_messages.append(f"{type(exc).__name__}: {exc}")
 
-        if frame_no == 0:
+                current_ids: set[int] = set()
+                observations: list[TrackObservation] = []
+                current_detections: list[Detection] = []
+
+                if trust.trusted and detector_failures == 0:
+                    tracks = tracker.update(detections)
+                    for track in tracks:
+                        if track.missed != 0:
+                            continue
+                        box = (track.x1, track.y1, track.x2, track.y2)
+                        zone_id = _assign_zone(box, zones, minimum_zone_overlap)
+                        current_ids.add(track.track_id)
+                        observations.append(
+                            TrackObservation(
+                                track_id=track.track_id,
+                                x1=track.x1,
+                                y1=track.y1,
+                                x2=track.x2,
+                                y2=track.y2,
+                                zone_id=zone_id,
+                            )
+                        )
+
+                    current_detections = detections
+
+                presence.update(timestamp, observations)
+                peak_stable_workers = max(
+                    peak_stable_workers,
+                    presence.registered_count,
+                )
+
+                registered_by_zone: dict[str, list] = defaultdict(list)
+                for track in presence.registered_tracks:
+                    if track.track_id in current_ids and track.zone_id:
+                        registered_by_zone[track.zone_id].append(track)
+
+                any_active = False
+                active_now: list[str] = []
+
+                for index, zone in enumerate(zones):
+                    name = _zone_name(zone, index)
+                    worker_boxes = [
+                        track.bbox
+                        for track in registered_by_zone.get(name, [])
+                    ]
+                    motion = worker_motion_fraction(
+                        previous_frame,
+                        frame,
+                        worker_boxes,
+                        pixel_delta_threshold=motion_pixel_delta,
+                    )
+                    worker_present = bool(worker_boxes) and trust.trusted
+                    activity = activity_gates[name].update(worker_present, motion)
+
+                    zone_motion_scores[name].append(motion)
+                    if worker_present:
+                        zone_presence_frames[name] += 1
+                    if activity.active and trust.trusted:
+                        zone_active_frames[name] += 1
+                        active_zone_ids_seen.add(name)
+                        active_now.append(name)
+                        any_active = True
+
+                if any_active:
+                    practical_activity_frames += 1
+                    if first_activity_time is None:
+                        first_activity_time = timestamp
+
+                    if (
+                        authorization in {"absent", "unknown"}
+                        and first_exception_evidence is None
+                    ):
+                        first_exception_evidence = (
+                            frame.copy(),
+                            current_detections,
+                            list(active_now),
+                        )
+
+                previous_frame = frame.copy()
+                frame_index += 1
+        finally:
+            cap.release()
+
+        if frames_sampled == 0:
             raise ValueError("No frames were processed from the video")
 
-        trusted_ratio = (
-            sum(trust_flags) / len(trust_flags)
-            if trust_flags
-            else 0.0
-        )
-        practical_fraction = practical_activity_frames / frame_no
+        trusted_ratio = sum(trust_flags) / len(trust_flags) if trust_flags else 0.0
+        practical_fraction = practical_activity_frames / frames_sampled
 
         work_cells: list[WorkCellActivity] = []
         for index, zone in enumerate(zones):
@@ -416,9 +407,9 @@ class PracticalActivityPipeline:
                 WorkCellActivity(
                     zone_id=name,
                     registered_worker_presence_fraction=(
-                        zone_presence_frames[name] / frame_no
+                        zone_presence_frames[name] / frames_sampled
                     ),
-                    activity_fraction=zone_active_frames[name] / frame_no,
+                    activity_fraction=zone_active_frames[name] / frames_sampled,
                     worker_motion_fraction_p50=float(np.percentile(scores, 50)),
                     worker_motion_fraction_p90=float(np.percentile(scores, 90)),
                     worker_motion_fraction_p95=float(np.percentile(scores, 95)),
@@ -459,6 +450,9 @@ class PracticalActivityPipeline:
                 )
             )
             decision = "camera_evidence_insufficient"
+
+        elif not detector_info.authoritative or detector_failures:
+            decision = "detector_unavailable"
 
         elif practical_fraction > 0:
             if authorization == "valid":
@@ -507,9 +501,14 @@ class PracticalActivityPipeline:
                 )
 
         duration_sec = (
-            frame_no / fps
-            if fps
-            else (total_frames / 25.0 if total_frames else 0.0)
+            total_frames / fps
+            if fps and total_frames > 0
+            else frames_sampled * sample_every_seconds
+        )
+        failure_message = (
+            detector_failure_messages[-1]
+            if detector_failure_messages
+            else detector_info.message
         )
 
         return PracticalActivitySummary(
@@ -521,7 +520,7 @@ class PracticalActivityPipeline:
             zone_scaled=zone_scaled,
             zone_reference_width=reference_width,
             zone_reference_height=reference_height,
-            frames_processed=frame_no,
+            frames_processed=frames_sampled,
             duration_sec=round(duration_sec, 3),
             trusted_frame_ratio=round(trusted_ratio, 4),
             peak_stable_workers=peak_stable_workers,
@@ -533,5 +532,12 @@ class PracticalActivityPipeline:
             ),
             active_work_cells=len(active_zone_ids_seen),
             work_cells=work_cells,
+            detector_backend=detector_info.backend,
+            detector_mode=detector_info.mode,
+            detector_authoritative=bool(
+                detector_info.authoritative and detector_failures == 0
+            ),
+            detector_message=failure_message,
+            detector_failures=detector_failures,
             case=case,
         )

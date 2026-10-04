@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import EvidenceGallery from '../../../components/EvidenceGallery';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre, getDashboard } from '../../../lib/api';
 import type { CaseRecord, Centre } from '../../../lib/types';
@@ -103,18 +104,20 @@ export default function ReviewQueue(){
             <span>◈</span><div><strong>Independent evidence-integrity signal</strong><p>Possible duplicate evidence matched a previous evidence record. Treat this separately from the compliance finding.</p></div>
           </div>}
 
-          <div className="caseEvidenceGrid">
-            <div className="evidencePreview">
-              {selected.evidence?.[0]
-                ? <img src={`${API}/evidence/${selected.evidence[0].evidence_id}.jpg`} alt={`Evidence for ${selected.case_id}`}/>
-                : <div className="noEvidence">No retained evidence frame</div>}
-            </div>
+          <div className="caseEvidenceWorkspace">
+            <EvidenceGallery evidence={selected.evidence||[]} title="Case evidence"/>
             <div className="evidenceFacts">
               <div><span>Centre</span><b>{selected.centre_id}</b></div>
               <div><span>Batch</span><b>{selected.batch_id}</b></div>
               <div><span>Severity</span><b>{selected.severity}</b></div>
               <div><span>Evidence</span><b>{selected.evidence?.length||0} record(s)</b></div>
+              <div><span>Created</span><b>{selected.created_at?new Date(selected.created_at).toLocaleString():'—'}</b></div>
+              <div><span>Camera</span><b>{String(selected.details?.camera_id||'—')}</b></div>
             </div>
+          </div>
+          <div className="evidencePackActions">
+            <a className="secondaryBtn" href={`${API}/api/cases/${selected.case_id}/evidence-pack`} target="_blank" rel="noreferrer">Open Evidence Pack</a>
+            <span>Evidence pack includes integrity hashes, duplicate signal and the case decision policy.</span>
           </div>
 
           {!resolved&&<>

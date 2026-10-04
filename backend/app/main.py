@@ -1,7 +1,6 @@
 from __future__ import annotations
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
-import importlib.util
 import os
 import json
 import tempfile
@@ -31,7 +30,7 @@ DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
 STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
-PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json")
+PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json", detector=PIPELINE.detector)
 DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.json"
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 HISTORY = AnalysisHistoryStore(DATA / "analysis_history.json")
@@ -128,8 +127,8 @@ def runtime_readiness():
     detector = PIPELINE.detector.info
 
     zones_ready = DEFAULT_WORK_ZONES.exists()
-    yolo_available = importlib.util.find_spec("ultralytics") is not None
-    practical_ready = zones_ready and yolo_available
+    practical_detector = PRACTICAL_PIPELINE.detector.info
+    practical_ready = zones_ready and bool(practical_detector.authoritative)
 
     try:
         load_demo_manifest_and_cache()
@@ -142,18 +141,16 @@ def runtime_readiness():
         infrastructure_message = f"Infrastructure demo assets unavailable: {exc}"
 
     if practical_ready:
-        practical_message = "YOLO runtime and bundled work-zone profiles are available."
-    elif not yolo_available and not zones_ready:
         practical_message = (
-            "Practical-work runtime unavailable: install YOLO demo dependencies and "
-            "restore bundled work-zone profiles."
+            f"{practical_detector.backend} detector and bundled work-zone profiles are available."
         )
-    elif not yolo_available:
-        practical_message = (
-            "Practical-work runtime unavailable: install backend/requirements-yolo-demo.txt."
-        )
-    else:
+    elif not zones_ready:
         practical_message = "Practical-work runtime unavailable: bundled work-zone profiles are missing."
+    else:
+        practical_message = (
+            "Practical-work analysis can process the video, but final conclusions are "
+            f"withheld because the active detector is non-authoritative: {practical_detector.message}"
+        )
 
     return {
         "attendance": {
@@ -164,7 +161,10 @@ def runtime_readiness():
         },
         "practical_work": {
             "ready": practical_ready,
-            "backend": "yolo11",
+            "backend": practical_detector.backend,
+            "mode": practical_detector.mode,
+            "authoritative": bool(practical_detector.authoritative),
+            "processing_available": zones_ready,
             "default_zone_profiles": ["default", "authorized", "unauthorized"],
             "message": practical_message,
         },
@@ -180,6 +180,39 @@ def runtime_readiness():
                 "human review remains required."
             ),
         },
+    }
+
+
+@app.get("/api/practical-work-zones")
+def practical_work_zones(profile: str = "authorized"):
+    if not DEFAULT_WORK_ZONES.exists():
+        raise HTTPException(
+            status_code=500,
+            detail="Bundled practical-work zone configuration is missing",
+        )
+    try:
+        parsed = json.loads(DEFAULT_WORK_ZONES.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=500,
+            detail="Bundled practical-work zone configuration is invalid",
+        ) from exc
+
+    zones = parsed.get(profile) if isinstance(parsed, dict) else None
+    if not isinstance(zones, list):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Unknown practical-work zone profile: {profile}",
+        )
+    reference = parsed.get("_reference") if isinstance(parsed, dict) else None
+    return {
+        "profile": profile,
+        "reference": reference or {"width": 1920, "height": 1080},
+        "zones": zones,
+        "note": (
+            "Zones are fixed-camera geometry for the bundled demo scene. "
+            "They are visualized in the UI and scaled only for the same camera view."
+        ),
     }
 
 
@@ -540,7 +573,10 @@ def process_practical_activity(
             batch_id=batch_id,
             analysis_type="practical_work",
             outcome="attention" if result.case else (
-                "blocked" if result.decision == "camera_evidence_insufficient" else "compliant"
+                "blocked"
+                if result.decision in {"camera_evidence_insufficient", "detector_unavailable"}
+                or not result.detector_authoritative
+                else "compliant"
             ),
             summary=(
                 result.case.summary
@@ -548,6 +584,8 @@ def process_practical_activity(
                 else (
                     "Authorized practical activity was observed."
                     if result.decision == "authorized_practical_activity"
+                    else result.detector_message
+                    if result.decision == "detector_unavailable"
                     else "No practical-work exception was created."
                 )
             ),
@@ -556,6 +594,9 @@ def process_practical_activity(
                 "active_work_cells": result.active_work_cells,
                 "peak_stable_workers": result.peak_stable_workers,
                 "activity_fraction": result.practical_activity_fraction,
+                "detector_backend": result.detector_backend,
+                "detector_authoritative": result.detector_authoritative,
+                "detector_failures": result.detector_failures,
             },
         )
         return result.model_dump(mode="json")
@@ -580,8 +621,11 @@ def process_practical_activity(
             "camera_id": camera_id,
             "authorization": authorization,
             "decision": "detector_unavailable",
+            "detector_backend": "unavailable",
+            "detector_mode": "blocked",
             "detector_authoritative": False,
             "detector_message": message,
+            "detector_failures": 1,
             "zone_scaled": False,
             "zone_reference_width": zone_reference_size[0] if zone_reference_size else None,
             "zone_reference_height": zone_reference_size[1] if zone_reference_size else None,

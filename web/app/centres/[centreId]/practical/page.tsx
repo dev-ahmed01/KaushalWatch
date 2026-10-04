@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
+import EvidenceGallery from '../../../components/EvidenceGallery';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
@@ -22,12 +23,36 @@ export default function PracticalVerification(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [centre,setCentre]=useState<Centre|null>(null);
+  const [zoneConfig,setZoneConfig]=useState<any>({reference:{width:1920,height:1080},zones:[]});
   useEffect(()=>{getCentre(id).then(setCentre).catch(()=>setCentre(null));},[id]);
+
+  useEffect(()=>{
+    if(zonesFile) return;
+    fetch(`${API}/api/practical-work-zones?profile=${encodeURIComponent(profile)}`)
+      .then(response=>response.json())
+      .then(payload=>setZoneConfig(payload))
+      .catch(()=>setZoneConfig({reference:{width:1920,height:1080},zones:[]}));
+  },[profile,zonesFile]);
 
   function onFile(e:ChangeEvent<HTMLInputElement>){
     const next=e.target.files?.[0]||null;
     setFile(next);
     setPreview(next?URL.createObjectURL(next):'');
+  }
+
+  async function onZonesFile(e:ChangeEvent<HTMLInputElement>){
+    const next=e.target.files?.[0]||null;
+    setZonesFile(next);
+    if(!next) return;
+    try{
+      const parsed=JSON.parse(await next.text());
+      const reference=parsed?._reference||{width:1920,height:1080};
+      const zones=Array.isArray(parsed)?parsed:Array.isArray(parsed?.zones)?parsed.zones:Array.isArray(parsed?.[profile])?parsed[profile]:[];
+      setZoneConfig({reference,zones,profile:'custom'});
+      setError('');
+    }catch{
+      setError('Custom work-zone JSON could not be parsed.');
+    }
   }
 
   async function analyse(e:FormEvent){
@@ -63,7 +88,14 @@ export default function PracticalVerification(){
 
     <div className="analysisThreeCol">
       <form id="practical-form" className="analysisPrimary" onSubmit={analyse}>
-        <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="Work Zone A · Workshop" badge={preview?'Recorded clip':'No feed'}/>
+        <VideoWorkspace
+          preview={preview}
+          inputName="file"
+          onFile={onFile}
+          label="Workshop camera · work-cell overlay"
+          badge={preview?'Zones overlaid':'No feed'}
+          overlay={<WorkZoneOverlay config={zoneConfig} result={result}/>}
+        />
         <div className="workZoneStrip">
           {(result?.work_cells||[{zone_id:'Work Zone A'},{zone_id:'Work Zone B'},{zone_id:'Work Zone C'}]).slice(0,3).map((cell:any)=><div className="zoneMini" key={cell.zone_id}>
             <span className={cell.activity_fraction>0.3?'zoneDot active':'zoneDot'}></span>
@@ -81,12 +113,15 @@ export default function PracticalVerification(){
           <div><span>First Activity</span><b>{result?.first_practical_activity_time_sec==null?'—':`${result.first_practical_activity_time_sec.toFixed(1)}s`}</b></div>
           <div><span>Peak Stable Workers</span><b>{result?.peak_stable_workers??'—'}</b></div>
           <div><span>Trusted Imagery</span><b>{result?`${Math.round((result.trusted_frame_ratio||0)*100)}%`:'—'}</b></div>
+          <div><span>Detector</span><b>{result?.detector_backend||'—'}</b></div>
+          <div><span>Detector authority</span><b>{result?result.detector_authoritative?'Authoritative':'Decision withheld':'—'}</b></div>
         </div>
         {result&&<OutcomeCard
           tone={result.decision==='detector_unavailable'||result.decision==='camera_evidence_insufficient'?'blocked':result.case?'warn':'good'}
-          title={result.decision==='authorized_practical_activity'?'Authorized practical work detected':result.decision==='detector_unavailable'?'Practical detector unavailable — decision withheld':String(result.decision).replaceAll('_',' ')}
+          title={result.decision==='authorized_practical_activity'?'Authorized practical work detected':result.decision==='detector_unavailable'?'Primary detector unavailable — activity shown, decision withheld':String(result.decision).replaceAll('_',' ')}
           text={result.case?.summary||result.detector_message||'Visual activity stayed within the supplied authorization state.'}
         />}
+        {result?.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Practical-work evidence" compact/>}
         {!result&&<div className="resultEmpty"><span>⌁</span><b>No analysis yet</b><p>The system confirms stable worker presence and local motion before calling a work cell active.</p></div>}
 
         <div className="practicalSetup">
@@ -99,7 +134,7 @@ export default function PracticalVerification(){
           <details className="advancedCompact">
             <summary>Advanced setup</summary>
             <label><span>Bundled work-zone profile</span><select value={profile} onChange={e=>setProfile(e.target.value)}><option value="authorized">Authorized demo layout</option><option value="unauthorized">Unauthorized demo layout</option><option value="default">Default layout</option></select></label>
-            <label className="optionalFile"><span>Work-zone JSON · optional override</span><input type="file" accept=".json,application/json" onChange={e=>setZonesFile(e.target.files?.[0]||null)}/></label>
+            <label className="optionalFile"><span>Work-zone JSON · optional override</span><input type="file" accept=".json,application/json" onChange={onZonesFile}/></label>
           </details>
         </div>
       </section>
@@ -107,4 +142,30 @@ export default function PracticalVerification(){
       <AssistantPanel centreId={id}/>
     </div>
   </div>;
+}
+
+
+function WorkZoneOverlay({config,result}:{config:any;result:any}){
+  const reference=config?.reference||{width:1920,height:1080};
+  const width=Number(reference.width)||1920;
+  const height=Number(reference.height)||1080;
+  const cells=new Map((result?.work_cells||[]).map((cell:any)=>[cell.zone_id,cell]));
+  return <>{(config?.zones||[]).map((zone:any,index:number)=>{
+    const id=String(zone.zone_id||'work_zone_'+String(index+1));
+    const cell:any=cells.get(id);
+    const active=Boolean(cell&&(cell.activity_fraction||0)>0);
+    return <div
+      key={id}
+      className={active?'workZoneBox active':'workZoneBox'}
+      style={{
+        left:(Number(zone.x)/width*100)+'%',
+        top:(Number(zone.y)/height*100)+'%',
+        width:(Number(zone.w)/width*100)+'%',
+        height:(Number(zone.h)/height*100)+'%',
+      }}
+    >
+      <span>{id.replaceAll('_',' ')}</span>
+      {cell&&<b>{Math.round((cell.activity_fraction||0)*100)}% activity</b>}
+    </div>;
+  })}</>;
 }
