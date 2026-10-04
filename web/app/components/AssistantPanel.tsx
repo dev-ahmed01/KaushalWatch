@@ -73,7 +73,7 @@ export default function AssistantPanel({centreId}:{centreId:string}){
           {(reply.suggested_actions||[]).slice(0,3).map(item=><button key={item} type="button" onClick={()=>ask(item)}>{item}</button>)}
         </div>
         <div className="assistantAnswerActions">
-          <Link href={`/reports?centre=${encodeURIComponent(centreId)}&period=7d`} className="assistantAction">Create report</Link>
+          <Link href={`/reports?centre=${encodeURIComponent(centreId)}&period=${encodeURIComponent(reply.period||'7d')}`} className="assistantAction">Create report</Link>
           <Link href={`/centres/${centreId}/history`} className="assistantAction ghost">Open history</Link>
         </div>
       </div>}
