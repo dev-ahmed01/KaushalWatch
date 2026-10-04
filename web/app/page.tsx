@@ -203,7 +203,7 @@ export default function Page(){
 
       const body=new FormData();
       body.append('file',video);
-      for(const key of ['centre_id','batch_id','camera_id','operability_item_id','roi_x1','roi_y1','roi_x2','roi_y2']){
+      for(const key of ['centre_id','batch_id','camera_id','demo_profile','operability_item_id','roi_x1','roi_y1','roi_x2','roi_y2']){
         const value=incoming.get(key);
         if(value!==null&&String(value).trim()!=='') body.append(key,String(value));
       }
@@ -698,10 +698,16 @@ function InfrastructureView({
 
         <VideoDrop name="infra_file" preview={preview} onPreview={onPreview}/>
 
-        <div className="formGrid three">
+        <div className="formGrid four">
+          <Field label="Demo outcome">
+            <select name="demo_profile" defaultValue="compliant">
+              <option value="compliant">Compliant / matching</option>
+              <option value="discrepancy">Persistent discrepancy</option>
+            </select>
+          </Field>
           <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
           <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
-          <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
+          <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
         <div className="formSection">
@@ -741,11 +747,21 @@ function InfrastructureView({
         title={result.created?'Visual manifest exception created':'No persistent visual manifest exception'}
         text={result.case?.summary||result.banner||'No persistent infrastructure exception was created.'}
       />
-      {result.created&&<div className="resultGrid">
-        <ResultMetric label="Case" value={result.case.case_id}/>
-        <ResultMetric label="Type" value="Infrastructure"/>
-        <ResultMetric label="Evidence" value={result.case.evidence?.length?'Captured':'Missing'}/>
-        <ResultMetric label="Operability" value={result.case.details?.apparent_operability?.state?.replaceAll('_',' ')||'Not evaluated'}/>
+      <div className="resultGrid">
+        <ResultMetric label="Outcome" value={result.created?'Exception':'Compliant'}/>
+        <ResultMetric label="Profile" value={result.demo_profile||'—'}/>
+        <ResultMetric label="Case" value={result.created?result.case.case_id:'No case created'}/>
+        <ResultMetric label="Evidence" value={result.created?(result.case.evidence?.length?'Captured':'Missing'):'Not required'}/>
+        <ResultMetric label="Items checked" value={result.items?.length??'—'}/>
+        <ResultMetric label="Operability" value={result.created?(result.case.details?.apparent_operability?.state?.replaceAll('_',' ')||'Not evaluated'):'Not escalated'}/>
+      </div>
+      {!!result.items?.length&&<div className="cellResults">
+        <div className="subHead"><span className="eyebrow">MANIFEST DECISIONS</span><h3>Camera-verifiable, partial and officer-only outcomes</h3></div>
+        <div className="cellGrid">
+          {result.items.map((item:any)=><div className="cellResult" key={item.id}>
+            <div className="cellResultHead"><div><strong>{item.label}</strong><span>Required {item.required} · observed {item.observed??'officer'}</span></div><b>{String(item.state).replaceAll('_',' ')}</b></div>
+          </div>)}
+        </div>
       </div>}
     </section>}
   </>;
