@@ -28,6 +28,9 @@ class AttendanceObservation(BaseModel):
     second: float
     raw_count: int
     tracker_count: int | None = None
+    candidate_count: int | None = None
+    confirmed_count: int | None = None
+    registered_count: int | None = None
     smoothed_count: int
     camera_trust: float
 
