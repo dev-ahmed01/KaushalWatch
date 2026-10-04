@@ -5,10 +5,13 @@
 This file is the source of truth for what is verified, scaffolded, or still pending.
 
 ## Verified in the current core build
-- FastAPI API, CORS, evidence serving and persisted compliance cases.
+- FastAPI API, configurable browser-origin CORS, evidence serving and persisted compliance cases.
 - Video upload vertical slice.
 - **OpenVINO person-detection-retail-0013 selected from the real EPFL Laboratory Camera 0 benchmark.**
+- Auto detector selection now prefers the prepared benchmarked local OpenVINO model before YOLO, using a repository-root model path rather than the API process working directory.
+- `python scripts/prepare_demo_vision.py --install` provides a one-command preparation/check for the OpenVINO runtime and checksum-verified model pair.
 - Anonymous short-lived positional tracking integrated into the attendance runtime.
+- Attendance returns time-synchronized anonymous candidate/confirmed/registered track boxes for the local review overlay; these session-local labels are not identities and non-authoritative fallback overlays remain diagnostic only.
 - Occupancy smoothing, reported-vs-observed discrepancy logic and temporal persistence.
 - Camera-trust checks for darkness, blur, frozen feed and basic scene shift.
 - Camera-integrity cases suspend attendance conclusions when the feed is not trustworthy.
@@ -21,7 +24,8 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
 - Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states.
 - Durable edge telemetry queue, executable offline edge agent, idempotent sync endpoint, dashboard sync visibility and bandwidth measurement utility.
-- Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.\n- Strict final-demo readiness validation for readable video metadata, ROI bounds, required scenario events, non-example final assets, OpenVINO selection/model assets, and manifest/cache alignment that excludes officer-only items.
+- Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.
+- Strict final-demo readiness validation for readable video metadata, ROI bounds, required scenario events, non-example final assets, OpenVINO selection/model assets, and manifest/cache alignment that excludes officer-only items.
 - Privacy-preserving design note matching the PS conditional on individual identification.
 - Next.js Command Centre connected to the live API.
 - Practical-work verification now reuses the shared person-detector abstraction plus anonymous short-lived tracking; it can process clips without a hard Ultralytics dependency, while non-authoritative detector modes explicitly withhold the final conclusion.
@@ -59,6 +63,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
 - Apparent operability is visual activity evidence only, never mechanical/electrical health.
 - Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
+- The repository now contains the authoritative OpenVINO preparation path, but a deployed/demo backend is only authoritative after that runtime/model preparation has actually been run in the same environment that starts the API.
 - AEBAS/SIDH integrations remain simulated because the prototype does not have production government credentials.
 
 ## Remaining final-demo milestones
