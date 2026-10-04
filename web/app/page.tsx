@@ -530,6 +530,27 @@ function AttendanceView({
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
   const latest=result?.observations?.[result.observations.length-1];
+  const attendanceDecision=String(result?.decision||'unknown');
+  const attendanceTone:'good'|'warn'|'danger'=
+    attendanceDecision==='compliant'
+      ? 'good'
+      : attendanceDecision==='attendance_exception'
+        ? 'danger'
+        : 'warn';
+  const attendanceTitle=
+    attendanceDecision==='compliant'
+      ? 'Attendance evidence is within policy'
+      : attendanceDecision==='attendance_exception'
+        ? 'Persistent attendance discrepancy'
+        : attendanceDecision==='camera_integrity_exception'
+          ? 'Camera integrity prevents attendance verification'
+          : 'Detector unavailable / fallback mode';
+  const attendanceText=
+    attendanceDecision==='compliant'
+      ? 'Stable anonymous occupancy is consistent with the reported attendance under the configured persistence policy.'
+      : result?.case?.summary
+        || result?.detector_message
+        || 'Attendance conclusions were withheld because the evidence pipeline could not produce an authoritative result.';
   return <>
     <ModuleHero
       eyebrow="ATTENDANCE / STABLE OCCUPANCY"
@@ -599,27 +620,29 @@ function AttendanceView({
     </section>
 
     {result&&<section className="resultSection">
-      {!result.detector_authoritative
-        ? <DecisionHeader
-            tone="warn"
-            eyebrow="ATTENDANCE RESULT"
-            title="Detector unavailable / fallback mode"
-            text={result.detector_message||'Attendance conclusions are suspended because the primary detector was not available.'}
-          />
-        : <DecisionHeader
-            tone={result.case?'warn':'good'}
-            eyebrow="ATTENDANCE RESULT"
-            title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
-            text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
-          />
-      }
+      <DecisionHeader
+        tone={attendanceTone}
+        eyebrow="ATTENDANCE RESULT"
+        title={attendanceTitle}
+        text={attendanceText}
+      />
       <div className="resultGrid">
-        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
-        <ResultMetric label="Frames sampled" value={result.frames_sampled??'—'}/>
         <ResultMetric label="Reported" value={result.reported_attendance}/>
         <ResultMetric label="Stable occupancy" value={result.detector_authoritative?(result.estimated_occupancy??'—'):'Unavailable'}/>
         <ResultMetric label="Mismatch" value={result.detector_authoritative&&result.discrepancy_pct!=null?`${result.discrepancy_pct}%`:'Suspended'}/>
-        <ResultMetric label="Raw detections now" value={latest?.raw_count??'—'}/>
+        <ResultMetric label="Trusted samples" value={pct(result.trusted_sample_ratio)}/>
+        <ResultMetric label="Mismatch persistence" value={result.detector_authoritative?pct(result.mismatch_persistence_ratio):'Suspended'}/>
+        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
+      </div>
+      {result.detector_authoritative&&<OccupancyTimeline
+        observations={result.observations||[]}
+        reported={result.reported_attendance}
+      />}
+      <div className="analysisMetaBar">
+        <span>Frames sampled <b>{result.frames_sampled??'—'}</b></span>
+        <span>Sample interval <b>{result.sample_every_seconds??'—'}s</b></span>
+        <span>Latest raw detections <b>{latest?.raw_count??'—'}</b></span>
+        <span>Detector failures <b>{result.detector_failures??0}</b></span>
       </div>
       {!result.detector_authoritative&&<div className="detectorNotice">
         <Icon name="alert"/>
