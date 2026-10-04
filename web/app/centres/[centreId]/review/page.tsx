@@ -38,7 +38,7 @@ export default function ReviewQueue(){
     if(!selected) return;
     setBusy(true);
     try{
-      const response=await fetch(\`\${API}/api/cases/\${selected.case_id}/review\`,{
+      const response=await fetch(`${API}/api/cases/${selected.case_id}/review`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({action,note:note.trim()||null}),
@@ -60,7 +60,7 @@ export default function ReviewQueue(){
         <div className="caseTabs"><button className="active">Pending ({cases.length})</button><button>Resolved ({history.length})</button></div>
         <div className="caseList">
           {cases.map(item=><button type="button" key={item.case_id} onClick={()=>setSelectedId(item.case_id)} className={selectedId===item.case_id?'caseListItem active':'caseListItem'}>
-            <span className={\`caseBullet \${item.severity}\`}></span>
+            <span className={`caseBullet ${item.severity}`}></span>
             <div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.summary}</small><em>{item.case_id}</em></div>
             <Status tone={tone(item.severity) as any}>{item.severity}</Status>
           </button>)}
@@ -88,7 +88,7 @@ export default function ReviewQueue(){
           <div className="caseEvidenceGrid">
             <div className="evidencePreview">
               {selected.evidence?.[0]
-                ? <img src={\`\${API}/evidence/\${selected.evidence[0].evidence_id}.jpg\`} alt={\`Evidence for \${selected.case_id}\`}/>
+                ? <img src={`${API}/evidence/${selected.evidence[0].evidence_id}.jpg`} alt={`Evidence for ${selected.case_id}`}/>
                 : <div className="noEvidence">No retained evidence frame</div>}
             </div>
             <div className="evidenceFacts">
