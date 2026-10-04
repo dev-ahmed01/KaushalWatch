@@ -94,27 +94,22 @@ export default function AnalysisRun(){
       setStages(s=>({...s,attendance:attendanceState}));
       setMessages(m=>({...m,attendance:attendance.case?.summary||attendance.detector_message||'Attendance check completed.'}));
 
-      if(readiness?.practical_work?.ready){
-        setStages(s=>({...s,practical:'running'}));
-        const practicalBody=new FormData();
-        practicalBody.append('file',file);
-        practicalBody.append('authorization','valid');
-        practicalBody.append('zone_profile','authorized');
-        practicalBody.append('centre_id',id);
-        practicalBody.append('batch_id',batch);
-        practicalBody.append('camera_id','LAB-CAM-03');
-        try{
-          const practical=await post('/api/process-practical-activity',practicalBody);
-          const practicalState:RunState=practical.decision==='camera_evidence_insufficient'?'blocked':practical.case?'attention':'complete';
-          setStages(s=>({...s,practical:practicalState}));
-          setMessages(m=>({...m,practical:practical.case?.summary||String(practical.decision).replaceAll('_',' ')}));
-        }catch(stepError:any){
-          setStages(s=>({...s,practical:'blocked'}));
-          setMessages(m=>({...m,practical:stepError.message||'Practical-work analysis unavailable.'}));
-        }
-      }else{
+      setStages(s=>({...s,practical:'running'}));
+      const practicalBody=new FormData();
+      practicalBody.append('file',file);
+      practicalBody.append('authorization','valid');
+      practicalBody.append('zone_profile','authorized');
+      practicalBody.append('centre_id',id);
+      practicalBody.append('batch_id',batch);
+      practicalBody.append('camera_id','LAB-CAM-03');
+      try{
+        const practical=await post('/api/process-practical-activity',practicalBody);
+        const practicalState:RunState=['camera_evidence_insufficient','detector_unavailable'].includes(practical.decision)?'blocked':practical.case?'attention':'complete';
+        setStages(s=>({...s,practical:practicalState}));
+        setMessages(m=>({...m,practical:practical.case?.summary||practical.detector_message||String(practical.decision).replaceAll('_',' ')}));
+      }catch(stepError:any){
         setStages(s=>({...s,practical:'blocked'}));
-        setMessages(m=>({...m,practical:readiness?.practical_work?.message||'Practical-work runtime is not ready on this server.'}));
+        setMessages(m=>({...m,practical:stepError.message||'Practical-work analysis unavailable.'}));
       }
 
       setStages(s=>({...s,infrastructure:'running'}));
