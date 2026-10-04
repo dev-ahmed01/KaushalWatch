@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
-from app.models import ReviewRequest, EdgeSyncRequest
+from app.models import ReviewRequest, EdgeSyncRequest, ComplianceCase
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
@@ -848,18 +848,83 @@ def create_demo_infrastructure_case(
 
 @app.post("/api/edge/sync")
 def edge_sync(request: EdgeSyncRequest):
-    """Prototype cloud-side receiver for queued edge telemetry; raw video is not required."""
+    """Receive compact edge telemetry and fold it into the same audit stores.
+
+    Raw video remains local. Analysis summaries update history and exception case
+    telemetry becomes reviewable centrally without pretending the raw frame was uploaded.
+    """
     events_path = DATA / "edge_events.json"
     rows = json.loads(events_path.read_text()) if events_path.exists() else []
     accepted = []
     existing = {row.get("event_id") for row in rows}
+
     for event in request.events:
         event_id = event.get("event_id")
         if not event_id or event_id in existing:
             continue
+
+        event_type = event.get("event_type")
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+
+        if event_type == "analysis_summary":
+            centre_id = str(payload.get("centre_id") or "")
+            batch_id = str(payload.get("batch_id") or "")
+            analysis_type = str(payload.get("analysis_type") or "")
+            outcome = str(payload.get("outcome") or "")
+            if centre_id and batch_id and analysis_type and outcome:
+                HISTORY.append(
+                    centre_id=centre_id,
+                    batch_id=batch_id,
+                    analysis_type=analysis_type,
+                    outcome=outcome,
+                    summary=str(payload.get("summary") or "Edge analysis completed."),
+                    details={
+                        **(payload.get("details") or {}),
+                        "edge_synced": True,
+                        "raw_video_uploaded": False,
+                        "edge_event_id": event_id,
+                    },
+                )
+
+        elif event_type == "compliance_case":
+            required = {
+                "case_id",
+                "centre_id",
+                "batch_id",
+                "case_type",
+                "severity",
+                "summary",
+            }
+            if required.issubset(payload):
+                case = ComplianceCase(
+                    case_id=str(payload["case_id"]),
+                    centre_id=str(payload["centre_id"]),
+                    batch_id=str(payload["batch_id"]),
+                    case_type=str(payload["case_type"]),
+                    status=str(payload.get("status") or "open"),
+                    severity=str(payload["severity"]),
+                    summary=str(payload["summary"]),
+                    reported_attendance=payload.get("reported_attendance"),
+                    visual_occupancy=payload.get("visual_occupancy"),
+                    discrepancy_pct=payload.get("discrepancy_pct"),
+                    persistence_ratio=payload.get("persistence_ratio"),
+                    evidence=[],
+                    details={
+                        **(payload.get("details") or {}),
+                        "edge_synced": True,
+                        "raw_video_uploaded": False,
+                        "edge_event_id": event_id,
+                        "edge_evidence_integrity": payload.get("evidence_integrity") or [],
+                    },
+                    created_at=str(payload.get("created_at") or event.get("created_at") or datetime.now(timezone.utc).isoformat()),
+                )
+                STORE.save(case)
+
         rows.append(event)
         existing.add(event_id)
         accepted.append(event_id)
+
+    events_path.parent.mkdir(parents=True, exist_ok=True)
     events_path.write_text(json.dumps(rows, indent=2))
     return {
         "accepted_event_ids": accepted,
