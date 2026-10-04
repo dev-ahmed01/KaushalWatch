@@ -247,8 +247,20 @@ def get_evidence_pack(case_id: str):
 
 @app.post("/api/cases/{case_id}/review")
 def review_case(case_id: str, request: ReviewRequest):
+    terminal_actions = {"confirmed", "false_positive", "resolved"}
+    note = (request.note or "").strip()
+    if request.action.value in terminal_actions and not note:
+        raise HTTPException(
+            status_code=422,
+            detail="A review note is required for a final case decision",
+        )
+
     try:
-        case = STORE.update_status(case_id, request.action, note=request.note)
+        case = STORE.update_status(
+            case_id,
+            request.action,
+            note=note or None,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not case:
