@@ -557,8 +557,23 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 
 .caseLinks a{display:flex;align-items:center;gap:5px;color:var(--blue);font-size:10px;font-weight:850;text-decoration:none}
 .caseLinks svg{width:12px;height:12px}
-.auditRow{display:flex;align-items:center;gap:5px;margin-top:9px;color:#667085;font-size:9px}
-.auditRow svg{width:12px;height:12px}
+.auditTrail{margin-top:10px;border:1px solid #e4e7ec;border-radius:9px;background:#fcfcfd;overflow:hidden}
+.auditTrail summary{
+  cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;padding:9px 10px;
+  color:#475467;font-size:10px;font-weight:800
+}
+.auditTrail summary::-webkit-details-marker{display:none}
+.auditTrail summary svg{width:13px;height:13px}
+.auditTrail[open] summary{border-bottom:1px solid #eef0f3;background:#f8fafc}
+.auditTrailBody{display:grid;padding:4px 10px 8px}
+.auditEvent{padding:9px 0;border-top:1px solid #eef0f3}
+.auditEvent:first-child{border-top:0}
+.auditEventHead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.auditEventHead strong{font-size:10px;text-transform:capitalize;color:#344054}
+.auditEventHead time{font-size:9px;color:#98a2b3;white-space:nowrap}
+.auditEvent>span{display:block;font-size:9px;color:#667085;margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.auditEvent>p{font-size:10px;line-height:1.45;color:#475467;margin:5px 0 0}
+
 .reviewNoteField{display:grid;gap:5px;margin-top:10px;padding-top:10px;border-top:1px solid #eef0f3}
 .reviewNoteField>span{font-size:10px;font-weight:800;color:#475467}
 .reviewNoteField>span b{font-weight:700;color:#98a2b3}
