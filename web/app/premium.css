@@ -221,3 +221,19 @@ button,input,select,textarea{font:inherit}
 .runScheduleBody{padding:4px 13px 10px}.runScheduleBody>div{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6}.runScheduleBody>div:last-child{border-bottom:0}.runScheduleBody span{font-size:7px;color:#8795a6}.runScheduleBody b{font-size:7px;color:#43556d;text-align:right}
 @media(max-width:920px){.analysisLaunchGrid{grid-template-columns:1fr}.analysisLaunchSide{grid-template-columns:1fr}.analysisLaunchSteps{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.analysisLaunchSteps{grid-template-columns:1fr}}
+
+/* cycle 2 — reduced practical controls */
+.practicalSetup{display:grid;gap:7px;margin-top:11px;padding-top:11px;border-top:1px solid #eef2f6}
+.setupLabel{font-size:7px;color:#68798f;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
+.segmentedChoice{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.segmentedChoice button{min-height:31px;border:1px solid #dfe6ee;background:#f9fafc;color:#5d6e83;border-radius:8px;font-size:7px;font-weight:800;transition:.16s ease}
+.segmentedChoice button:hover{background:#fff;border-color:#c8d4e1}
+.segmentedChoice button.active.good{background:#effaf4;border-color:#bde8d0;color:#0a9152}
+.segmentedChoice button.active.danger{background:#fff3f4;border-color:#f2c8cd;color:#c53440}
+.segmentedChoice button.active.warn{background:#fff8e9;border-color:#f1d69e;color:#bb6c00}
+.advancedCompact{border:1px solid #e5eaf1;border-radius:9px;background:#fafbfd;overflow:hidden}
+.advancedCompact summary{cursor:pointer;list-style:none;font-size:7px;font-weight:850;color:#64758b;padding:8px 9px}
+.advancedCompact summary::-webkit-details-marker{display:none}
+.advancedCompact[open] summary{border-bottom:1px solid #e8edf3}
+.advancedCompact label{display:grid;gap:4px;padding:8px 9px 0}.advancedCompact label:last-child{padding-bottom:9px}
+.advancedCompact label>span{font-size:7px;color:#738297}.advancedCompact input,.advancedCompact select{border:1px solid #dfe6ee;border-radius:8px;padding:7px;font-size:8px;background:#fff}
