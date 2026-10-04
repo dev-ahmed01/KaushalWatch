@@ -49,6 +49,8 @@ test('capture one-click full analysis and truthful result states', async ({page}
   await page.locator('input[name="analysis-file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button',{name:'Start Full Analysis'}).click();
   await expect(page.getByText('Centre result, history and report data refreshed.')).toBeVisible({timeout:90_000});
+  const fullRunOverflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
+  expect(fullRunOverflow,'full analysis horizontal overflow').toBeLessThanOrEqual(2);
   await page.screenshot({path:'fix-visual-audit/16-full-analysis-complete.png',fullPage:true});
 
   await page.goto('/centres/'+centre);
