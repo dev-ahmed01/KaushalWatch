@@ -19,7 +19,8 @@ type Case = {
   persistence_ratio?:number;
   evidence?:{evidence_id:string; duplicate_of?:string|null; sha256:string}[];
   details?:{apparent_operability?:{state?:string;activity_score?:number};[key:string]:any};
-  review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null}[];
+  review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null;actor?:string|null}[];
+  created_at?:string;
 };
 
 type Dashboard = {
@@ -99,6 +100,8 @@ export default function Page(){
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
   const [attendanceReported,setAttendanceReported]=useState(3);
+  const [centreId,setCentreId]=useState('DEMO-KA-104');
+  const [batchId,setBatchId]=useState('ELEC-DEMO-01');
   const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
     attendance:'pending',
     practical:'pending',
@@ -124,29 +127,40 @@ export default function Page(){
   };
 
   useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  const progressStorageKey=`kaushalwatch-centre-progress:${centreId}:${batchId}`;
+
   useEffect(()=>{
+    const pending:WorkflowProgress={
+      attendance:'pending',
+      practical:'pending',
+      infrastructure:'pending',
+    };
     try{
-      const saved=window.localStorage.getItem('kaushalwatch-centre-progress');
-      if(saved){
-        const parsed=JSON.parse(saved);
-        const normalize=(value:any):WorkflowStepState=>{
-          if(value===true) return 'passed';
-          if(['pending','passed','attention','blocked'].includes(value)) return value;
-          return 'pending';
-        };
-        setWorkflowProgress({
-          attendance:normalize(parsed.attendance),
-          practical:normalize(parsed.practical),
-          infrastructure:normalize(parsed.infrastructure),
-        });
+      const saved=window.localStorage.getItem(progressStorageKey);
+      if(!saved){
+        setWorkflowProgress(pending);
+        return;
       }
-    }catch{}
-  },[]);
+      const parsed=JSON.parse(saved);
+      const normalize=(value:any):WorkflowStepState=>{
+        if(value===true) return 'passed';
+        if(['pending','passed','attention','blocked'].includes(value)) return value;
+        return 'pending';
+      };
+      setWorkflowProgress({
+        attendance:normalize(parsed.attendance),
+        practical:normalize(parsed.practical),
+        infrastructure:normalize(parsed.infrastructure),
+      });
+    }catch{
+      setWorkflowProgress(pending);
+    }
+  },[progressStorageKey]);
 
   function markWorkflow(step:keyof WorkflowProgress,state:WorkflowStepState){
     setWorkflowProgress(current=>{
       const next={...current,[step]:state};
-      try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+      try{window.localStorage.setItem(progressStorageKey,JSON.stringify(next));}catch{}
       return next;
     });
   }
@@ -161,11 +175,15 @@ export default function Page(){
     setAttendanceResult(null);
     setPracticalResult(null);
     setInfraResult(null);
-    try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+    try{window.localStorage.setItem(progressStorageKey,JSON.stringify(next));}catch{}
   }
 
   const priority=useMemo(
-    ()=>[...(data?.pending_cases||data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
+    ()=>sortPriorityCases(
+      data?.pending_cases
+      || data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))
+      || [],
+    ),
     [data]
   );
   const history=useMemo(
@@ -322,8 +340,8 @@ export default function Page(){
           <div className="workspaceRow">
             <span className="liveDot"></span>
             <div>
-              <strong>DEMO-KA-104</strong>
-              <small>Bengaluru · demonstration workspace</small>
+              <strong>{centreId}</strong>
+              <small>{batchId} · demonstration workspace</small>
             </div>
           </div>
         </div>
@@ -351,7 +369,7 @@ export default function Page(){
     <main className="main">
       <header className="topbar">
         <div>
-          <span className="topEyebrow">KAUSHALWATCH / DEMO-KA-104</span>
+          <span className="topEyebrow">KAUSHALWATCH / {centreId} / {batchId}</span>
           <strong>{navItems.find(item=>item.key===activeView)?.label}</strong>
         </div>
         <div className="topStatus">
@@ -387,6 +405,10 @@ export default function Page(){
           preview={attendancePreview}
           reported={attendanceReported}
           setReported={setAttendanceReported}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -397,6 +419,10 @@ export default function Page(){
           preview={practicalPreview}
           auth={practicalAuth}
           setAuth={setPracticalAuth}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setPracticalPreview)}
           onSubmit={submitPractical}
         />}
@@ -406,6 +432,10 @@ export default function Page(){
           result={infraResult}
           busy={infraBusy}
           preview={infraPreview}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setInfraPreview)}
           onSubmit={submitInfrastructure}
         />}
@@ -522,13 +552,17 @@ function Overview({
 }
 
 function AttendanceView({
-  result,busy,preview,reported,setReported,onPreview,onSubmit,
+  result,busy,preview,reported,setReported,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   reported:number;
   setReported:(value:number)=>void;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -599,8 +633,8 @@ function AttendanceView({
               />
             </Field>
             <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-01"/></Field>
-            <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-            <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+            <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+            <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           </div>
         </div>
 
@@ -656,13 +690,17 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   auth:'valid'|'absent'|'unknown';
   setAuth:(value:'valid'|'absent'|'unknown')=>void;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -749,8 +787,8 @@ function PracticalView({
         </div>
 
         <div className="formGrid three">
-          <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-          <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-03"/></Field>
         </div>
 
@@ -808,12 +846,16 @@ function PracticalView({
 }
 
 function InfrastructureView({
-  infra,result,busy,preview,onPreview,onSubmit,
+  infra,result,busy,preview,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   infra:InfraItem[];
   result:any;
   busy:boolean;
   preview:string;
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -850,8 +892,8 @@ function InfrastructureView({
               <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </Field>
-          <Field label="Centre ID"><input name="centre_id" defaultValue="DEMO-KA-104"/></Field>
-          <Field label="Batch ID"><input name="batch_id" defaultValue="ELEC-DEMO-01"/></Field>
+          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
+          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
@@ -1179,12 +1221,13 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
   const pillar=casePillar(item.case_type);
   const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
   const [reviewNote,setReviewNote]=useState('');
+  const [showEvidence,setShowEvidence]=useState(false);
   const finalReady=reviewNote.trim().length>0;
   const latestReview=item.review_history?.at(-1);
 
   return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
-      <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
+      <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id} · {item.batch_id}</small></div></div>
       <span className={`statusBadge ${item.status}`}>{item.status.replaceAll('_',' ')}</span>
     </div>
     <div className="pillarLabel"><Icon name={pillar.icon}/><span>{pillar.label}</span></div>
@@ -1203,9 +1246,23 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       <span>Severity <b>{item.severity}</b></span>
     </div>
     <div className="caseLinks">
-      {item.evidence?.[0]&&<a href={`${API}/evidence/${item.evidence[0].evidence_id}.jpg`} target="_blank" rel="noreferrer"><Icon name="image"/>Open evidence</a>}
+      {item.evidence?.[0]&&<button type="button" className="evidenceToggle" onClick={()=>setShowEvidence(value=>!value)}><Icon name="image"/>{showEvidence?'Hide evidence':'Inspect evidence'}</button>}
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
+    {showEvidence&&item.evidence?.[0]&&<div className="evidenceInspector">
+      <div className="evidenceImageWrap">
+        <img src={`${API}/evidence/${item.evidence[0].evidence_id}.jpg`} alt={`Evidence for ${item.case_id}`}/>
+      </div>
+      <div className="evidenceMeta">
+        <span className="eyebrow">EVIDENCE SNAPSHOT</span>
+        <strong>{item.evidence[0].evidence_id}</strong>
+        <dl>
+          <div><dt>SHA-256</dt><dd title={item.evidence[0].sha256}>{shortHash(item.evidence[0].sha256)}</dd></div>
+          <div><dt>Integrity</dt><dd>{item.evidence[0].duplicate_of?`Possible duplicate · ${item.evidence[0].duplicate_of}`:'No duplicate signal'}</dd></div>
+          <div><dt>Captured</dt><dd>{formatTimestamp(item.created_at)}</dd></div>
+        </dl>
+      </div>
+    </div>}
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
     {resolved&&latestReview?.note&&<div className="resolvedRationale">
       <span>Officer rationale</span>
@@ -1289,6 +1346,43 @@ function ArchitectureStep({title,detail}:{title:string;detail:string}){
 }
 
 function Spinner(){return <span className="spinner"></span>;}
+
+function shortHash(value:string|undefined){
+  if(!value) return '—';
+  return value.length>18?`${value.slice(0,10)}…${value.slice(-6)}`:value;
+}
+
+function formatTimestamp(value:string|undefined){
+  if(!value) return '—';
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined,{
+    year:'numeric',
+    month:'short',
+    day:'numeric',
+    hour:'2-digit',
+    minute:'2-digit',
+  });
+}
+
+function sortPriorityCases(cases:Case[]){
+  const severityRank:Record<string,number>={high:0,medium:1,low:2};
+  const statusRank:Record<CaseStatus,number>={
+    open:0,
+    under_review:1,
+    virtual_verification:2,
+    confirmed:3,
+    false_positive:3,
+    resolved:3,
+  };
+  return [...cases].sort((a,b)=>{
+    const severity=(severityRank[a.severity]??9)-(severityRank[b.severity]??9);
+    if(severity!==0) return severity;
+    const status=(statusRank[a.status]??9)-(statusRank[b.status]??9);
+    if(status!==0) return status;
+    return String(b.created_at||'').localeCompare(String(a.created_at||''));
+  });
+}
 
 function tierLabel(value:string|undefined){
   if(value==='camera_verifiable') return 'Camera-verifiable';
