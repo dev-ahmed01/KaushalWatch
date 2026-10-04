@@ -5,6 +5,32 @@ from pathlib import Path
 from app.models import ComplianceCase, CaseStatus
 
 
+ALLOWED_CASE_TRANSITIONS: dict[CaseStatus, set[CaseStatus]] = {
+    CaseStatus.open: {
+        CaseStatus.under_review,
+        CaseStatus.virtual_verification,
+        CaseStatus.confirmed,
+        CaseStatus.false_positive,
+        CaseStatus.resolved,
+    },
+    CaseStatus.under_review: {
+        CaseStatus.virtual_verification,
+        CaseStatus.confirmed,
+        CaseStatus.false_positive,
+        CaseStatus.resolved,
+    },
+    CaseStatus.virtual_verification: {
+        CaseStatus.under_review,
+        CaseStatus.confirmed,
+        CaseStatus.false_positive,
+        CaseStatus.resolved,
+    },
+    CaseStatus.confirmed: set(),
+    CaseStatus.false_positive: set(),
+    CaseStatus.resolved: set(),
+}
+
+
 class CaseStore:
     def __init__(self, path: Path):
         self.path = path
@@ -35,7 +61,15 @@ class CaseStore:
         case = self.get(case_id)
         if not case:
             return None
-        previous = case.status.value
+        previous_status = case.status
+        if status == previous_status:
+            return case
+        allowed = ALLOWED_CASE_TRANSITIONS.get(previous_status, set())
+        if status not in allowed:
+            raise ValueError(
+                f"Invalid case transition: {previous_status.value} -> {status.value}"
+            )
+        previous = previous_status.value
         case.status = status
         case.review_history.append({
             "timestamp": datetime.now(timezone.utc).isoformat(),
