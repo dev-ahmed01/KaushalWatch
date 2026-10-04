@@ -25,7 +25,17 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('link', { name: 'Recent Analysis' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Start Analysis' })).toBeVisible();
   await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
+  await expect(page.getByText('incomplete').first()).toBeVisible();
 
+  // No evidence must never be displayed as a compliant centre-level outcome.
+  await page.goto('/centres/DEMO-KA-104/outcome');
+  await expect(page.getByRole('heading', { name: 'Verification incomplete' })).toBeVisible();
+
+  // Review Queue must inherit real workflow state rather than hard-code completed steps.
+  await page.goto('/centres/DEMO-KA-104/review');
+  expect(await page.locator('.neoWorkflowNode.pending').count()).toBeGreaterThanOrEqual(3);
+
+  await page.goto('/centres/DEMO-KA-104');
   await page.getByRole('link', { name: 'Start Analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Centre Analysis' })).toBeVisible();
   await expect(page.getByText('Full verification run')).toBeVisible();
@@ -38,6 +48,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/decision withheld/i)).toBeVisible();
+  const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(attendanceOverflow).toBeLessThanOrEqual(2);
 
   // Infrastructure has a deliberate discrepancy demo profile and should create
   // an evidence-backed case without requiring raw advanced controls.
@@ -46,6 +58,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
   await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
+  const infrastructureOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(infrastructureOverflow).toBeLessThanOrEqual(2);
 
   await page.goto('/centres/DEMO-KA-104/review');
   await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible();
