@@ -125,3 +125,7 @@ class ReviewRequest(BaseModel):
 
 class EdgeSyncRequest(BaseModel):
     events: list[dict[str, Any]]
+
+
+class DemoResetRequest(BaseModel):
+    confirm: bool = False
