@@ -12,6 +12,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - `python scripts/prepare_demo_vision.py --install` provides a one-command preparation/check for the OpenVINO runtime and checksum-verified model pair.
 - Anonymous short-lived positional tracking integrated into the attendance runtime.
 - Attendance returns time-synchronized anonymous candidate/confirmed/registered track boxes for the local review overlay; these session-local labels are not identities and non-authoritative fallback overlays remain diagnostic only.
+- OpenVINO now includes an opt-in overlapping 2×2 tiled inference mode plus an exact-clip calibration sweep for crowded/occluded fixed-camera scenes; tiled mode remains off until validated on the target clip and held-out footage.
 - Occupancy smoothing, reported-vs-observed discrepancy logic and temporal persistence.
 - Camera-trust checks for darkness, blur, frozen feed and basic scene shift.
 - Camera-integrity cases suspend attendance conclusions when the feed is not trustworthy.
