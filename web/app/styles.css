@@ -234,6 +234,19 @@ svg{display:block}
 .compactCase small{font-size:8px;color:#98a2b3;margin-top:2px;text-transform:capitalize}
 .caseChevron{color:#98a2b3}
 
+.readinessNotice{
+  display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;
+  border:1px solid #e4e7ec;border-radius:11px;padding:10px 12px;margin-bottom:12px;background:#fff
+}
+.readinessNotice>span{width:28px;height:28px;border-radius:8px;display:grid;place-items:center}
+.readinessNotice>span svg{width:14px;height:14px}
+.readinessNotice strong{display:block;font-size:9px}
+.readinessNotice p{font-size:8px;line-height:1.45;color:#667085;margin:3px 0 0}
+.readinessNotice.warn{border-color:#fedf89;background:#fffcf5}
+.readinessNotice.warn>span{background:#fef0c7;color:#b54708}
+.readinessNotice.good{border-color:#abefc6;background:#f6fef9}
+.readinessNotice.good>span{background:#dcfae6;color:#067647}
+
 .pipelineStrip{
   display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;background:#fff;border:1px solid var(--line);
   border-radius:14px;margin-bottom:14px;overflow:hidden

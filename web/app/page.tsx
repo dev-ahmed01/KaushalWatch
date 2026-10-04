@@ -53,6 +53,7 @@ type RuntimeReadiness = {
   };
   practical_work?:{
     ready:boolean;
+    backend?:string;
     message:string;
   };
   infrastructure?:{
@@ -109,6 +110,11 @@ export default function Page(){
     infrastructure:'pending',
   });
   const [runtimeReadiness,setRuntimeReadiness]=useState<RuntimeReadiness|null>(null);
+  const readyEngineCount=[
+    runtimeReadiness?.attendance?.ready,
+    runtimeReadiness?.practical_work?.ready,
+    runtimeReadiness?.infrastructure?.ready,
+  ].filter(Boolean).length;
 
   const refresh=async()=>{
     const [dashboardResponse,infraResponse,readinessResponse]=await Promise.all([
@@ -372,11 +378,9 @@ export default function Page(){
           <strong>{navItems.find(item=>item.key===activeView)?.label}</strong>
         </div>
         <div className="topStatus">
-          <span className={runtimeReadiness?.attendance?.ready?'healthChip good':'healthChip warn'}>
+          <span className={readyEngineCount===3?'healthChip good':'healthChip warn'}>
             <i></i>
-            Attendance detector {runtimeReadiness?.attendance?.ready
-              ? `${runtimeReadiness.attendance.backend} ready`
-              : 'fallback / unavailable'}
+            Verification runtime {runtimeReadiness?`${readyEngineCount}/3 ready`:'checking…'}
           </span>
           <span className="healthChip"><Icon name="human"/>Human review enforced</span>
         </div>
@@ -419,6 +423,7 @@ export default function Page(){
           setAuth={setPracticalAuth}
           profile={practicalProfile}
           setProfile={setPracticalProfile}
+          readiness={runtimeReadiness?.practical_work}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
@@ -432,6 +437,7 @@ export default function Page(){
           result={infraResult}
           busy={infraBusy}
           preview={infraPreview}
+          readiness={runtimeReadiness?.infrastructure}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
@@ -694,7 +700,7 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,profile,setProfile,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,profile,setProfile,readiness,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
@@ -703,6 +709,7 @@ function PracticalView({
   setAuth:(value:'valid'|'absent'|'unknown')=>void;
   profile:'authorized'|'unauthorized'|'default';
   setProfile:(value:'authorized'|'unauthorized'|'default')=>void;
+  readiness?:RuntimeReadiness['practical_work'];
   centreId:string;
   setCentreId:(value:string)=>void;
   batchId:string;
@@ -759,6 +766,12 @@ function PracticalView({
       ['5','Review exception'],
     ]}/>
 
+    {readiness&&!readiness.ready&&<ReadinessNotice
+      title="Practical-work runtime unavailable"
+      text={readiness.message}
+      tone="warn"
+    />}
+
     <section className="workbench">
       <form className="analysisCard" onSubmit={onSubmit}>
         <div className="analysisHead">
@@ -806,9 +819,12 @@ function PracticalView({
 
         <SubmitBar
           busy={busy}
+          disabled={readiness?.ready===false}
           label="Run practical-work verification"
           busyLabel="Analysing work-cell activity…"
-          note="No face recognition. Activity is a visual proxy, not task recognition."
+          note={readiness?.ready===false
+            ? 'Install the YOLO demo runtime before running this checkpoint.'
+            : 'No face recognition. Activity is a visual proxy, not task recognition.'}
         />
       </form>
 
@@ -858,12 +874,13 @@ function PracticalView({
 }
 
 function InfrastructureView({
-  infra,result,busy,preview,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  infra,result,busy,preview,readiness,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   infra:InfraItem[];
   result:any;
   busy:boolean;
   preview:string;
+  readiness?:RuntimeReadiness['infrastructure'];
   centreId:string;
   setCentreId:(value:string)=>void;
   batchId:string;
@@ -887,6 +904,12 @@ function InfrastructureView({
       ['4','Flag discrepancy'],
       ['5','Human review'],
     ]}/>
+
+    {readiness&&!readiness.ready&&<ReadinessNotice
+      title="Infrastructure demo assets unavailable"
+      text={readiness.message}
+      tone="warn"
+    />}
 
     <section className="workbench">
       <form className="analysisCard" onSubmit={onSubmit}>
@@ -933,9 +956,12 @@ function InfrastructureView({
 
         <SubmitBar
           busy={busy}
+          disabled={readiness?.ready===false}
           label="Run infrastructure verification"
           busyLabel="Analysing visual manifest…"
-          note="Only persistent visual discrepancies should become review cases."
+          note={readiness?.ready===false
+            ? 'Restore the manifest/cache before running this checkpoint.'
+            : 'Only persistent visual discrepancies should become review cases.'}
         />
       </form>
 
@@ -1146,10 +1172,25 @@ function VideoDrop({name,preview,onPreview}:{name:string;preview:string;onPrevie
   </label>;
 }
 
-function SubmitBar({busy,label,busyLabel,note}:{busy:boolean;label:string;busyLabel:string;note:string}){
+function SubmitBar({
+  busy,disabled=false,label,busyLabel,note,
+}:{
+  busy:boolean;
+  disabled?:boolean;
+  label:string;
+  busyLabel:string;
+  note:string;
+}){
   return <div className="submitBar">
     <div><Icon name="privacy"/><span>{note}</span></div>
-    <button className="primaryButton" type="submit" disabled={busy}>{busy?<><Spinner/>{busyLabel}</>:<>{label}<span>→</span></>}</button>
+    <button className="primaryButton" type="submit" disabled={busy||disabled}>{busy?<><Spinner/>{busyLabel}</>:<>{label}<span>→</span></>}</button>
+  </div>;
+}
+
+function ReadinessNotice({title,text,tone}:{title:string;text:string;tone:'warn'|'good'}){
+  return <div className={`readinessNotice ${tone}`}>
+    <span><Icon name={tone==='good'?'check':'alert'}/></span>
+    <div><strong>{title}</strong><p>{text}</p></div>
   </div>;
 }
 

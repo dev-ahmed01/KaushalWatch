@@ -69,6 +69,8 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(zoneInput).not.toHaveAttribute('required', '');
   await expect(page.getByText(/Work-zone JSON · optional/i)).toBeVisible();
   await expect(page.locator('select[name="zone_profile"]')).toHaveValue('authorized');
+  await expect(page.getByText('Practical-work runtime unavailable', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run practical-work verification' })).toBeDisabled();
 
   // Infrastructure remains the clearest live walkthrough and creates a review case.
   await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
