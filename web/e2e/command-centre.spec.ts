@@ -54,6 +54,18 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(attendanceOverflow).toBeLessThanOrEqual(2);
 
+  // Practical work now uses the same detector abstraction as attendance. Core CI
+  // can still be non-authoritative, but it must process the clip, show real work
+  // zones, and withhold the conclusion explicitly instead of failing the route.
+  await page.goto('/centres/DEMO-KA-104/practical');
+  await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
+  await expect(page.locator('.workZoneBox').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Analyse Practical Work' }).click();
+  await expect(page.getByText(/decision withheld/i).first()).toBeVisible({ timeout: 35_000 });
+  await expect(page.getByText(/hog/i).first()).toBeVisible();
+  const practicalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(practicalOverflow).toBeLessThanOrEqual(2);
+
   // Infrastructure has a deliberate discrepancy demo profile and should create
   // an evidence-backed case without requiring raw advanced controls.
   await page.goto('/centres/DEMO-KA-104/infrastructure');
@@ -61,6 +73,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
   await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
+  await expect(page.locator('.evidenceGallery img').first()).toBeVisible();
   const infrastructureOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(infrastructureOverflow).toBeLessThanOrEqual(2);
 
@@ -69,6 +82,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   const firstCase = page.locator('.caseListItem').first();
   await expect(firstCase).toBeVisible();
   await firstCase.click();
+  await expect(page.getByRole('link', { name: 'Open Evidence Pack' })).toBeVisible();
+  await expect(page.locator('.evidenceGallery img').first()).toBeVisible();
 
   const confirm = page.getByRole('button', { name: 'Confirm & Resolve' });
   await expect(confirm).toBeDisabled();
