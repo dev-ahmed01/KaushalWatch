@@ -1306,6 +1306,7 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       {item.persistence_ratio!=null&&<span>Persistence <b>{Math.round(item.persistence_ratio*100)}%</b></span>}
       {item.evidence?.length?<span>Evidence <b>{item.evidence.length}</b></span>:null}
       <span>Severity <b>{item.severity}</b></span>
+      <span>Created <b>{formatTimestamp(item.created_at)}</b></span>
     </div>
     <div className="caseLinks">
       {item.evidence?.[0]&&<button type="button" className="evidenceToggle" onClick={()=>setShowEvidence(value=>!value)}><Icon name="image"/>{showEvidence?'Hide evidence':'Inspect evidence'}</button>}
@@ -1325,7 +1326,7 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
         </dl>
       </div>
     </div>}
-    {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
+    {!!item.review_history?.length&&<CaseAuditTrail history={item.review_history}/>}
     {resolved&&latestReview?.note&&<div className="resolvedRationale">
       <span>Officer rationale</span>
       <strong>{latestReview.note}</strong>
@@ -1348,6 +1349,22 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       </div>
     </>}
   </article>;
+}
+
+function CaseAuditTrail({history}:{history:NonNullable<Case['review_history']>}){
+  return <details className="auditTrail">
+    <summary><Icon name="history"/><span>Audit trail · {history.length} action{history.length===1?'':'s'}</span></summary>
+    <div className="auditTrailBody">
+      {history.map((event,index)=><div className="auditEvent" key={`${event.timestamp}-${index}`}>
+        <div className="auditEventHead">
+          <strong>{event.from_status.replaceAll('_',' ')} → {event.to_status.replaceAll('_',' ')}</strong>
+          <time>{formatTimestamp(event.timestamp)}</time>
+        </div>
+        <span>{event.actor||'prototype_officer'}</span>
+        <p>{event.note||'No review note recorded for this intermediate action.'}</p>
+      </div>)}
+    </div>
+  </details>;
 }
 
 function CompactCase({item}:{item:Case}){

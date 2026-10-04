@@ -118,8 +118,12 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // Resolve one pending case and verify it leaves the live priority queue.
   await confirmButton.click();
   await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
-  await expect(page.locator('.resolvedCase').first()).toBeVisible();
+  const resolvedCase = page.locator('.resolvedCase').first();
+  await expect(resolvedCase).toBeVisible();
   await expect(page.getByText(/Reviewed the visual manifest evidence/i)).toBeVisible();
+  await resolvedCase.getByText(/Audit trail ·/).click();
+  await expect(resolvedCase.getByText(/open → confirmed|under review → confirmed|virtual verification → confirmed/i)).toBeVisible();
+  await expect(resolvedCase.getByText('prototype_officer', { exact: true })).toBeVisible();
 
   const pendingAfter = await page.locator('.queueCount').first().textContent();
   expect(pendingAfter).not.toBe(pendingBefore);
