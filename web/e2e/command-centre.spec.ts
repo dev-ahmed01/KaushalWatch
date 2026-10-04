@@ -109,12 +109,17 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT')).toBeVisible();
   await expect(firstInfraCase.getByRole('img', { name: /Evidence for CASE-/ })).toBeVisible();
 
-  // Final decisions require an auditable officer rationale.
+  // Final decisions require both an active review state and an auditable rationale.
   const confirmButton = firstInfraCase.getByRole('button', { name: 'Confirm exception' });
   await expect(confirmButton).toBeDisabled();
   await firstInfraCase.getByPlaceholder(/What did you verify/i).fill(
     'Reviewed the visual manifest evidence and confirmed the persistent gap.'
   );
+  await expect(confirmButton).toBeDisabled();
+  await expect(firstInfraCase.getByText(/Start review or virtual verification/i)).toBeVisible();
+
+  await firstInfraCase.getByRole('button', { name: 'Start review' }).click();
+  await expect(firstInfraCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
   await expect(confirmButton).toBeEnabled();
 
   // Resolve one pending case and verify it leaves the live priority queue.
@@ -122,6 +127,9 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.resolvedCase').first()).toBeVisible();
   await expect(page.getByText(/Reviewed the visual manifest evidence/i)).toBeVisible();
+  const resolvedCase=page.locator('.resolvedCase').first();
+  await resolvedCase.getByText(/Decision history/).click();
+  await expect(resolvedCase.getByText(/under review → confirmed/i)).toBeVisible();
 
   const pendingAfter = await page.locator('.queueCount').first().textContent();
   expect(pendingAfter).not.toBe(pendingBefore);
