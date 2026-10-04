@@ -24,6 +24,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -r backend/requirements.txt
+      - run: python -m compileall -q backend/app scripts
       - run: pytest -q backend/tests
       - name: Smoke-test final demo evaluator
         run: |

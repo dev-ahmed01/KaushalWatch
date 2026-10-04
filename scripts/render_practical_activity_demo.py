@@ -14,7 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
-from app.services.activity_evidence import (\n    TemporalActivityGate,\n    roi_motion_fraction,\n    worker_motion_fraction,\n)
+from app.services.activity_evidence import (
+    TemporalActivityGate,
+    roi_motion_fraction,
+    worker_motion_fraction,
+)
 from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
 
