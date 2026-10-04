@@ -288,7 +288,10 @@ svg{display:block}
 .dropPlaceholder small{font-size:9px;color:#98a2b3;margin-top:4px}
 .dropFooter{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e9edf3;padding:9px 11px;background:#fff;position:relative;z-index:1;pointer-events:none}
 .dropFooter span{font-size:9px;font-weight:800;color:var(--blue)}
-.dropFooter small{font-size:9px;color:#98a2b3}
+.dropFooter small{
+  max-width:72%;font-size:9px;color:#667085;text-align:right;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap
+}
 
 .scenarioPresetRow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:10px 0 0}
 .scenarioPresetRow>span{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:#98a2b3}
