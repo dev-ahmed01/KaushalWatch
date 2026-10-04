@@ -19,7 +19,8 @@ type Case = {
   persistence_ratio?:number;
   evidence?:{evidence_id:string; duplicate_of?:string|null; sha256:string}[];
   details?:{apparent_operability?:{state?:string;activity_score?:number};[key:string]:any};
-  review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null}[];
+  review_history?:{timestamp:string;from_status:string;to_status:string;note?:string|null;actor?:string|null}[];
+  created_at?:string;
 };
 
 type Dashboard = {
@@ -99,6 +100,8 @@ export default function Page(){
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
   const [attendanceReported,setAttendanceReported]=useState(3);
+  const [centreId,setCentreId]=useState('DEMO-KA-104');
+  const [batchId,setBatchId]=useState('ELEC-DEMO-01');
   const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
     attendance:'pending',
     practical:'pending',
@@ -124,29 +127,40 @@ export default function Page(){
   };
 
   useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  const progressStorageKey=`kaushalwatch-centre-progress:${centreId}:${batchId}`;
+
   useEffect(()=>{
+    const pending:WorkflowProgress={
+      attendance:'pending',
+      practical:'pending',
+      infrastructure:'pending',
+    };
     try{
-      const saved=window.localStorage.getItem('kaushalwatch-centre-progress');
-      if(saved){
-        const parsed=JSON.parse(saved);
-        const normalize=(value:any):WorkflowStepState=>{
-          if(value===true) return 'passed';
-          if(['pending','passed','attention','blocked'].includes(value)) return value;
-          return 'pending';
-        };
-        setWorkflowProgress({
-          attendance:normalize(parsed.attendance),
-          practical:normalize(parsed.practical),
-          infrastructure:normalize(parsed.infrastructure),
-        });
+      const saved=window.localStorage.getItem(progressStorageKey);
+      if(!saved){
+        setWorkflowProgress(pending);
+        return;
       }
-    }catch{}
-  },[]);
+      const parsed=JSON.parse(saved);
+      const normalize=(value:any):WorkflowStepState=>{
+        if(value===true) return 'passed';
+        if(['pending','passed','attention','blocked'].includes(value)) return value;
+        return 'pending';
+      };
+      setWorkflowProgress({
+        attendance:normalize(parsed.attendance),
+        practical:normalize(parsed.practical),
+        infrastructure:normalize(parsed.infrastructure),
+      });
+    }catch{
+      setWorkflowProgress(pending);
+    }
+  },[progressStorageKey]);
 
   function markWorkflow(step:keyof WorkflowProgress,state:WorkflowStepState){
     setWorkflowProgress(current=>{
       const next={...current,[step]:state};
-      try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+      try{window.localStorage.setItem(progressStorageKey,JSON.stringify(next));}catch{}
       return next;
     });
   }
@@ -161,7 +175,7 @@ export default function Page(){
     setAttendanceResult(null);
     setPracticalResult(null);
     setInfraResult(null);
-    try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+    try{window.localStorage.setItem(progressStorageKey,JSON.stringify(next));}catch{}
   }
 
   const priority=useMemo(
