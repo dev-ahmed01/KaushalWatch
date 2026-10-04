@@ -43,8 +43,8 @@ class HogPersonDetector:
         mode="fallback",
         authoritative=False,
         message=(
-            "HOG fallback active. Attendance conclusions are suspended until "
-            "the validated YOLO/OpenVINO detector is available."
+            "HOG fallback active. Automated compliance conclusions are suspended until "
+            "a validated YOLO/OpenVINO person detector is available."
         ),
     )
 
@@ -269,8 +269,8 @@ def build_person_detector() -> Detector:
         mode="fallback",
         authoritative=False,
         message=(
-            "Detector unavailable / fallback mode. "
-            f"{detail}. Attendance conclusions are suspended."
+            "Validated person detector unavailable / fallback mode. "
+            f"{detail}. Automated compliance conclusions are suspended."
         ),
     )
     LOGGER.error(detector.info.message)
