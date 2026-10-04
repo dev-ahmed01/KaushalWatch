@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, ReactNode, useRef } from 'react';
+import { ChangeEvent, useRef, type ReactNode } from 'react';
 import { EmptyMedia } from './Ui';
 
 export default function VideoWorkspace({
