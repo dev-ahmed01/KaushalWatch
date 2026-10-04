@@ -171,10 +171,18 @@ class VideoCompliancePipeline:
                 confirmed_count = presence.confirmed_count
                 registered_count = presence.registered_count
 
-                smooth = smoother.update(registered_count)
+                warmup_complete = sec >= attendance_registration_seconds
+                # Do not seed the decision smoother with intentional pre-registration
+                # zeros. Otherwise a stable track can become registered correctly at
+                # 2s while the median window still reports a false mismatch from the
+                # maturity period.
+                smooth = (
+                    smoother.update(registered_count)
+                    if warmup_complete
+                    else registered_count
+                )
                 d_pct = discrepancy_pct(reported_attendance, smooth)
 
-                warmup_complete = sec >= attendance_registration_seconds
                 is_mismatch = (
                     detector_info.authoritative
                     and detector_failures == 0
