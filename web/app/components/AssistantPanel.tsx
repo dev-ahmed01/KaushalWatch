@@ -2,17 +2,54 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { askAssistant } from '../lib/api';
 import type { AssistantReply } from '../lib/types';
 
-const QUICK=[
+const GENERAL=[
   'What happened today?',
   'Summarise the last 7 days',
   'Why is this centre escalated?',
   'What needs officer verification?',
 ];
 
+function quickQuestions(pathname:string){
+  if(pathname.includes('/attendance')) return [
+    'How many people were visible?',
+    'Does attendance match the record?',
+    'Was camera quality good enough?',
+    'Explain this result simply',
+  ];
+  if(pathname.includes('/practical')) return [
+    'Is practical work happening?',
+    'Which work zones were active?',
+    'Is the activity authorized?',
+    'Why was this sent for review?',
+  ];
+  if(pathname.includes('/infrastructure')) return [
+    'Which infrastructure item is missing?',
+    'What can the camera verify?',
+    'What still needs an officer?',
+    'Show the key evidence',
+  ];
+  if(pathname.includes('/review')) return [
+    'Why is this case open?',
+    'What evidence supports it?',
+    'Has this happened before?',
+    'What should the officer check?',
+  ];
+  if(pathname.includes('/history')||pathname.startsWith('/reports')) return [
+    'Summarise the last 7 days',
+    'What changed since last week?',
+    'Which issues repeated?',
+    'Create a report summary',
+  ];
+  return GENERAL;
+}
+
 export default function AssistantPanel({centreId}:{centreId:string}){
+  const pathname=usePathname();
+  const quick=quickQuestions(pathname);
   const [question,setQuestion]=useState('');
   const [reply,setReply]=useState<AssistantReply|null>(null);
   const [busy,setBusy]=useState(false);
@@ -55,7 +92,7 @@ export default function AssistantPanel({centreId}:{centreId:string}){
     </div>
 
     <div className="neoAssistantQuick">
-      {QUICK.map(item=><button key={item} type="button" onClick={()=>ask(item)}>
+      {quick.map(item=><button key={item} type="button" onClick={()=>ask(item)}>
         <span>◌</span><b>{item}</b><i>›</i>
       </button>)}
     </div>
