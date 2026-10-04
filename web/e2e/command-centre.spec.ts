@@ -11,6 +11,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // Demo walkthrough intentionally opens on Infrastructure first.
   await expect(page.getByText(/stage-safe visual manifest/i)).toBeVisible();
   await expect(page.getByText('One centre · three checkpoints')).toBeVisible();
+  await expect(page.locator('select[name="demo_profile"]')).toHaveValue('compliant');
 
   // Edge sync zero should read as an idle/expected state, not a fault.
   await primaryNav.getByRole('button', { name: /Overview/ }).click();
@@ -59,6 +60,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   // Infrastructure remains the clearest live walkthrough and creates a review case.
   await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
+  await page.locator('select[name="demo_profile"]').selectOption('discrepancy');
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
   await expect(
