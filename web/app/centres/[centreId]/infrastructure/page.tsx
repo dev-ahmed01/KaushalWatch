@@ -23,12 +23,15 @@ export default function InfrastructureVerification(){
   const [centre,setCentre]=useState<Centre|null>(null);
 
   useEffect(()=>{
-    fetch(`${API}/api/demo/infrastructure`)
+    getCentre(id).then(setCentre).catch(()=>setCentre(null));
+  },[id]);
+
+  useEffect(()=>{
+    fetch(`${API}/api/demo/infrastructure?profile=${encodeURIComponent(profile)}`)
       .then(r=>r.json())
       .then(p=>setManifest(p.items||[]))
       .catch(()=>{});
-    getCentre(id).then(setCentre).catch(()=>setCentre(null));
-  },[id]);
+  },[profile]);
 
   function onFile(e:ChangeEvent<HTMLInputElement>){
     const next=e.target.files?.[0]||null;
@@ -82,7 +85,7 @@ export default function InfrastructureVerification(){
               <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </div>
-          <p>Camera-verifiable counts use the demo evidence adapter. The video supplies the review frame and optional visual-motion evidence.</p>
+          <p>The selected profile controls the stage-safe detector telemetry shown before analysis, so the preview never contradicts the profile you are about to run. The uploaded video supplies the review frame and optional visual-motion evidence.</p>
         </div>
       </form>
 

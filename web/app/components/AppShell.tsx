@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { getCentres } from '../lib/api';
 
 const networkNav=[
   ['/', 'Network Overview', '⌂'],
@@ -45,8 +46,21 @@ function NavLink({href,label,icon,pathname,badge}:{href:string;label:string;icon
 
 export default function AppShell({children}:{children:ReactNode}){
   const pathname=usePathname();
+  const router=useRouter();
+  const [search,setSearch]=useState('');
+  const [escalationCount,setEscalationCount]=useState(0);
   const centreMatch=pathname.match(/^\/centres\/([^/]+)/);
   const centreId=centreMatch?.[1]||'DEMO-KA-104';
+
+  useEffect(()=>{
+    getCentres().then(payload=>setEscalationCount(payload.centres.filter(c=>c.escalation.level>0).length)).catch(()=>setEscalationCount(0));
+  },[pathname]);
+
+  function submitSearch(event:FormEvent){
+    event.preventDefault();
+    const q=search.trim();
+    router.push(q?'/centres?q='+encodeURIComponent(q):'/centres');
+  }
 
   const centreNav=[
     ['/centres/'+centreId,'Overview','◎'],
@@ -65,7 +79,7 @@ export default function AppShell({children}:{children:ReactNode}){
       </Link>
 
       <nav className="neoNav">
-        {networkNav.map(([href,label,icon])=><NavLink key={href} href={href} label={label} icon={icon} pathname={pathname} badge={label==='Escalations'?'3':undefined}/>)}
+        {networkNav.map(([href,label,icon])=><NavLink key={href} href={href} label={label} icon={icon} pathname={pathname} badge={label==='Escalations'&&escalationCount>0?String(escalationCount):undefined}/>)}
       </nav>
 
       <div className="neoNavDivider"></div>
@@ -88,12 +102,12 @@ export default function AppShell({children}:{children:ReactNode}){
         <div className="neoBreadcrumb">
           <span>KaushalWatch</span><i>›</i><b>{routeLabel(pathname)}</b>
         </div>
-        <div className="neoSearch">
-          <span>⌕</span><input aria-label="Global search" placeholder="Search centres, districts, batches…"/><kbd>⌘ K</kbd>
-        </div>
+        <form className="neoSearch" onSubmit={submitSearch}>
+          <span>⌕</span><input aria-label="Global search" placeholder="Search centres, districts, batches…" value={search} onChange={event=>setSearch(event.target.value)}/><kbd>Enter</kbd>
+        </form>
         <div className="neoTopActions">
           <span className="neoLive"><i></i>Monitoring active</span>
-          <button className="neoIconBtn" aria-label="Notifications">♢<i></i></button>
+          <Link href="/escalations" className="neoIconBtn" aria-label={escalationCount?String(escalationCount)+' active escalations':'No active escalations'}>♢{escalationCount>0&&<i></i>}</Link>
           <div className="neoOfficer">
             <span>MO</span>
             <div><b>Ministry Officer</b><small>Compliance Monitoring</small></div>

@@ -39,7 +39,35 @@ Start the API, then:
 python edge/agent.py sync --url http://127.0.0.1:8000
 ```
 
-Accepted event IDs are removed locally; unaccepted events remain queued.
+Accepted event IDs are removed locally; unaccepted events remain queued. Synced
+analysis summaries are folded into central Analysis History, and synced exception
+cases become reviewable without uploading the raw recording.
+
+## Automatic monitoring windows
+
+The Settings page stores the centre's automatic-analysis policy and monitoring
+windows. A connected edge capture agent can now enforce those windows instead of
+requiring an officer to press Start Analysis.
+
+For a local camera buffer/recording:
+
+```bash
+python edge/agent.py watch \
+  --video data/raw/final-demo.avi \
+  --reported-attendance 12 \
+  --centre-id DEMO-KA-104 \
+  --batch-id ELEC-2026-08 \
+  --api-url http://127.0.0.1:8000 \
+  --sync
+```
+
+The agent polls the centre settings, runs at most once per configured window, stores
+its last-run window durably, and can sync compact telemetry after the run. Use
+`--once` to check the current schedule once during setup or testing.
+
+This prototype scheduler currently automates the attendance edge pipeline. Practical
+work and infrastructure remain available through the full-analysis web workflow until
+their edge capture/runtime adapters are connected.
 
 ## Privacy / integrity boundary
 

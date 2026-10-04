@@ -21,7 +21,13 @@ export default function CentreOverview(){
   if(!centre) return <div className="pageScene"><Skeleton lines={8}/></div>;
 
   const latest=(centre.recent_analyses||[])[0];
-  const attention=centre.pending_cases>0||centre.escalation.level>0;
+  const attention=centre.pending_cases>0||centre.escalation.level>0||centre.status==='incomplete';
+  const settings=(centre.settings||{}) as any;
+  const automatic=settings.automatic_analysis!==false&&settings.frequency!=='manual';
+  const frequencyLabel=settings.frequency==='daily'?'Daily':settings.frequency==='manual'?'Manual only':'Every training day';
+  const windows=Array.isArray(settings.monitoring_windows)&&settings.monitoring_windows.length
+    ? settings.monitoring_windows.join(' · ')
+    : 'Not configured';
 
   return <div className="pageScene fadeIn">
     <PageHeader
@@ -48,7 +54,7 @@ export default function CentreOverview(){
             </div>
             <div className="centreProfileCopy">
               <div className="centreStatusRow">
-                <Status tone={centre.status==='compliant'?'good':centre.status==='high_priority'?'danger':'warn'}>{centre.status.replaceAll('_',' ')}</Status>
+                <Status tone={centre.status==='compliant'?'good':centre.status==='high_priority'?'danger':centre.status==='incomplete'?'neutral':'warn'}>{centre.status.replaceAll('_',' ')}</Status>
                 <span>Centre Code · {centre.centre_id}</span>
               </div>
               <h2>{centre.name}</h2>
@@ -64,13 +70,13 @@ export default function CentreOverview(){
           <article className="panel simpleScheduleCard">
             <div className="panelHead">
               <div><span className="sectionKicker">Analysis Schedule</span><h2>Automatic monitoring</h2></div>
-              <Status tone={(centre.settings as any)?.automatic_analysis===false?'neutral':'good'}>{(centre.settings as any)?.automatic_analysis===false?'Manual':'Automatic'}</Status>
+              <Status tone={automatic?'good':'neutral'}>{automatic?'Configured':'Manual'}</Status>
             </div>
             <div className="scheduleCompact">
-              <div><span>Frequency</span><b>Every training day</b></div>
-              <div><span>Windows</span><b>09:00–11:00 · 14:00–16:00</b></div>
+              <div><span>Frequency</span><b>{frequencyLabel}</b></div>
+              <div><span>Windows</span><b>{windows}</b></div>
               <div><span>Connectivity</span><b>{centre.connectivity_mode.replaceAll('_',' ')}</b></div>
-              <div><span>Next run</span><b>Next training window</b></div>
+              <div><span>Trigger</span><b>{automatic?'Attendance edge agent · once per configured window':'Manual only'}</b></div>
             </div>
             <Link href={'/centres/'+centreId+'/analysis'} className="scheduleAction">Run analysis now →</Link>
           </article>
@@ -99,7 +105,7 @@ export default function CentreOverview(){
             <VerifyTile label="Practical Work" value={centre.practical_status} description="Activity + external authorization"/>
             <VerifyTile label="Infrastructure" value={centre.infrastructure_status} description="Three-tier visual compliance"/>
             <VerifyTile label="Camera Integrity" value={centre.camera_status} description="Trust gate for video evidence"/>
-            <VerifyTile label="Evidence Integrity" value="clear" description="Duplicate-evidence signal"/>
+            <VerifyTile label="Evidence Integrity" value={centre.evidence_integrity_status||'pending'} description="Duplicate-evidence signal"/>
           </div>
         </section>
 
@@ -123,10 +129,12 @@ export default function CentreOverview(){
         <section className={'centreSummaryCard '+(attention?'attention':'good')}>
           <div className="centreSummaryTitle"><span>✦</span><div><small>AI summary</small><b>Centre pulse</b></div></div>
           <p>{centre.status==='compliant'
-            ? 'All current checks are clear. No unresolved exception is blocking this centre.'
+            ? 'All required verification checkpoints have run and no unresolved exception is blocking this centre.'
             : centre.status==='high_priority'
               ? 'This centre needs priority attention. Repeated or multi-signal issues have triggered escalation.'
-              : 'One or more evidence-backed findings still need officer review before this cycle is closed.'}</p>
+              : centre.status==='incomplete'
+                ? 'Verification is incomplete. Pending or blocked checkpoints are not treated as compliant.'
+                : 'One or more evidence-backed findings still need officer review before this cycle is closed.'}</p>
           <div className="centreSummaryStats">
             <div><span>Pending</span><b>{centre.pending_cases}</b></div>
             <div><span>Camera</span><b>{centre.camera_status}</b></div>
@@ -147,9 +155,13 @@ export default function CentreOverview(){
 }
 
 function VerifyTile({label,value,description}:{label:string;value:string;description:string}){
-  const good=['compliant','nominal','clear'].includes(value);
-  return <div className={'verifyTile '+(good?'good':'attention')}>
-    <span>{good?'✓':'!'}</span>
+  const normalized=value.toLowerCase();
+  const good=['compliant','nominal','clear'].includes(normalized);
+  const pending=['pending','not_analysed'].includes(normalized);
+  const blocked=normalized==='blocked';
+  const tone=good?'good':pending?'pending':blocked?'blocked':'attention';
+  return <div className={'verifyTile '+tone}>
+    <span>{good?'✓':blocked?'×':pending?'•':'!'}</span>
     <div><b>{label}</b><small>{description}</small></div>
     <em>{value.replaceAll('_',' ')}</em>
   </div>;

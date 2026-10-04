@@ -9,7 +9,8 @@ import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.models import ReviewRequest, EdgeSyncRequest
+from fastapi.responses import Response
+from app.models import ReviewRequest, EdgeSyncRequest, ComplianceCase
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
@@ -23,6 +24,7 @@ from app.services.demo_network import DEMO_CENTRES, centre_rows, get_centre
 from app.services.analysis_history import AnalysisHistoryStore
 from app.services.compliance_assistant import answer_question
 from app.services.centre_settings import CentreSettingsStore
+from app.services.report_pdf import build_report_pdf
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -43,11 +45,20 @@ def _network_settings() -> dict[str, dict]:
     }
 
 
+def _network_history() -> dict[str, list[dict]]:
+    rows = HISTORY.list(limit=500)
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        grouped.setdefault(str(row.get("centre_id") or ""), []).append(row)
+    return grouped
+
+
 def _centre_with_settings(centre_id: str):
     return get_centre(
         centre_id,
         STORE.list(),
         settings=CENTRE_SETTINGS.get(centre_id),
+        history=HISTORY.list(centre_id=centre_id, limit=200),
     )
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
@@ -174,7 +185,11 @@ def runtime_readiness():
 
 @app.get("/api/centres")
 def list_centres():
-    rows = centre_rows(STORE.list(), settings_by_centre=_network_settings())
+    rows = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
     return {
         "centres": rows,
         "total": len(rows),
@@ -243,36 +258,62 @@ def assistant_query(payload: dict = Body(...)):
     )
 
 
-@app.get("/api/centres/{centre_id}/report")
-def centre_report(
+def _report_window(
+    period: str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> tuple[datetime, datetime, str]:
+    now = datetime.now(timezone.utc)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
+
+    if period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(
+                status_code=422,
+                detail="Custom report range requires start_date and end_date",
+            )
+        try:
+            start = datetime.fromisoformat(start_date).replace(tzinfo=timezone.utc)
+            end_day = datetime.fromisoformat(end_date).replace(tzinfo=timezone.utc)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail="Custom dates must use YYYY-MM-DD",
+            ) from exc
+        end = end_day + timedelta(days=1)
+        if end <= start:
+            raise HTTPException(status_code=422, detail="end_date must be on or after start_date")
+        return start, end, f"{start_date} to {end_date}"
+
+    if period == "today":
+        return today_start, now, "Today"
+    if period == "yesterday":
+        return today_start - timedelta(days=1), today_start, "Yesterday"
+    if period == "30d":
+        return now - timedelta(days=30), now, "Last 30 days"
+    return now - timedelta(days=7), now, "Last 7 days"
+
+
+def _build_centre_report(
     centre_id: str,
     period: str = "7d",
+    start_date: str | None = None,
+    end_date: str | None = None,
 ):
     centre = _centre_with_settings(centre_id)
     if not centre:
         raise HTTPException(status_code=404, detail="Centre not found")
-    history = HISTORY.list(centre_id=centre_id, limit=200)
-    now = datetime.now(timezone.utc)
-    if period in {"today", "yesterday", "7d", "30d"}:
-        today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-        if period == "today":
-            start, end = today_start, now
-        elif period == "yesterday":
-            start, end = today_start - timedelta(days=1), today_start
-        elif period == "30d":
-            start, end = now - timedelta(days=30), now
-        else:
-            start, end = now - timedelta(days=7), now
+    history = HISTORY.list(centre_id=centre_id, limit=500)
+    start, end, period_label = _report_window(period, start_date, end_date)
 
-        def _recent(row):
-            try:
-                created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
-            except ValueError:
-                return True
-            return start <= created < end
+    def _recent(row):
+        try:
+            created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
+        except ValueError:
+            return True
+        return start <= created < end
 
-        history = [row for row in history if _recent(row)]
-
+    history = [row for row in history if _recent(row)]
     cases = [case for case in STORE.list() if case.centre_id == centre_id]
     pending = [
         case for case in cases
@@ -282,6 +323,9 @@ def centre_report(
         "title": "KaushalWatch Centre Verification Report",
         "prototype": True,
         "period": period,
+        "period_label": period_label,
+        "start_date": start_date,
+        "end_date": end_date,
         "centre": centre,
         "summary": {
             "analysis_runs": len(history),
@@ -297,8 +341,36 @@ def centre_report(
         "limitations": [
             "Infrastructure demo counts are stage-safe telemetry until a live equipment detector is connected.",
             "Apparent operability is a visual activity proxy, not a mechanical or electrical diagnosis.",
+            "A pending or blocked verification is never reported as compliant.",
         ],
     }
+
+
+@app.get("/api/centres/{centre_id}/report")
+def centre_report(
+    centre_id: str,
+    period: str = "7d",
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    return _build_centre_report(centre_id, period, start_date, end_date)
+
+
+@app.get("/api/centres/{centre_id}/report.pdf")
+def centre_report_pdf(
+    centre_id: str,
+    period: str = "7d",
+    start_date: str | None = None,
+    end_date: str | None = None,
+):
+    report = _build_centre_report(centre_id, period, start_date, end_date)
+    content = build_report_pdf(report)
+    filename = f"KaushalWatch-{centre_id}-{period}.pdf"
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/api/dashboard")
@@ -488,7 +560,41 @@ def process_practical_activity(
         )
         return result.model_dump(mode="json")
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        message = str(exc)
+        HISTORY.append(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            analysis_type="practical_work",
+            outcome="blocked",
+            summary=message,
+            details={
+                "decision": "detector_unavailable",
+                "active_work_cells": 0,
+                "peak_stable_workers": 0,
+                "activity_fraction": 0.0,
+            },
+        )
+        return {
+            "centre_id": centre_id,
+            "batch_id": batch_id,
+            "camera_id": camera_id,
+            "authorization": authorization,
+            "decision": "detector_unavailable",
+            "detector_authoritative": False,
+            "detector_message": message,
+            "zone_scaled": False,
+            "zone_reference_width": zone_reference_size[0] if zone_reference_size else None,
+            "zone_reference_height": zone_reference_size[1] if zone_reference_size else None,
+            "frames_processed": 0,
+            "duration_sec": 0.0,
+            "trusted_frame_ratio": 0.0,
+            "peak_stable_workers": 0,
+            "practical_activity_fraction": 0.0,
+            "first_practical_activity_time_sec": None,
+            "active_work_cells": 0,
+            "work_cells": [],
+            "case": None,
+        }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
@@ -549,15 +655,29 @@ def review_case(case_id: str, request: ReviewRequest):
 
 
 @app.get("/api/demo/infrastructure")
-def infrastructure_demo():
+def infrastructure_demo(profile: str = "compliant"):
     try:
         manifest, rows = load_demo_manifest_and_cache()
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if profile == "compliant":
+        rows = build_compliant_demo_cache(manifest)
+    elif profile != "discrepancy":
+        raise HTTPException(
+            status_code=400,
+            detail="profile must be 'compliant' or 'discrepancy'",
+        )
+
     observed = aggregate_cached_observations(rows)
     return {
-        "banner": "Prototype — cached detections on a demo configuration, not official live compliance data",
+        "banner": (
+            "Prototype — explicit compliant demo telemetry"
+            if profile == "compliant"
+            else "Prototype — cached discrepancy demo telemetry"
+        ),
         "job_role": manifest["job_role"],
+        "profile": profile,
         "items": compare_manifest(manifest, observed),
     }
 
@@ -728,18 +848,83 @@ def create_demo_infrastructure_case(
 
 @app.post("/api/edge/sync")
 def edge_sync(request: EdgeSyncRequest):
-    """Prototype cloud-side receiver for queued edge telemetry; raw video is not required."""
+    """Receive compact edge telemetry and fold it into the same audit stores.
+
+    Raw video remains local. Analysis summaries update history and exception case
+    telemetry becomes reviewable centrally without pretending the raw frame was uploaded.
+    """
     events_path = DATA / "edge_events.json"
     rows = json.loads(events_path.read_text()) if events_path.exists() else []
     accepted = []
     existing = {row.get("event_id") for row in rows}
+
     for event in request.events:
         event_id = event.get("event_id")
         if not event_id or event_id in existing:
             continue
+
+        event_type = event.get("event_type")
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+
+        if event_type == "analysis_summary":
+            centre_id = str(payload.get("centre_id") or "")
+            batch_id = str(payload.get("batch_id") or "")
+            analysis_type = str(payload.get("analysis_type") or "")
+            outcome = str(payload.get("outcome") or "")
+            if centre_id and batch_id and analysis_type and outcome:
+                HISTORY.append(
+                    centre_id=centre_id,
+                    batch_id=batch_id,
+                    analysis_type=analysis_type,
+                    outcome=outcome,
+                    summary=str(payload.get("summary") or "Edge analysis completed."),
+                    details={
+                        **(payload.get("details") or {}),
+                        "edge_synced": True,
+                        "raw_video_uploaded": False,
+                        "edge_event_id": event_id,
+                    },
+                )
+
+        elif event_type == "compliance_case":
+            required = {
+                "case_id",
+                "centre_id",
+                "batch_id",
+                "case_type",
+                "severity",
+                "summary",
+            }
+            if required.issubset(payload):
+                case = ComplianceCase(
+                    case_id=str(payload["case_id"]),
+                    centre_id=str(payload["centre_id"]),
+                    batch_id=str(payload["batch_id"]),
+                    case_type=str(payload["case_type"]),
+                    status=str(payload.get("status") or "open"),
+                    severity=str(payload["severity"]),
+                    summary=str(payload["summary"]),
+                    reported_attendance=payload.get("reported_attendance"),
+                    visual_occupancy=payload.get("visual_occupancy"),
+                    discrepancy_pct=payload.get("discrepancy_pct"),
+                    persistence_ratio=payload.get("persistence_ratio"),
+                    evidence=[],
+                    details={
+                        **(payload.get("details") or {}),
+                        "edge_synced": True,
+                        "raw_video_uploaded": False,
+                        "edge_event_id": event_id,
+                        "edge_evidence_integrity": payload.get("evidence_integrity") or [],
+                    },
+                    created_at=str(payload.get("created_at") or event.get("created_at") or datetime.now(timezone.utc).isoformat()),
+                )
+                STORE.save(case)
+
         rows.append(event)
         existing.add(event_id)
         accepted.append(event_id)
+
+    events_path.parent.mkdir(parents=True, exist_ok=True)
     events_path.write_text(json.dumps(rows, indent=2))
     return {
         "accepted_event_ids": accepted,

@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import WorkflowStepper from '../../../components/WorkflowStepper';
-import { API, getDashboard } from '../../../lib/api';
-import type { CaseRecord } from '../../../lib/types';
+import { API, getCentre, getDashboard } from '../../../lib/api';
+import type { CaseRecord, Centre } from '../../../lib/types';
+import { workflowStatesForCentre } from '../../../lib/workflow';
 import { PageHeader, Status } from '../../../components/Ui';
 
 const tone=(severity:string)=>severity==='high'?'danger':severity==='medium'?'warn':'info';
@@ -19,9 +20,11 @@ export default function ReviewQueue(){
   const [note,setNote]=useState('');
   const [busy,setBusy]=useState(false);
   const [tab,setTab]=useState<'pending'|'resolved'>('pending');
+  const [centre,setCentre]=useState<Centre|null>(null);
 
   async function refresh(){
-    const payload=await getDashboard(id);
+    const [payload,centrePayload]=await Promise.all([getDashboard(id),getCentre(id)]);
+    setCentre(centrePayload);
     const pending=(payload.pending_cases||[]) as CaseRecord[];
     const resolved=(payload.resolved_case_history||[]) as CaseRecord[];
     setCases(pending);
@@ -57,7 +60,10 @@ export default function ReviewQueue(){
 
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Selected Centre / Human Review" title="Review Queue" subtitle="AI surfaces evidence. Officers inspect, record rationale, and make the final compliance decision." actions={<><Status tone="warn">{cases.length} pending</Status><Status tone="neutral">{history.length} resolved</Status></>}/>
-    <WorkflowStepper centreId={id} states={{attendance:'complete',practical:'complete',infrastructure:'complete',review:cases.length?'attention':'complete'}}/>
+    <WorkflowStepper centreId={id} states={{
+      ...workflowStatesForCentre(centre),
+      review: cases.length ? 'attention' : workflowStatesForCentre(centre).review,
+    }}/>
 
     <div className="reviewLayout">
       <section className="caseListPanel">

@@ -1,4 +1,4 @@
-export type CentreStatus = 'compliant'|'attention'|'high_priority';
+export type CentreStatus = 'compliant'|'attention'|'high_priority'|'incomplete';
 
 export type Centre = {
   centre_id:string;
@@ -13,10 +13,14 @@ export type Centre = {
   connectivity_mode:string;
   status:CentreStatus;
   pending_cases:number;
+  confirmed_cases?:number;
   attendance_status:string;
   practical_status:string;
   infrastructure_status:string;
   camera_status:string;
+  evidence_integrity_status?:string;
+  verification_complete?:boolean;
+  analysis_count?:number;
   escalation:{
     level:number;
     label:string;
@@ -25,7 +29,7 @@ export type Centre = {
     next_action?:string;
     policy?:Record<string,unknown>;
   };
-  last_analysis:string;
+  last_analysis:string|null;
   settings?:Record<string,unknown>;
   recent_analyses?:AnalysisRow[];
 };

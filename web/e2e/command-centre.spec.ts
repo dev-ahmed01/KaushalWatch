@@ -9,6 +9,9 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('heading', { name: 'Training Centre Network' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Network Overview' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Bengaluru TC-04/ }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Requires Review/ })).toContainText('0');
+  await expect(page.getByRole('button', { name: /Camera Issues/ })).toContainText('0');
+  await expect(page.getByRole('button', { name: /Verification Incomplete/ })).toContainText('6');
 
   // Keep the command-centre UI readable at normal presentation distance.
   const navFontSize = await page.getByRole('link', { name: 'Network Overview' }).evaluate((element) =>
@@ -25,10 +28,21 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('link', { name: 'Recent Analysis' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Start Analysis' })).toBeVisible();
   await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
+  await expect(page.getByText('incomplete').first()).toBeVisible();
 
+  // No evidence must never be displayed as a compliant centre-level outcome.
+  await page.goto('/centres/DEMO-KA-104/outcome');
+  await expect(page.getByRole('heading', { name: 'Verification incomplete' })).toBeVisible();
+
+  // Review Queue must inherit real workflow state rather than hard-code completed steps.
+  await page.goto('/centres/DEMO-KA-104/review');
+  expect(await page.locator('.neoWorkflowNode.pending').count()).toBeGreaterThanOrEqual(3);
+
+  await page.goto('/centres/DEMO-KA-104');
   await page.getByRole('link', { name: 'Start Analysis' }).click();
   await expect(page.getByRole('heading', { name: 'Centre Analysis' })).toBeVisible();
-  await expect(page.getByText('Normal operation is automatic.')).toBeVisible();
+  await expect(page.getByText('Full verification run')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start Full Analysis' })).toBeDisabled();
 
   // Core CI does not install YOLO. Attendance must show an explicit withheld state
   // rather than silently presenting a genuine zero occupancy.
@@ -37,6 +51,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/decision withheld/i)).toBeVisible();
+  const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(attendanceOverflow).toBeLessThanOrEqual(2);
 
   // Infrastructure has a deliberate discrepancy demo profile and should create
   // an evidence-backed case without requiring raw advanced controls.
@@ -45,6 +61,8 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
   await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
+  const infrastructureOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(infrastructureOverflow).toBeLessThanOrEqual(2);
 
   await page.goto('/centres/DEMO-KA-104/review');
   await expect(page.getByRole('heading', { name: 'Review Queue' })).toBeVisible();
@@ -68,6 +86,6 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
 
   await page.goto('/settings');
   await expect(page.getByRole('heading', { name: 'Settings & Configuration' })).toBeVisible();
-  await expect(page.getByText('Automatic monitoring')).toBeVisible();
+  await expect(page.getByText('Automatic monitoring policy')).toBeVisible();
   await expect(page.getByText('Low-bandwidth deployment')).toBeVisible();
 });

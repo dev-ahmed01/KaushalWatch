@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
+import VideoSampleStrip from '../../../components/VideoSampleStrip';
 import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
 import type { Centre } from '../../../lib/types';
@@ -64,10 +65,7 @@ export default function AttendanceVerification(){
     <div className="analysisThreeCol">
       <form id="attendance-form" className="analysisPrimary" onSubmit={analyse}>
         <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="CAM 01 · Training Lab" badge={preview?'Recorded clip':'No feed'}/>
-        <div className="keyFrameStrip">
-          <div className="stripHead"><b>Key Frames</b><span>Generated after analysis</span></div>
-          <div className="framePlaceholders">{[0,1,2,3,4].map(i=><span key={i}>{result?'Evidence':'—'}</span>)}</div>
-        </div>
+        <VideoSampleStrip file={file}/>
       </form>
 
       <section className="analysisResultsPanel">

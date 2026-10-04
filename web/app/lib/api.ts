@@ -47,6 +47,20 @@ export async function saveSettings(centreId:string,payload:Record<string,unknown
   }));
 }
 
-export function reportUrl(centreId:string,period='7d'){
-  return `${API}/api/centres/${encodeURIComponent(centreId)}/report?period=${encodeURIComponent(period)}`;
+export function reportUrl(centreId:string,period='7d',startDate?:string,endDate?:string){
+  const params=new URLSearchParams({period});
+  if(startDate) params.set('start_date',startDate);
+  if(endDate) params.set('end_date',endDate);
+  return `${API}/api/centres/${encodeURIComponent(centreId)}/report?${params.toString()}`;
+}
+
+export function reportPdfUrl(centreId:string,period='7d',startDate?:string,endDate?:string){
+  const params=new URLSearchParams({period});
+  if(startDate) params.set('start_date',startDate);
+  if(endDate) params.set('end_date',endDate);
+  return `${API}/api/centres/${encodeURIComponent(centreId)}/report.pdf?${params.toString()}`;
+}
+
+export async function getRuntimeReadiness(){
+  return parse<any>(await fetch(`${API}/api/runtime-readiness`,{cache:'no-store'}));
 }
