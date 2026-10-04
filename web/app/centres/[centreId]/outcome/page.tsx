@@ -38,7 +38,8 @@ export default function FinalOutcome(){
         ? {title:'Verification incomplete',tone:'incomplete',icon:'…',text:'One or more verification checkpoints have not been run yet. No centre-level compliance conclusion has been issued.'}
         : {title:'Compliant',tone:'good',icon:'✓',text:'All current verification checkpoints completed without an unresolved compliance exception.'};
 
-  const escalationTone=centre?.escalation.level>=3?'danger':centre?.escalation.level>0?'warn':centre?.status==='incomplete'?'neutral':'good';
+  const escalationLevel=centre?.escalation.level??0;
+  const escalationTone=escalationLevel>=3?'danger':escalationLevel>0?'warn':centre?.status==='incomplete'?'neutral':'good';
 
   return <div className="pageScene fadeIn">
     <PageHeader
