@@ -369,3 +369,10 @@
 .miniChecks .pending{background:#f1f5f9;color:#64748b}
 .miniChecks .blocked{background:#fff1f2;color:#b42318}
 .miniChecks .incomplete{background:#f1f5f9;color:#64748b}
+
+.frameThumbGrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;padding:8px 0}
+.frameThumbGrid figure{margin:0;position:relative;min-width:0}
+.frameThumbGrid img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #dce4ef;background:#0b1320}
+.frameThumbGrid figcaption{position:absolute;left:5px;bottom:5px;background:rgba(7,16,31,.82);color:#fff;border-radius:5px;padding:2px 5px;font-size:8px;font-weight:800}
+.sampleFrameNote{display:block;color:#7b8798;font-size:9px;line-height:1.4;padding-top:3px}
+@media(max-width:720px){.frameThumbGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
