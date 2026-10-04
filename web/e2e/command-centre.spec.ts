@@ -7,14 +7,15 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(page.getByText('KaushalWatch', { exact: true })).toBeVisible();
   await expect(page.getByText('Simulated operational records')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Attendance/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Practical work/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Infrastructure/ })).toBeVisible();
+  const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
+  await expect(primaryNav.getByRole('button', { name: /Attendance/ })).toBeVisible();
+  await expect(primaryNav.getByRole('button', { name: /Practical work/ })).toBeVisible();
+  await expect(primaryNav.getByRole('button', { name: /Infrastructure/ })).toBeVisible();
   await expect(page.getByText('Three checks, one review workflow')).toBeVisible();
-  await page.getByRole('button', { name: /Practical work/ }).click();
+  await primaryNav.getByRole('button', { name: /Practical work/ }).click();
   await expect(page.getByText('Separate visible activity from authorization.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Run practical-work verification' })).toBeVisible();
-  await page.getByRole('button', { name: /Attendance/ }).click();
+  await primaryNav.getByRole('button', { name: /Attendance/ }).click();
 
   const edgeSync = await page.request.post('http://127.0.0.1:8000/api/edge/sync', {
     data: {
@@ -56,7 +57,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await attendanceCase.getByRole('button', { name: 'Review' }).click();
   await expect(attendanceCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
 
-  await page.getByRole('button', { name: /Infrastructure/ }).click();
+  await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
   await expect(page.getByText(/stage-safe visual manifest/i)).toBeVisible();
   await expect(page.getByText(/Electrical (Switchboard \/ )?Training Panel/)).toBeVisible();
 
