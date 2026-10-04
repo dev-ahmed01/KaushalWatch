@@ -25,14 +25,17 @@ export default function FinalOutcome(){
   const states=useMemo(()=>workflowStatesForCentre(centre),[centre]);
   const pending=dashboard?.open_cases??0;
   const high=(dashboard?.pending_cases||[]).filter((c:any)=>c.severity==='high').length;
+  const confirmed=(dashboard?.resolved_case_history||[]).filter((c:any)=>c.status==='confirmed').length;
   const checkpointStates=[states.attendance,states.practical,states.infrastructure];
   const hasBlocked=checkpointStates.includes('blocked');
   const hasPending=checkpointStates.some(state=>state==='pending'||state==='running');
-  const hasAttention=pending>0||checkpointStates.includes('attention');
+  const hasAttention=pending>0;
 
   const outcome=hasAttention
     ? {title:'Human review required',tone:'attention',icon:'!',text:`${pending} pending case(s) still require an officer decision before this centre can be closed for the current review cycle.`}
-    : hasBlocked
+    : confirmed>0
+      ? {title:'Confirmed compliance issue',tone:'attention',icon:'!',text:`Human review is complete. ${confirmed} confirmed issue(s) remain on the centre record and require follow-up or remediation.`}
+      : hasBlocked
       ? {title:'Verification blocked',tone:'incomplete',icon:'×',text:'At least one verification ran without authoritative evidence. Re-run that checkpoint after restoring the required detector or camera quality.'}
       : hasPending
         ? {title:'Verification incomplete',tone:'incomplete',icon:'…',text:'One or more verification checkpoints have not been run yet. No centre-level compliance conclusion has been issued.'}
@@ -81,14 +84,15 @@ export default function FinalOutcome(){
           <div className="panelHead"><div><span className="sectionKicker">Officer actions</span><h2>What happens next</h2></div></div>
           <div className="outcomeActionRows">
             <div><span>Pending review</span><b>{pending}</b><small>Evidence-backed cases awaiting action</small></div>
-            <div><span>High priority</span><b>{high}</b><small>Cases requiring urgent review</small></div>
+            <div><span>High priority</span><b>{high}</b><small>Open cases requiring urgent review</small></div>
+            <div><span>Confirmed issues</span><b>{confirmed}</b><small>Human-reviewed findings remaining on record</small></div>
             <div><span>Escalation</span><b>{centre?.escalation.label||'Normal'}</b><small>{centre?.escalation.reasons?.[0]||'No escalation trigger'}</small></div>
           </div>
           {hasAttention
             ? <Link href={`/centres/${id}/review`} className="primaryBtn fullBtn">Review pending cases</Link>
             : (hasPending||hasBlocked)
               ? <Link href={`/centres/${id}/analysis`} className="primaryBtn fullBtn">Continue verification</Link>
-              : <Link href={`/centres/${id}/history`} className="primaryBtn fullBtn">View audit history</Link>
+              : <Link href={`/centres/${id}/history`} className="primaryBtn fullBtn">{confirmed?'View confirmed case history':'View audit history'}</Link>
           }
         </section>
 
