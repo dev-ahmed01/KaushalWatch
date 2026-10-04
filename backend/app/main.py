@@ -14,6 +14,7 @@ from app.services.infrastructure_pipeline import InfrastructureCompliancePipelin
 from app.services.compliance_cases import build_infrastructure_case
 from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
+from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.demo_assets import load_demo_manifest_and_cache
 
@@ -22,6 +23,7 @@ DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
 STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
+PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json")
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
@@ -70,6 +72,58 @@ def process_video(
         tmp_path = Path(tmp.name)
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
+        if result.case:
+            STORE.save(result.case)
+        return result.model_dump(mode="json")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/process-practical-activity")
+def process_practical_activity(
+    file: UploadFile = File(...),
+    zones_json: str = Form(...),
+    authorization: str = Form("unknown"),
+    centre_id: str = Form("DEMO-KA-104"),
+    batch_id: str = Form("ELEC-DEMO-01"),
+    camera_id: str = Form("LAB-CAM-03"),
+):
+    """Analyse stable anonymous worker presence + worker-centric motion in work cells.
+
+    Authorization is supplied externally. Vision does not infer identity,
+    authorization, skill quality, or exact task semantics.
+    """
+    try:
+        parsed = json.loads(zones_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Invalid work-zone JSON") from exc
+
+    if isinstance(parsed, dict) and isinstance(parsed.get("zones"), list):
+        zones = parsed["zones"]
+    elif isinstance(parsed, list):
+        zones = parsed
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Work-zone JSON must be a list or an object containing a 'zones' list",
+        )
+
+    suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = PRACTICAL_PIPELINE.run(
+            video_path=tmp_path,
+            zones=zones,
+            authorization=authorization,
+            centre_id=centre_id,
+            batch_id=batch_id,
+            camera_id=camera_id,
+        )
         if result.case:
             STORE.save(result.case)
         return result.model_dump(mode="json")
