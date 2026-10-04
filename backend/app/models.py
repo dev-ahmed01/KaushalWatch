@@ -75,6 +75,36 @@ class ProcessSummary(BaseModel):
     note: str = "Prototype output; external scheme records are simulated unless explicitly sourced."
 
 
+class WorkCellActivity(BaseModel):
+    zone_id: str
+    registered_worker_presence_fraction: float = Field(ge=0, le=1)
+    activity_fraction: float = Field(ge=0, le=1)
+    worker_motion_fraction_p50: float = Field(ge=0, le=1)
+    worker_motion_fraction_p90: float = Field(ge=0, le=1)
+    worker_motion_fraction_p95: float = Field(ge=0, le=1)
+
+
+class PracticalActivitySummary(BaseModel):
+    centre_id: str
+    batch_id: str
+    camera_id: str
+    authorization: str
+    decision: str
+    frames_processed: int
+    duration_sec: float
+    trusted_frame_ratio: float = Field(ge=0, le=1)
+    peak_stable_workers: int
+    practical_activity_fraction: float = Field(ge=0, le=1)
+    first_practical_activity_time_sec: float | None = None
+    active_work_cells: int
+    work_cells: list[WorkCellActivity] = Field(default_factory=list)
+    case: ComplianceCase | None = None
+    note: str = (
+        "Practical activity is a worker-centric visual motion proxy. "
+        "Authorization is external work-order/training-schedule state."
+    )
+
+
 class ReviewRequest(BaseModel):
     action: CaseStatus
     note: str | None = None

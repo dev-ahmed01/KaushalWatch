@@ -18,7 +18,7 @@
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:#eef1f5;color:#172033}
-button,input{font:inherit}
+button,input,select{font:inherit}
 a{color:inherit}
 
 .appShell{min-height:100vh;display:grid;grid-template-columns:232px minmax(0,1fr)}
@@ -120,11 +120,11 @@ h2{font-size:16px;letter-spacing:-.012em;margin:0;color:#101828}
 
 .operationForm{display:grid;gap:11px;padding:17px 18px}
 label{font-size:11px;font-weight:750;color:#344054;display:grid;gap:5px}
-input{
+input,select{
   width:100%;border:1px solid #d0d5dd;border-radius:8px;padding:9px 10px;background:#fff;color:#101828;
   outline:none;transition:border-color .15s,box-shadow .15s
 }
-input:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
+input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
 input[type=file]{padding:7px;background:#f9fafb;color:#667085;font-size:10px}
 input[type=file]::file-selector-button{border:0;border-right:1px solid #d0d5dd;background:#fff;padding:5px 9px;margin:-5px 9px -5px -5px;font-weight:750;color:#344054}
 .fileField{padding:11px;border:1px dashed #d0d5dd;border-radius:10px;background:#fcfcfd}
@@ -145,6 +145,32 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .result span,.result strong{display:block}
 .result span{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#98a2b3;font-weight:750}
 .result strong{font-size:14px;margin-top:4px;color:#101828}
+
+
+.practicalResultWrap{border-top:1px solid #eef0f3;padding-top:14px}
+.practicalResultWrap .result{padding-top:0}
+.decisionBanner{
+  margin:0 18px 14px;display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px;
+  border:1px solid #e4e7ec;border-radius:10px;padding:11px 12px;background:#f8fafc
+}
+.decisionBanner>div span,.decisionBanner>div strong{display:block}
+.decisionBanner>div span{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#98a2b3;font-weight:800}
+.decisionBanner>div strong{margin-top:4px;font-size:11px;text-transform:capitalize;color:#344054}
+.decisionBanner.success{background:#ecfdf3;border-color:#abefc6}
+.decisionBanner.success strong{color:#027a48}
+.decisionBanner.danger{background:#fef3f2;border-color:#fecdca}
+.decisionBanner.danger strong{color:#b42318}
+.decisionBanner.review{background:#fffaeb;border-color:#fedf89}
+.decisionBanner.review strong{color:#b54708}
+.workCellGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 18px 17px}
+.workCellCard{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  border:1px solid #eef0f3;border-radius:9px;background:#fcfcfd;padding:10px 11px
+}
+.workCellCard strong,.workCellCard span{display:block}
+.workCellCard strong{font-size:10px;color:#344054;text-transform:capitalize}
+.workCellCard span{font-size:9px;color:#98a2b3;margin-top:2px}
+.workCellCard b{font-size:11px;color:#175cd3;white-space:nowrap}
 
 .postureRows{padding:4px 18px 9px}
 .postureRow{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:11px 0;border-top:1px solid #f0f2f5}
@@ -242,6 +268,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   .contextBlock{min-width:0;width:100%}
   .metrics{grid-template-columns:repeat(2,1fr)}
   .three{grid-template-columns:1fr}
+  .decisionBanner{grid-template-columns:1fr}
 }
 @media(max-width:560px){
   .topActions .statusPill.neutral{display:none}
@@ -253,6 +280,7 @@ button:disabled{opacity:.55;cursor:not-allowed}
   .formFooter{align-items:stretch;flex-direction:column}
   .formFooter button{width:100%}
   .result{grid-template-columns:1fr 1fr}
+  .workCellGrid{grid-template-columns:1fr}
   .roiInputs{grid-template-columns:1fr 1fr}
   .tr{grid-template-columns:1.5fr .6fr .7fr 1fr}
   .pageIntro h1{font-size:27px}
