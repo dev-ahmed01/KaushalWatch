@@ -160,6 +160,39 @@ def test_case_review_history_is_appended(tmp_path):
     assert event["note"] == "Needs remote officer check"
 
 
+def test_open_case_cannot_skip_review_and_finalize(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    case = ComplianceCase(
+        case_id="CASE-GOVERNANCE",
+        centre_id="DEMO",
+        batch_id="B1",
+        case_type="attendance_discrepancy",
+        severity="medium",
+        summary="test",
+    )
+    store.save(case)
+
+    with pytest.raises(ValueError, match="Invalid case transition"):
+        store.update_status("CASE-GOVERNANCE", CaseStatus.confirmed)
+
+    under_review = store.update_status(
+        "CASE-GOVERNANCE",
+        CaseStatus.under_review,
+        note="Evidence inspection started",
+    )
+    assert under_review is not None
+    assert under_review.status == CaseStatus.under_review
+
+    confirmed = store.update_status(
+        "CASE-GOVERNANCE",
+        CaseStatus.confirmed,
+        note="Evidence supports the exception",
+    )
+    assert confirmed is not None
+    assert confirmed.status == CaseStatus.confirmed
+    assert len(confirmed.review_history) == 2
+
+
 def test_terminal_case_status_cannot_reopen(tmp_path):
     store = CaseStore(tmp_path / "cases.json")
     case = ComplianceCase(
