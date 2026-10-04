@@ -108,6 +108,23 @@ For an explicit deployment, copy the values from `backend/.env.demo.example`. HO
 available as a zero-download development/CI fallback, but it is non-authoritative and never
 produces a final compliance conclusion.
 
+### Attendance recall calibration
+
+For a fixed-camera clip with a manually verified physical headcount, compare conservative
+OpenVINO confidence thresholds and the optional 2x2 overlapping tiled pass:
+
+```bash
+python scripts/calibrate_attendance_detector.py \
+  --video path/to/clip.mp4 \
+  --true-count 5
+```
+
+The tiled pass is **off by default** and exists to recover partially occluded or crowded
+workers that become too small when a 1080p frame is resized to the model input. The sweep
+ranks candidates using stable-occupancy error first, then registered/raw count consistency.
+Do not change benchmark claims from a single calibration clip; validate the selected
+candidate on held-out footage before freezing it.
+
 
 ## Low-bandwidth / offline mode
 
