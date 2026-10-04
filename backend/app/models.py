@@ -35,6 +35,23 @@ class AttendanceObservation(BaseModel):
     camera_trust: float
 
 
+class AttendanceOverlayBox(BaseModel):
+    track_id: int
+    x1: int
+    y1: int
+    x2: int
+    y2: int
+    status: str = "candidate"
+
+
+class AttendanceOverlaySample(BaseModel):
+    second: float
+    frame_width: int
+    frame_height: int
+    trusted: bool
+    boxes: list[AttendanceOverlayBox] = Field(default_factory=list)
+
+
 class EvidenceRecord(BaseModel):
     evidence_id: str
     created_at: str
@@ -75,6 +92,7 @@ class ProcessSummary(BaseModel):
     mismatch_persistence_ratio: float = Field(default=0.0, ge=0, le=1)
     sample_every_seconds: float = 0.2
     observations: list[AttendanceObservation]
+    overlay_samples: list[AttendanceOverlaySample] = Field(default_factory=list)
     detector_backend: str
     detector_mode: str
     detector_authoritative: bool
