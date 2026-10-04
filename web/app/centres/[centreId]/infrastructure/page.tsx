@@ -64,10 +64,7 @@ export default function InfrastructureVerification(){
       title="Infrastructure & Asset Verification"
       subtitle="Separate what the camera can verify, what it can only support, and what still requires an officer."
       actions={<>
-        <select className="headerSelect" value={profile} onChange={e=>setProfile(e.target.value)}>
-          <option value="compliant">Compliant demo telemetry</option>
-          <option value="discrepancy">Discrepancy demo telemetry</option>
-        </select>
+        <a className="secondaryBtn" href={'/centres/'+id+'/history'}>Recent Analysis</a>
         <button form="infra-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Infrastructure'}</button>
       </>}
     />
@@ -77,7 +74,16 @@ export default function InfrastructureVerification(){
     <div className="infrastructureLayout">
       <form id="infra-form" className="infraMediaPanel" onSubmit={analyse}>
         <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="Infrastructure camera" badge={preview?'Recorded clip':'No feed'}/>
-        <div className="sourceDisclosure">ⓘ Equipment counts below are stage-safe demo telemetry. The uploaded video supplies evidence imagery and optional visual-motion evidence.</div>
+        <div className="infraSetupCard">
+          <div>
+            <span>Demo evidence profile</span>
+            <select value={profile} onChange={e=>setProfile(e.target.value)}>
+              <option value="compliant">Compliant demo telemetry</option>
+              <option value="discrepancy">Discrepancy demo telemetry</option>
+            </select>
+          </div>
+          <p>Camera-verifiable counts use the demo evidence adapter. The video supplies the review frame and optional visual-motion evidence.</p>
+        </div>
       </form>
 
       <div className="infraTierGrid">
