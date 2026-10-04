@@ -100,6 +100,9 @@ class PracticalActivitySummary(BaseModel):
     camera_id: str
     authorization: str
     decision: str
+    zone_scaled: bool = False
+    zone_reference_width: int | None = None
+    zone_reference_height: int | None = None
     frames_processed: int
     duration_sec: float
     trusted_frame_ratio: float = Field(ge=0, le=1)

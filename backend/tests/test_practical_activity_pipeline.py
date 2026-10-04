@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.services.compliance_cases import build_practical_activity_case
-from app.services.practical_activity_pipeline import validate_work_zones
+from app.services.practical_activity_pipeline import validate_work_zones, scale_work_zones
 
 
 def test_validate_work_zones_accepts_in_bounds_cells():
@@ -25,6 +25,39 @@ def test_validate_work_zones_rejects_out_of_bounds_cell():
     with pytest.raises(ValueError, match="outside video bounds"):
         validate_work_zones(
             [{"zone_id": "work_zone_1", "x": 600, "y": 20, "w": 100, "h": 120}],
+            width=640,
+            height=480,
+        )
+
+
+def test_scale_work_zones_preserves_geometry_for_resized_same_scene():
+    zones = [
+        {"zone_id": "work_zone_1", "x": 100, "y": 200, "w": 400, "h": 300},
+    ]
+    scaled = scale_work_zones(
+        zones,
+        reference_width=1920,
+        reference_height=1080,
+        width=960,
+        height=540,
+    )
+
+    assert scaled == [
+        {"zone_id": "work_zone_1", "x": 50, "y": 100, "w": 200, "h": 150},
+    ]
+    assert zones[0]["x"] == 100
+
+
+def test_scale_work_zones_rejects_different_camera_aspect_ratio():
+    zones = [
+        {"zone_id": "work_zone_1", "x": 100, "y": 200, "w": 400, "h": 300},
+    ]
+
+    with pytest.raises(ValueError, match="different aspect ratio"):
+        scale_work_zones(
+            zones,
+            reference_width=1920,
+            reference_height=1080,
             width=640,
             height=480,
         )

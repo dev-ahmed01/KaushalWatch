@@ -8,6 +8,19 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
+from app.services.person_detector import DetectorInfo
+
+
+class NonAuthoritativePrivacyDetector:
+    info = DetectorInfo(
+        backend="test-fallback",
+        mode="fallback",
+        authoritative=False,
+        message="test fallback",
+    )
+
+    def detect(self, frame):
+        raise AssertionError("Non-authoritative privacy detector should not be trusted")
 
 
 def _write_video(path: Path) -> None:
@@ -135,3 +148,48 @@ def test_pipeline_clamps_evidence_to_available_video(tmp_path):
     assert case is not None
     assert case.details["evidence_second"] == 0.0
     assert len(case.evidence) == 1
+
+
+
+def test_infrastructure_evidence_uses_full_frame_privacy_fallback(tmp_path):
+    video = tmp_path / "privacy-demo.avi"
+    _write_video(video)
+    manifest = {
+        "job_role": "Construction Electrician",
+        "items": [
+            {
+                "id": "training_panel",
+                "label": "Training Panel",
+                "required": 4,
+                "verification_tier": "camera_verifiable",
+            }
+        ],
+    }
+    detections = [
+        {
+            "second": 0,
+            "detections": [
+                {"label": "training_panel", "count": 2, "confidence": 0.9},
+            ],
+        }
+    ]
+
+    pipeline = InfrastructureCompliancePipeline(
+        tmp_path / "evidence",
+        tmp_path / "evidence-index.json",
+        privacy_detector=NonAuthoritativePrivacyDetector(),
+    )
+    case = pipeline.run(
+        video_path=video,
+        manifest=manifest,
+        detection_rows=detections,
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-DEMO-01",
+        camera_id="LAB-CAM-02",
+    )
+
+    assert case is not None
+    assert (
+        case.evidence[0].metadata["privacy_transform"]
+        == "full_frame_blur_non_authoritative_privacy_detector"
+    )

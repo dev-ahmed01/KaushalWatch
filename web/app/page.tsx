@@ -291,15 +291,16 @@ export default function Page(){
     }
   }
 
-  async function review(caseId:string,action:CaseStatus){
+  async function review(caseId:string,action:CaseStatus,note?:string){
     setError('');
     const response=await fetch(`${API}/api/cases/${caseId}/review`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action}),
+      body:JSON.stringify({action,note:note?.trim()||null}),
     });
     if(!response.ok){
-      setError('Could not update the case');
+      const payload=await response.json().catch(()=>null);
+      setError(payload?.detail||'Could not update the case');
       return;
     }
     await refresh();
@@ -729,7 +730,7 @@ function PracticalView({
             <span><strong>Work-zone JSON · optional</strong><small>Override the bundled demo profile only when needed</small></span>
             <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
-          <Field label="Bundled zone profile" help="Works without uploading JSON. Choose the profile that matches the demo clip.">
+          <Field label="Bundled zone profile" help="Works without uploading JSON. Same-camera geometry auto-scales if the clip resolution changes.">
             <select name="zone_profile" defaultValue="authorized">
               <option value="authorized">Authorized demo layout</option>
               <option value="unauthorized">Unauthorized demo layout</option>
@@ -780,6 +781,13 @@ function PracticalView({
         text={practicalText}
       />
 
+      {result.zone_scaled&&<div className="resultSourceBanner">
+        <Icon name="zones"/>
+        <div>
+          <strong>Work-zone profile auto-scaled</strong>
+          <span>Same camera geometry scaled from {result.zone_reference_width}×{result.zone_reference_height} to the uploaded video resolution.</span>
+        </div>
+      </div>}
       <div className="resultGrid">
         <ResultMetric label="Peak stable workers" value={result.peak_stable_workers}/>
         <ResultMetric label="Active work cells" value={result.active_work_cells}/>
@@ -925,7 +933,7 @@ function InfrastructureView({
   </>;
 }
 
-function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus)=>void}){
+function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus,note?:string)=>void}){
   return <>
     <ModuleHero
       eyebrow="HUMAN REVIEW"
@@ -976,7 +984,7 @@ function EvidenceView(){
     <section className="evidenceGrid">
       <PolicyCard icon="privacy" title="Identity minimisation" text="Person detections are used for short-lived positional tracking. The current prototype does not create face embeddings or cross-camera identity."/>
       <PolicyCard icon="camera" title="Camera trust first" text="Darkness, blur, freeze and scene-shift checks can suspend downstream conclusions instead of fabricating confidence from poor imagery."/>
-      <PolicyCard icon="evidence" title="Minimal exception evidence" text="When a review case is created, person regions are blurred before central evidence retention."/>
+      <PolicyCard icon="evidence" title="Minimal exception evidence" text="Detected person regions are blurred before retention; when trustworthy localisation is unavailable, KaushalWatch falls back to a conservative full-frame privacy blur."/>
       <PolicyCard icon="package" title="Integrity metadata" text="Evidence is recorded with a SHA-256 hash and perceptual duplicate signal to support review and audit."/>
     </section>
 
@@ -1148,16 +1156,32 @@ function DecisionHeader({tone,eyebrow,title,text}:{tone:'good'|'warn'|'danger';e
 function WorkCellResult({cell}:{cell:any}){
   const activity=Math.round((cell.activity_fraction||0)*100);
   const presence=Math.round((cell.registered_worker_presence_fraction||0)*100);
+  const state=activity>0?'Activity sustained':presence>0?'Worker present · no sustained motion':'No stable worker';
   return <div className="cellResult">
-    <div className="cellResultHead"><div><strong>{String(cell.zone_id).replaceAll('_',' ')}</strong><span>{presence}% stable-worker presence</span></div><b>{activity}% active</b></div>
+    <div className="cellResultHead">
+      <div><strong>{String(cell.zone_id).replaceAll('_',' ')}</strong><span>{presence}% stable-worker presence</span></div>
+      <b>{activity}% active</b>
+    </div>
+    <div className="cellStateLine">{state}</div>
     <div className="progressTrack"><i style={{width:`${activity}%`}}></i></div>
-    <div className="cellSignals"><span>Motion p50 <b>{pct(cell.worker_motion_fraction_p50)}</b></span><span>p90 <b>{pct(cell.worker_motion_fraction_p90)}</b></span><span>p95 <b>{pct(cell.worker_motion_fraction_p95)}</b></span></div>
+    <details className="technicalDetails">
+      <summary>Technical motion evidence</summary>
+      <div className="cellSignals">
+        <span>Motion p50 <b>{pct(cell.worker_motion_fraction_p50)}</b></span>
+        <span>p90 <b>{pct(cell.worker_motion_fraction_p90)}</b></span>
+        <span>p95 <b>{pct(cell.worker_motion_fraction_p95)}</b></span>
+      </div>
+    </details>
   </div>;
 }
 
-function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus)=>void;resolved?:boolean}){
+function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus,note?:string)=>void;resolved?:boolean}){
   const pillar=casePillar(item.case_type);
   const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
+  const [reviewNote,setReviewNote]=useState('');
+  const finalReady=reviewNote.trim().length>0;
+  const latestReview=item.review_history?.at(-1);
+
   return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
       <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
@@ -1183,12 +1207,27 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
-    {!resolved&&<div className="reviewActions">
-      <button type="button" onClick={()=>review(item.case_id,'under_review')}>Start review</button>
-      <button type="button" onClick={()=>review(item.case_id,'virtual_verification')}>Virtual verify</button>
-      <button type="button" onClick={()=>review(item.case_id,'false_positive')}>False positive</button>
-      <button type="button" className="confirm" onClick={()=>review(item.case_id,'confirmed')}>Confirm exception</button>
+    {resolved&&latestReview?.note&&<div className="resolvedRationale">
+      <span>Officer rationale</span>
+      <strong>{latestReview.note}</strong>
     </div>}
+    {!resolved&&<>
+      <label className="reviewNoteField">
+        <span>Officer note <b>required for final decision</b></span>
+        <textarea
+          value={reviewNote}
+          onChange={event=>setReviewNote(event.target.value)}
+          placeholder="What did you verify, and why is this case confirmed or a false positive?"
+          rows={3}
+        />
+      </label>
+      <div className="reviewActions">
+        <button type="button" onClick={()=>review(item.case_id,'under_review',reviewNote)}>Start review</button>
+        <button type="button" onClick={()=>review(item.case_id,'virtual_verification',reviewNote)}>Virtual verify</button>
+        <button type="button" disabled={!finalReady} onClick={()=>review(item.case_id,'false_positive',reviewNote)}>False positive</button>
+        <button type="button" disabled={!finalReady} className="confirm" onClick={()=>review(item.case_id,'confirmed',reviewNote)}>Confirm exception</button>
+      </div>
+    </>}
   </article>;
 }
 

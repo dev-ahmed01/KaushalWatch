@@ -159,6 +159,20 @@ def process_practical_activity(
         raise HTTPException(status_code=400, detail="Invalid work-zone JSON") from exc
 
     selected_profile = zone_profile or "default"
+    zone_reference_size = None
+    if isinstance(parsed, dict):
+        reference = parsed.get("_reference")
+        if isinstance(reference, dict):
+            try:
+                reference_width = int(reference["width"])
+                reference_height = int(reference["height"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Work-zone _reference requires integer width and height",
+                ) from exc
+            zone_reference_size = (reference_width, reference_height)
+
     if isinstance(parsed, dict) and isinstance(parsed.get("zones"), list):
         zones = parsed["zones"]
     elif (
@@ -190,6 +204,7 @@ def process_practical_activity(
             centre_id=centre_id,
             batch_id=batch_id,
             camera_id=camera_id,
+            zone_reference_size=zone_reference_size,
         )
         if result.case:
             STORE.save(result.case)
@@ -232,8 +247,20 @@ def get_evidence_pack(case_id: str):
 
 @app.post("/api/cases/{case_id}/review")
 def review_case(case_id: str, request: ReviewRequest):
+    terminal_actions = {"confirmed", "false_positive", "resolved"}
+    note = (request.note or "").strip()
+    if request.action.value in terminal_actions and not note:
+        raise HTTPException(
+            status_code=422,
+            detail="A review note is required for a final case decision",
+        )
+
     try:
-        case = STORE.update_status(case_id, request.action, note=request.note)
+        case = STORE.update_status(
+            case_id,
+            request.action,
+            note=note or None,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not case:

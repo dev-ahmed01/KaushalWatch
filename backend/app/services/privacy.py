@@ -34,3 +34,22 @@ def anonymize_person_regions(
         output[y1:y2, x1:x2] = cv2.GaussianBlur(roi, (kernel, kernel), 0)
         cv2.rectangle(output, (x1, y1), (x2, y2), (255, 255, 255), 2)
     return output
+
+
+
+def full_frame_privacy_blur(
+    frame: np.ndarray,
+    *,
+    blur_kernel: int = 51,
+) -> np.ndarray:
+    """Conservative privacy fallback when person-localisation is unreliable.
+
+    This keeps coarse scene structure useful for camera-integrity or equipment
+    review while suppressing facial/clothing detail. It is intentionally used
+    only when a trustworthy person-region detector is unavailable or the camera
+    frame itself is too degraded to localise people reliably.
+    """
+    kernel = max(5, int(blur_kernel))
+    if kernel % 2 == 0:
+        kernel += 1
+    return cv2.GaussianBlur(frame.copy(), (kernel, kernel), 0)

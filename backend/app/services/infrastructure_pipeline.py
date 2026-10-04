@@ -10,7 +10,7 @@ from app.services.compliance_cases import build_infrastructure_case
 from app.services.evidence import persist_evidence
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.operability import apparent_motion_state
-from app.services.privacy import anonymize_person_regions
+from app.services.privacy import anonymize_person_regions, full_frame_privacy_blur
 
 
 class InfrastructureCompliancePipeline:
@@ -103,13 +103,31 @@ class InfrastructureCompliancePipeline:
         cap.release()
 
         privacy_transform = "not_applied"
-        if self.privacy_detector is not None:
-            person_detections = self.privacy_detector.detect(evidence_frame)
-            if person_detections:
-                evidence_frame = anonymize_person_regions(evidence_frame, person_detections)
-                privacy_transform = "person_regions_blurred_before_central_retention"
+        detector_info = getattr(self.privacy_detector, "info", None)
+
+        if self.privacy_detector is None:
+            evidence_frame = full_frame_privacy_blur(evidence_frame)
+            privacy_transform = "full_frame_blur_no_privacy_detector"
+        elif detector_info is not None and not bool(detector_info.authoritative):
+            evidence_frame = full_frame_privacy_blur(evidence_frame)
+            privacy_transform = "full_frame_blur_non_authoritative_privacy_detector"
+        else:
+            try:
+                person_detections = self.privacy_detector.detect(evidence_frame)
+            except Exception:
+                evidence_frame = full_frame_privacy_blur(evidence_frame)
+                privacy_transform = "full_frame_blur_privacy_detector_error"
             else:
-                privacy_transform = "no_person_regions_detected"
+                if person_detections:
+                    evidence_frame = anonymize_person_regions(
+                        evidence_frame,
+                        person_detections,
+                    )
+                    privacy_transform = (
+                        "person_regions_blurred_before_central_retention"
+                    )
+                else:
+                    privacy_transform = "no_person_regions_detected"
 
         evidence_id = f"EV-{uuid.uuid4().hex[:10].upper()}"
         evidence = persist_evidence(

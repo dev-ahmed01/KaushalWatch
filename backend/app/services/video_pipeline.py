@@ -15,7 +15,7 @@ from app.services.compliance_cases import build_camera_integrity_case
 from app.services.evidence import persist_evidence
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.person_detector import Detector, build_person_detector
-from app.services.privacy import anonymize_person_regions
+from app.services.privacy import anonymize_person_regions, full_frame_privacy_blur
 from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
 LOGGER = logging.getLogger(__name__)
@@ -279,9 +279,10 @@ class VideoCompliancePipeline:
                 trust_score=round(score, 2),
             )
             evidence_id = f"EV-{uuid.uuid4().hex[:10].upper()}"
+            private_frame = full_frame_privacy_blur(frame)
             case.evidence.append(
                 persist_evidence(
-                    frame,
+                    private_frame,
                     self.evidence_root,
                     self.index_path,
                     evidence_id,
@@ -291,6 +292,7 @@ class VideoCompliancePipeline:
                         "camera_id": camera_id,
                         "case_type": "camera_integrity",
                         "trusted_sample_ratio": round(trusted_ratio, 3),
+                        "privacy_transform": "full_frame_blur_due_untrusted_camera",
                     },
                 )
             )
