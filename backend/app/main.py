@@ -159,6 +159,20 @@ def process_practical_activity(
         raise HTTPException(status_code=400, detail="Invalid work-zone JSON") from exc
 
     selected_profile = zone_profile or "default"
+    zone_reference_size = None
+    if isinstance(parsed, dict):
+        reference = parsed.get("_reference")
+        if isinstance(reference, dict):
+            try:
+                reference_width = int(reference["width"])
+                reference_height = int(reference["height"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Work-zone _reference requires integer width and height",
+                ) from exc
+            zone_reference_size = (reference_width, reference_height)
+
     if isinstance(parsed, dict) and isinstance(parsed.get("zones"), list):
         zones = parsed["zones"]
     elif (
@@ -190,6 +204,7 @@ def process_practical_activity(
             centre_id=centre_id,
             batch_id=batch_id,
             camera_id=camera_id,
+            zone_reference_size=zone_reference_size,
         )
         if result.case:
             STORE.save(result.case)
