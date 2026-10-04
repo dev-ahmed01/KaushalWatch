@@ -22,7 +22,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
 
   // Core CI does not install YOLO. Attendance must show an explicit withheld state
   // rather than silently presenting a genuine zero occupancy.
-  await page.getByRole('link', { name: 'Attendance' }).click();
+  await page.locator('.analysisLaunchStep.blue').click();
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
