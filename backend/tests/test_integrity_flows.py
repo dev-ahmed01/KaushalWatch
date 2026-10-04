@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.services.evidence import persist_evidence
 from app.services.video_pipeline import VideoCompliancePipeline
+from app.services.privacy import full_frame_privacy_blur
 
 
 def _write_dark_video(path: Path, frames: int = 30) -> None:
@@ -48,6 +49,10 @@ def test_camera_integrity_case_preempts_attendance_on_bad_feed(tmp_path):
     assert "suspended" in result.case.summary.lower()
     assert len(result.case.evidence) == 1
     assert result.case.evidence[0].metadata["case_type"] == "camera_integrity"
+    assert (
+        result.case.evidence[0].metadata["privacy_transform"]
+        == "full_frame_blur_due_untrusted_camera"
+    )
 
 
 def test_identical_evidence_is_flagged_as_duplicate(tmp_path):
@@ -73,3 +78,16 @@ def test_identical_evidence_is_flagged_as_duplicate(tmp_path):
 
     assert first.duplicate_of is None
     assert second.duplicate_of == "EV-FIRST"
+
+
+
+def test_full_frame_privacy_blur_preserves_shape_but_removes_detail():
+    frame = np.zeros((120, 160, 3), dtype=np.uint8)
+    for x in range(0, 160, 4):
+        frame[:, x:x + 2] = 255
+
+    private = full_frame_privacy_blur(frame, blur_kernel=31)
+
+    assert private.shape == frame.shape
+    assert not np.array_equal(private, frame)
+    assert float(np.var(private)) < float(np.var(frame))
