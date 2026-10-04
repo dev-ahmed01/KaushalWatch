@@ -664,7 +664,36 @@ function PracticalView({
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
   const decision=String(result?.decision||'');
-  const tone=decision.includes('unauthorized')?'danger':decision.includes('authorized_')?'good':'warn';
+  const tone:'good'|'warn'|'danger'=
+    decision==='authorized_practical_activity'
+      ? 'good'
+      : decision==='unauthorized_practical_activity'
+        ? 'danger'
+        : 'warn';
+  const practicalTitle=
+    decision==='authorized_practical_activity'
+      ? 'Authorized practical activity observed'
+      : decision==='unauthorized_practical_activity'
+        ? 'Practical activity without matching authorization'
+        : decision==='authorization_review_required'
+          ? 'Practical activity needs authorization review'
+          : decision==='camera_evidence_insufficient'
+            ? 'Camera evidence is insufficient'
+            : decision==='no_persistent_practical_activity'
+              ? 'No persistent practical-work activity observed'
+              : 'Practical-work result';
+  const practicalText=
+    decision==='authorized_practical_activity'
+      ? 'Persistent work-cell activity was observed and a valid external authorization was supplied. No compliance exception is created.'
+      : decision==='unauthorized_practical_activity'
+        ? 'Persistent work-cell activity was observed without a supplied matching authorization. A human-review case was created.'
+        : decision==='authorization_review_required'
+          ? 'Persistent work-cell activity was observed, but authorization state is unknown. The case requires officer verification.'
+          : decision==='camera_evidence_insufficient'
+            ? 'The camera-trust gate suspended the practical-work conclusion. Review the camera-integrity evidence before interpreting activity.'
+            : decision==='no_persistent_practical_activity'
+              ? 'No configured work cell crossed the sustained worker-motion threshold during trusted imagery. No authorization conclusion is made from absence alone.'
+              : 'The result requires officer verification before any compliance action.';
 
   return <>
     <ModuleHero
@@ -745,14 +774,8 @@ function PracticalView({
       <DecisionHeader
         tone={tone}
         eyebrow="PRACTICAL-WORK RESULT"
-        title={decision.replaceAll('_',' ')}
-        text={
-          decision.includes('unauthorized')
-            ? 'Persistent practical-work activity was observed without a supplied matching authorization. A human-review case was created.'
-            : decision.includes('authorized_')
-              ? 'Persistent practical-work activity was observed and a valid external authorization was supplied. No compliance exception is created.'
-              : 'The result requires officer verification before any compliance action.'
-        }
+        title={practicalTitle}
+        text={practicalText}
       />
 
       <div className="resultGrid">
