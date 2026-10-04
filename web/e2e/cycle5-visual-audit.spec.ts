@@ -6,9 +6,11 @@ const enabled=process.env.VISUAL_AUDIT==='1';
 const centre='DEMO-KA-104';
 
 async function shot(page:any,name:string){
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.waitForTimeout(250);
   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth-window.innerWidth);
   expect(overflow,name+' horizontal overflow').toBeLessThanOrEqual(2);
-  await page.screenshot({path:'cycle5-visual-audit/'+name+'.png',fullPage:true});
+  await page.screenshot({path:'cycle5-visual-audit/'+name+'.png',fullPage:false});
 }
 
 test('cycle 5 complete visual fidelity audit', async ({page})=>{
