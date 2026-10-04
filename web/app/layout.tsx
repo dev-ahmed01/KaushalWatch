@@ -1,4 +1,5 @@
 import './styles.css';
+import './premium.css';
 import type { ReactNode } from 'react';
 import AppShell from './components/AppShell';
 
