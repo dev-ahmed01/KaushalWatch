@@ -32,9 +32,11 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   });
   expect(edgeSync.ok()).toBeTruthy();
   await page.reload();
-  await expect(page.getByText('Synced edge events')).toBeVisible();
-  const syncedMetric = page.locator('.metric').filter({ hasText: 'Synced edge events' });
+  await expect(page.getByText('Edge events synced')).toBeVisible();
+  const syncedMetric = page.locator('.kpi').filter({ hasText: 'Edge events synced' });
   await expect(syncedMetric.getByText('1', { exact: true })).toBeVisible();
+
+  await primaryNav.getByRole('button', { name: /Attendance/ }).click();
 
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required');
@@ -46,7 +48,8 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   await expect(page.getByText('Persistent attendance exception')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Reported attendance 12/)).toBeVisible({ timeout: 10_000 });
 
-  const attendanceCase = page.locator('.case').first();
+  await primaryNav.getByRole('button', { name: /Review queue/ }).click();
+  const attendanceCase = page.locator('.caseCard').filter({ hasText: 'attendance discrepancy' }).first();
   const evidence = attendanceCase.getByRole('link', { name: 'Open evidence' });
   await expect(evidence).toBeVisible();
   const href = await evidence.getAttribute('href');
@@ -54,7 +57,7 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   const evidenceResponse = await page.request.get(href!);
   expect(evidenceResponse.ok()).toBeTruthy();
 
-  await attendanceCase.getByRole('button', { name: 'Review' }).click();
+  await attendanceCase.getByRole('button', { name: 'Start review' }).click();
   await expect(attendanceCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
 
   await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
@@ -63,13 +66,13 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
 
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
-  await expect(page.getByText(/visual manifest exception/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('infrastructure compliance')).toBeVisible();
+  await expect(page.getByText(/visual manifest exception/i)).toBeVisible({ timeout: 20_000 });
   await expect(
-    page.locator('.infraResult').getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
+    page.getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
   ).toBeVisible({ timeout: 10_000 });
 
-  const infraCase = page.locator('.case').first();
+  await primaryNav.getByRole('button', { name: /Review queue/ }).click();
+  const infraCase = page.locator('.caseCard').filter({ hasText: 'infrastructure compliance' }).first();
   await expect(infraCase.getByRole('link', { name: 'Open evidence' })).toBeVisible();
   const evidencePack = infraCase.getByRole('link', { name: 'Evidence pack' });
   await expect(evidencePack).toBeVisible();
