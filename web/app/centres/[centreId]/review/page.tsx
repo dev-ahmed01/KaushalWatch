@@ -49,7 +49,7 @@ export default function ReviewQueue(){
       });
       const body=await response.json();
       if(!response.ok) throw new Error(body.detail||'Could not update case');
-      setNote('');
+      if(['confirmed','false_positive','resolved'].includes(action)) setNote('');
       await refresh();
     }catch(err:any){alert(err.message);}
     finally{setBusy(false);}
