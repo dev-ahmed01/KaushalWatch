@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
+import AnalysisProgress from '../../../components/AnalysisProgress';
 import { API } from '../../../lib/api';
 import { OutcomeCard, PageHeader, Status } from '../../../components/Ui';
 
@@ -55,6 +56,7 @@ export default function AttendanceVerification(){
       actions={<><button className="secondaryBtn" type="button">Demo Clip⌄</button><button className="secondaryBtn" type="button">⚙ Advanced Settings</button><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
     />
     <WorkflowStepper centreId={id} states={{attendance:busy?'running':result?(result.decision==='compliant'?'complete':'attention'):'pending'}}/>
+    <AnalysisProgress busy={busy} type="attendance"/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">
