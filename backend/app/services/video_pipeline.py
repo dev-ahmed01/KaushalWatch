@@ -1,5 +1,7 @@
 from __future__ import annotations
+
 from collections import Counter
+import logging
 from pathlib import Path
 import uuid
 
@@ -7,19 +9,26 @@ import cv2
 import numpy as np
 
 from app.models import AttendanceObservation, ComplianceCase, ProcessSummary
-from app.services.camera_trust import assess_camera
 from app.services.anonymous_tracker import AnonymousCentroidTracker
+from app.services.camera_trust import assess_camera
 from app.services.compliance_cases import build_camera_integrity_case
-from app.services.person_detector import build_person_detector
-from app.services.privacy import anonymize_person_regions
-from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.evidence import persist_evidence
+from app.services.occupancy import OccupancySmoother, discrepancy_pct
+from app.services.person_detector import Detector, build_person_detector
+from app.services.privacy import anonymize_person_regions
 from app.services.track_presence import TrackObservation, TrackPresenceRegistry
+
+LOGGER = logging.getLogger(__name__)
 
 
 class VideoCompliancePipeline:
-    def __init__(self, evidence_root: Path, index_path: Path):
-        self.detector = build_person_detector()
+    def __init__(
+        self,
+        evidence_root: Path,
+        index_path: Path,
+        detector: Detector | None = None,
+    ):
+        self.detector = detector or build_person_detector()
         self.evidence_root = evidence_root
         self.index_path = index_path
 
@@ -30,7 +39,7 @@ class VideoCompliancePipeline:
         centre_id: str,
         batch_id: str,
         camera_id: str = "CAM-01",
-        sample_every_seconds: float = 1.0,
+        sample_every_seconds: float = 0.2,
         mismatch_threshold_pct: float = 15.0,
         persistence_threshold: float = 0.6,
         minimum_trusted_ratio: float = 0.5,
@@ -42,15 +51,20 @@ class VideoCompliancePipeline:
         if not cap.isOpened():
             raise ValueError(f"Could not open video: {video_path}")
 
+        detector_info = self.detector.info
+        LOGGER.info(
+            "Attendance run detector=%s mode=%s authoritative=%s video=%s",
+            detector_info.backend,
+            detector_info.mode,
+            detector_info.authoritative,
+            video_path,
+        )
+
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
         step = max(1, int(round(fps * sample_every_seconds)))
         smoother = OccupancySmoother(window=5)
         tracker = AnonymousCentroidTracker(max_distance=140.0, max_missed=2)
 
-        # The grace period must be long enough to bridge one sampled observation.
-        # This keeps a real person stable through a brief detector miss while the
-        # stricter registration threshold prevents short-lived false positives
-        # from entering attendance occupancy.
         effective_grace_seconds = max(
             float(track_grace_seconds),
             float(sample_every_seconds) * 1.25,
@@ -71,19 +85,26 @@ class VideoCompliancePipeline:
         best_evidence: tuple[float, np.ndarray, int, list] | None = None
         worst_camera_evidence: tuple[float, np.ndarray, list[str]] | None = None
 
-        i = 0
+        detector_failures = 0
+        detector_failure_messages: list[str] = []
+        frames_sampled = 0
+        frame_index = 0
+
         try:
             while True:
                 ok, frame = cap.read()
                 if not ok:
                     break
+
                 if reference_frame is None:
                     reference_frame = frame.copy()
-                if i % step != 0:
-                    i += 1
+
+                if frame_index % step != 0:
+                    frame_index += 1
                     continue
 
-                sec = i / fps
+                frames_sampled += 1
+                sec = frame_index / fps
                 trust = assess_camera(
                     frame,
                     previous_frame=prev_frame,
@@ -95,16 +116,40 @@ class VideoCompliancePipeline:
                 if not trust.trusted and (
                     worst_camera_evidence is None or trust.score < worst_camera_evidence[0]
                 ):
-                    worst_camera_evidence = (trust.score, frame.copy(), list(trust.reasons))
+                    worst_camera_evidence = (
+                        trust.score,
+                        frame.copy(),
+                        list(trust.reasons),
+                    )
 
-                detections = self.detector.detect(frame) if trust.trusted else []
+                detections = []
+                if trust.trusted:
+                    try:
+                        detections = self.detector.detect(frame)
+                    except Exception as exc:
+                        detector_failures += 1
+                        message = f"{type(exc).__name__}: {exc}"
+                        detector_failure_messages.append(message)
+                        LOGGER.exception(
+                            "Person detector failed at frame=%s second=%.3f",
+                            frame_index,
+                            sec,
+                        )
+
                 raw_count = len(detections)
+                confidences = [round(float(det.confidence), 4) for det in detections]
+                LOGGER.debug(
+                    "Attendance sample frame=%s second=%.3f trusted=%s raw_count=%s confidences=%s",
+                    frame_index,
+                    sec,
+                    trust.trusted,
+                    raw_count,
+                    confidences,
+                )
 
                 presence_observations: list[TrackObservation] = []
-                if trust.trusted:
+                if trust.trusted and detector_failures == 0:
                     tracks = tracker.update(detections)
-                    # Tracker count remains diagnostic. Presence registration below is
-                    # the value allowed to affect attendance occupancy.
                     tracker_count = sum(track.missed <= 1 for track in tracks)
                     for track in tracks:
                         if track.missed != 0:
@@ -126,15 +171,14 @@ class VideoCompliancePipeline:
                 confirmed_count = presence.confirmed_count
                 registered_count = presence.registered_count
 
-                # Only attendance-registered tracks enter occupancy smoothing.
-                # A one-second detector flash can therefore never become a new
-                # attendance person under the default two-second threshold.
                 smooth = smoother.update(registered_count)
                 d_pct = discrepancy_pct(reported_attendance, smooth)
 
                 warmup_complete = sec >= attendance_registration_seconds
                 is_mismatch = (
-                    trust.trusted
+                    detector_info.authoritative
+                    and detector_failures == 0
+                    and trust.trusted
                     and warmup_complete
                     and d_pct >= mismatch_threshold_pct
                 )
@@ -159,7 +203,7 @@ class VideoCompliancePipeline:
                     best_evidence = (d_pct, frame.copy(), smooth, detections)
 
                 prev_frame = frame.copy()
-                i += 1
+                frame_index += 1
         finally:
             cap.release()
 
@@ -168,12 +212,22 @@ class VideoCompliancePipeline:
 
         trusted_ratio = sum(trust_flags) / len(trust_flags) if trust_flags else 0.0
         trusted_counts = [
-            o.smoothed_count
-            for o, is_trusted in zip(observations, trust_flags)
-            if is_trusted and o.second >= attendance_registration_seconds
+            observation.smoothed_count
+            for observation, is_trusted in zip(observations, trust_flags)
+            if is_trusted and observation.second >= attendance_registration_seconds
         ]
-        estimated = int(np.median(trusted_counts)) if trusted_counts else 0
-        overall_pct = discrepancy_pct(reported_attendance, estimated)
+
+        runtime_authoritative = (
+            detector_info.authoritative and detector_failures == 0
+        )
+
+        estimated_internal = int(np.median(trusted_counts)) if trusted_counts else 0
+        estimated: int | None = estimated_internal if runtime_authoritative else None
+        overall_pct: float | None = (
+            discrepancy_pct(reported_attendance, estimated_internal)
+            if runtime_authoritative
+            else None
+        )
 
         eligible_mismatch_flags = [
             flag
@@ -186,9 +240,24 @@ class VideoCompliancePipeline:
             else 0.0
         )
 
+        detector_mode = detector_info.mode
+        detector_message = detector_info.message
+        if detector_failures:
+            detector_mode = "unavailable"
+            unique_failures = list(dict.fromkeys(detector_failure_messages))
+            detector_message = (
+                "Detector unavailable during analysis. Attendance conclusions are "
+                "suspended. " + "; ".join(unique_failures[:3])
+            )
+        elif not detector_info.authoritative:
+            detector_message = (
+                detector_info.message
+                + f" Diagnostic fallback sampled {frames_sampled} frame(s); "
+                "its counts are not shown as attendance truth."
+            )
+
         case: ComplianceCase | None = None
 
-        # Integrity takes precedence: do not issue attendance conclusions from a mostly-bad feed.
         if trusted_ratio < minimum_trusted_ratio and worst_camera_evidence is not None:
             score, frame, reasons = worst_camera_evidence
             common_reasons = [
@@ -219,7 +288,9 @@ class VideoCompliancePipeline:
             )
 
         elif (
-            overall_pct >= mismatch_threshold_pct
+            runtime_authoritative
+            and overall_pct is not None
+            and overall_pct >= mismatch_threshold_pct
             and persistence >= persistence_threshold
             and best_evidence
         ):
@@ -240,6 +311,7 @@ class VideoCompliancePipeline:
                     "visual_occupancy": evidence_count,
                     "privacy_transform": "person_regions_blurred_before_central_retention",
                     "track_registration_seconds": attendance_registration_seconds,
+                    "detector_backend": detector_info.backend,
                 },
             )
             case = ComplianceCase(
@@ -250,11 +322,11 @@ class VideoCompliancePipeline:
                 severity="high" if overall_pct >= 25 else "medium",
                 summary=(
                     f"Reported attendance {reported_attendance}; privacy-preserving "
-                    f"stable visual occupancy estimated at {estimated}. Persistent mismatch "
-                    f"across {persistence:.0%} of eligible observations."
+                    f"stable visual occupancy estimated at {estimated_internal}. Persistent "
+                    f"mismatch across {persistence:.0%} of eligible observations."
                 ),
                 reported_attendance=reported_attendance,
-                visual_occupancy=estimated,
+                visual_occupancy=estimated_internal,
                 discrepancy_pct=round(overall_pct, 2),
                 persistence_ratio=round(persistence, 3),
                 details={
@@ -263,17 +335,36 @@ class VideoCompliancePipeline:
                     "track_confirmation_seconds": track_confirmation_seconds,
                     "attendance_registration_seconds": attendance_registration_seconds,
                     "track_grace_seconds": effective_grace_seconds,
+                    "detector_backend": detector_info.backend,
                     "individual_identification": False,
                 },
                 evidence=[evidence],
             )
+
+        LOGGER.info(
+            "Attendance completed sampled=%s detector=%s mode=%s failures=%s "
+            "authoritative=%s estimated=%s trusted_ratio=%.3f",
+            frames_sampled,
+            detector_info.backend,
+            detector_mode,
+            detector_failures,
+            runtime_authoritative,
+            estimated,
+            trusted_ratio,
+        )
 
         return ProcessSummary(
             centre_id=centre_id,
             batch_id=batch_id,
             reported_attendance=reported_attendance,
             estimated_occupancy=estimated,
-            discrepancy_pct=round(overall_pct, 2),
+            discrepancy_pct=round(overall_pct, 2) if overall_pct is not None else None,
             observations=observations,
+            detector_backend=detector_info.backend,
+            detector_mode=detector_mode,
+            detector_authoritative=runtime_authoritative,
+            detector_message=detector_message,
+            frames_sampled=frames_sampled,
+            detector_failures=detector_failures,
             case=case,
         )
