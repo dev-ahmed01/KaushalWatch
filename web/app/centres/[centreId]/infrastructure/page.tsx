@@ -64,7 +64,6 @@ export default function InfrastructureVerification(){
           <option value="compliant">Compliant demo telemetry</option>
           <option value="discrepancy">Discrepancy demo telemetry</option>
         </select>
-        <button className="secondaryBtn" type="button">⚙ Advanced Settings</button>
         <button form="infra-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Infrastructure'}</button>
       </>}
     />
