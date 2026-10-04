@@ -1,11 +1,12 @@
 from __future__ import annotations
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 import importlib.util
 import os
 import json
 import tempfile
 import cv2
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.models import ReviewRequest, EdgeSyncRequest
@@ -18,6 +19,10 @@ from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.demo_assets import load_demo_manifest_and_cache, build_compliant_demo_cache
+from app.services.demo_network import centre_rows, get_centre
+from app.services.analysis_history import AnalysisHistoryStore
+from app.services.compliance_assistant import answer_question
+from app.services.centre_settings import CentreSettingsStore
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -27,6 +32,8 @@ PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
 PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json")
 DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.json"
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
+HISTORY = AnalysisHistoryStore(DATA / "analysis_history.json")
+CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
 app.add_middleware(
@@ -150,6 +157,125 @@ def runtime_readiness():
     }
 
 
+@app.get("/api/centres")
+def list_centres():
+    return {
+        "centres": centre_rows(STORE.list()),
+        "total": len(centre_rows(STORE.list())),
+    }
+
+
+@app.get("/api/centres/{centre_id}")
+def centre_detail(centre_id: str):
+    centre = get_centre(centre_id, STORE.list())
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    settings = CENTRE_SETTINGS.get(centre_id)
+    history = HISTORY.list(centre_id=centre_id, limit=20)
+    return {
+        **centre,
+        "settings": settings,
+        "recent_analyses": history[:6],
+    }
+
+
+@app.get("/api/analysis-history")
+def analysis_history(
+    centre_id: str | None = None,
+    batch_id: str | None = None,
+    limit: int = 100,
+):
+    return {
+        "rows": HISTORY.list(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            limit=min(max(limit, 1), 500),
+        )
+    }
+
+
+@app.get("/api/centres/{centre_id}/settings")
+def centre_settings(centre_id: str):
+    if not get_centre(centre_id, STORE.list()):
+        raise HTTPException(status_code=404, detail="Centre not found")
+    return CENTRE_SETTINGS.get(centre_id)
+
+
+@app.put("/api/centres/{centre_id}/settings")
+def update_centre_settings(centre_id: str, payload: dict = Body(...)):
+    if not get_centre(centre_id, STORE.list()):
+        raise HTTPException(status_code=404, detail="Centre not found")
+    return CENTRE_SETTINGS.save(centre_id, payload)
+
+
+@app.post("/api/assistant/query")
+def assistant_query(payload: dict = Body(...)):
+    centre_id = str(payload.get("centre_id") or "DEMO-KA-104")
+    period = str(payload.get("period") or "7d")
+    question = str(payload.get("question") or "").strip()
+    centre = get_centre(centre_id, STORE.list())
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    centre_cases = [case for case in STORE.list() if case.centre_id == centre_id]
+    history = HISTORY.list(centre_id=centre_id, limit=200)
+    return answer_question(
+        question=question,
+        centre=centre,
+        cases=centre_cases,
+        history=history,
+        period=period,
+    )
+
+
+@app.get("/api/centres/{centre_id}/report")
+def centre_report(
+    centre_id: str,
+    period: str = "7d",
+):
+    centre = get_centre(centre_id, STORE.list())
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    history = HISTORY.list(centre_id=centre_id, limit=200)
+    now = datetime.now(timezone.utc)
+    if period in {"yesterday", "7d", "30d"}:
+        delta = timedelta(days=1 if period == "yesterday" else 7 if period == "7d" else 30)
+        cutoff = now - delta
+        def _recent(row):
+            try:
+                created = datetime.fromisoformat(str(row.get("created_at", "")).replace("Z", "+00:00"))
+            except ValueError:
+                return True
+            return created >= cutoff
+        history = [row for row in history if _recent(row)]
+
+    cases = [case for case in STORE.list() if case.centre_id == centre_id]
+    pending = [
+        case for case in cases
+        if case.status.value in {"open", "under_review", "virtual_verification"}
+    ]
+    return {
+        "title": "KaushalWatch Centre Verification Report",
+        "prototype": True,
+        "period": period,
+        "centre": centre,
+        "summary": {
+            "analysis_runs": len(history),
+            "pending_cases": len(pending),
+            "escalation": centre["escalation"],
+        },
+        "analyses": history,
+        "cases": [case.model_dump(mode="json") for case in cases],
+        "privacy_note": (
+            "No facial recognition is used for attendance verification. "
+            "Visual outputs are aggregate or anonymous and final action requires human review."
+        ),
+        "limitations": [
+            "Infrastructure demo counts are stage-safe telemetry until a live equipment detector is connected.",
+            "Apparent operability is a visual activity proxy, not a mechanical or electrical diagnosis.",
+        ],
+    }
+
+
 @app.get("/api/dashboard")
 def dashboard(
     centre_id: str | None = None,
@@ -210,6 +336,25 @@ def process_video(
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
             STORE.save(result.case)
+        HISTORY.append(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            analysis_type="attendance",
+            outcome="compliant" if result.case is None and result.detector_authoritative else (
+                "blocked" if not result.detector_authoritative else "attention"
+            ),
+            summary=(
+                "Attendance matched the reported record."
+                if result.case is None and result.detector_authoritative
+                else result.case.summary if result.case else result.detector_message
+            ),
+            details={
+                "reported_attendance": result.reported_attendance,
+                "estimated_occupancy": result.estimated_occupancy,
+                "discrepancy_pct": result.discrepancy_pct,
+                "decision": result.decision,
+            },
+        )
         return result.model_dump(mode="json")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -293,6 +438,29 @@ def process_practical_activity(
         )
         if result.case:
             STORE.save(result.case)
+        HISTORY.append(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            analysis_type="practical_work",
+            outcome="attention" if result.case else (
+                "blocked" if result.decision == "camera_evidence_insufficient" else "compliant"
+            ),
+            summary=(
+                result.case.summary
+                if result.case
+                else (
+                    "Authorized practical activity was observed."
+                    if result.decision == "authorized_practical_activity"
+                    else "No practical-work exception was created."
+                )
+            ),
+            details={
+                "decision": result.decision,
+                "active_work_cells": result.active_work_cells,
+                "peak_stable_workers": result.peak_stable_workers,
+                "activity_fraction": result.practical_activity_fraction,
+            },
+        )
         return result.model_dump(mode="json")
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -425,6 +593,14 @@ def process_infrastructure_video(
             operability_roi=roi,
         )
         if not case:
+            HISTORY.append(
+                centre_id=centre_id,
+                batch_id=batch_id,
+                analysis_type="infrastructure",
+                outcome="compliant",
+                summary="Infrastructure demo profile completed without a persistent visual exception.",
+                details={"demo_profile": demo_profile, "items": preview_items},
+            )
             return {
                 "created": False,
                 "banner": (
@@ -437,6 +613,14 @@ def process_infrastructure_video(
                 "items": preview_items,
             }
         STORE.save(case)
+        HISTORY.append(
+            centre_id=centre_id,
+            batch_id=batch_id,
+            analysis_type="infrastructure",
+            outcome="attention",
+            summary=case.summary,
+            details={"demo_profile": demo_profile, "items": preview_items},
+        )
         return {
             "created": True,
             "banner": (
