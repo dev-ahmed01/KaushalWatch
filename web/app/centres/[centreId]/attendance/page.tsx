@@ -36,7 +36,7 @@ export default function AttendanceVerification(){
     body.append('batch_id','ELEC-2026-08');
     body.append('camera_id',cameraId);
     try{
-      const response=await fetch(\`\${API}/api/process-video\`,{method:'POST',body});
+      const response=await fetch(`${API}/api/process-video`,{method:'POST',body});
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Attendance analysis failed');
       setResult(payload);
@@ -72,9 +72,9 @@ export default function AttendanceVerification(){
           <div><span>Detected People</span><strong>{authoritative?result?.estimated_occupancy??'—':'—'}</strong></div>
           <div><span>Reported Attendance</span><strong>{reported}</strong></div>
           <div><span>Detector Backend</span><b>{result?.detector_backend||'YOLO11 / checking'}</b></div>
-          <div><span>Trusted Samples</span><b>{result?\`\${Math.round((result.trusted_sample_ratio||0)*100)}%\`:'—'}</b></div>
+          <div><span>Trusted Samples</span><b>{result?`${Math.round((result.trusted_sample_ratio||0)*100)}%`:'—'}</b></div>
           <div><span>Frames Analysed</span><b>{result?.frames_sampled??'—'}</b></div>
-          <div><span>Mismatch</span><b>{result?.discrepancy_pct==null?'—':\`\${result.discrepancy_pct}%\`}</b></div>
+          <div><span>Mismatch</span><b>{result?.discrepancy_pct==null?'—':`${result.discrepancy_pct}%`}</b></div>
         </div>
         {result&&<OutcomeCard
           tone={result.decision==='compliant'?'good':result.decision==='detector_unavailable'?'blocked':result.decision==='attendance_exception'?'danger':'warn'}
