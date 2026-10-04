@@ -35,10 +35,30 @@ type Dashboard = {
   cases:Case[];
 };
 
+type WorkflowStepState = 'pending'|'passed'|'attention'|'blocked';
+
 type WorkflowProgress = {
-  attendance:boolean;
-  practical:boolean;
-  infrastructure:boolean;
+  attendance:WorkflowStepState;
+  practical:WorkflowStepState;
+  infrastructure:WorkflowStepState;
+};
+
+type RuntimeReadiness = {
+  attendance?:{
+    ready:boolean;
+    backend:string;
+    mode:string;
+    message:string;
+  };
+  practical_work?:{
+    ready:boolean;
+    message:string;
+  };
+  infrastructure?:{
+    ready:boolean;
+    mode:string;
+    message:string;
+  };
 };
 
 type InfraItem = {
@@ -77,15 +97,17 @@ export default function Page(){
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('unknown');
   const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
-    attendance:false,
-    practical:false,
-    infrastructure:false,
+    attendance:'pending',
+    practical:'pending',
+    infrastructure:'pending',
   });
+  const [runtimeReadiness,setRuntimeReadiness]=useState<RuntimeReadiness|null>(null);
 
   const refresh=async()=>{
-    const [dashboardResponse,infraResponse]=await Promise.all([
+    const [dashboardResponse,infraResponse,readinessResponse]=await Promise.all([
       fetch(`${API}/api/dashboard`,{cache:'no-store'}),
       fetch(`${API}/api/demo/infrastructure`,{cache:'no-store'}),
+      fetch(`${API}/api/runtime-readiness`,{cache:'no-store'}),
     ]);
     if(!dashboardResponse.ok) throw new Error('Command-centre API is unavailable');
     setData(await dashboardResponse.json());
@@ -93,22 +115,50 @@ export default function Page(){
       const body=await infraResponse.json();
       setInfra(body.items||[]);
     }
+    if(readinessResponse.ok){
+      setRuntimeReadiness(await readinessResponse.json());
+    }
   };
 
   useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
   useEffect(()=>{
     try{
       const saved=window.localStorage.getItem('kaushalwatch-centre-progress');
-      if(saved) setWorkflowProgress(JSON.parse(saved));
+      if(saved){
+        const parsed=JSON.parse(saved);
+        const normalize=(value:any):WorkflowStepState=>{
+          if(value===true) return 'passed';
+          if(['pending','passed','attention','blocked'].includes(value)) return value;
+          return 'pending';
+        };
+        setWorkflowProgress({
+          attendance:normalize(parsed.attendance),
+          practical:normalize(parsed.practical),
+          infrastructure:normalize(parsed.infrastructure),
+        });
+      }
     }catch{}
   },[]);
 
-  function markWorkflowComplete(step:keyof WorkflowProgress){
+  function markWorkflow(step:keyof WorkflowProgress,state:WorkflowStepState){
     setWorkflowProgress(current=>{
-      const next={...current,[step]:true};
+      const next={...current,[step]:state};
       try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
       return next;
     });
+  }
+
+  function resetWorkflow(){
+    const next:WorkflowProgress={
+      attendance:'pending',
+      practical:'pending',
+      infrastructure:'pending',
+    };
+    setWorkflowProgress(next);
+    setAttendanceResult(null);
+    setPracticalResult(null);
+    setInfraResult(null);
+    try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
   }
 
   const priority=useMemo(
@@ -143,7 +193,10 @@ export default function Page(){
       const body=await response.json();
       if(!response.ok) throw new Error(body.detail||'Attendance analysis failed');
       setAttendanceResult(body);
-      markWorkflowComplete('attendance');
+      markWorkflow(
+        'attendance',
+        !body.detector_authoritative ? 'blocked' : body.case ? 'attention' : 'passed',
+      );
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -182,7 +235,14 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Practical-work analysis failed');
       setPracticalResult(payload);
-      markWorkflowComplete('practical');
+      markWorkflow(
+        'practical',
+        payload.decision==='camera_evidence_insufficient'
+          ? 'blocked'
+          : payload.case
+            ? 'attention'
+            : 'passed',
+      );
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -215,7 +275,7 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Infrastructure analysis failed');
       setInfraResult(payload);
-      markWorkflowComplete('infrastructure');
+      markWorkflow('infrastructure',payload.created?'attention':'passed');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -287,7 +347,12 @@ export default function Page(){
           <strong>{navItems.find(item=>item.key===activeView)?.label}</strong>
         </div>
         <div className="topStatus">
-          <span className={cameraHealthy?'healthChip good':'healthChip warn'}><i></i>Camera trust {cameraHealthy?'nominal':'attention'}</span>
+          <span className={runtimeReadiness?.attendance?.ready?'healthChip good':'healthChip warn'}>
+            <i></i>
+            Attendance detector {runtimeReadiness?.attendance?.ready
+              ? `${runtimeReadiness.attendance.backend} ready`
+              : 'fallback / unavailable'}
+          </span>
           <span className="healthChip"><Icon name="human"/>Human review enforced</span>
         </div>
       </header>
@@ -297,6 +362,7 @@ export default function Page(){
           progress={workflowProgress}
           activeView={activeView}
           onOpen={setActiveView}
+          onReset={resetWorkflow}
         />
         {error&&<div className="errorBanner"><Icon name="alert"/><span>{error}</span></div>}
 
