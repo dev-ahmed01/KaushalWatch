@@ -12,6 +12,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('button', { name: /Requires Review/ })).toContainText('0');
   await expect(page.getByRole('button', { name: /Camera Issues/ })).toContainText('0');
   await expect(page.getByRole('button', { name: /Verification Incomplete/ })).toContainText('6');
+  await expect(page.locator('.networkMapLegend')).toBeVisible();
 
   // Keep the command-centre UI readable at normal presentation distance.
   const navFontSize = await page.getByRole('link', { name: 'Network Overview' }).evaluate((element) =>
@@ -29,6 +30,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await expect(page.getByRole('link', { name: 'Start Analysis' })).toBeVisible();
   await expect(page.getByText('Ask KaushalWatch')).toBeVisible();
   await expect(page.getByText('incomplete').first()).toBeVisible();
+  await expect(page.locator('.centreVisualCard')).toBeVisible();
 
   // No evidence must never be displayed as a compliant centre-level outcome.
   await page.goto('/centres/DEMO-KA-104/outcome');
@@ -51,6 +53,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.getByRole('button', { name: 'Analyse Attendance' }).click();
   await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/decision withheld/i)).toBeVisible();
+  await expect(page.locator('.overlayMode')).toContainText(/Diagnostic detector overlay/i);
   const attendanceOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(attendanceOverflow).toBeLessThanOrEqual(2);
 
