@@ -122,3 +122,73 @@ def test_centre_settings_round_trip(tmp_path, monkeypatch):
     reread = client.get("/api/centres/DEMO-KA-104/settings")
     assert reread.status_code == 200
     assert reread.json()["frequency"] == "manual"
+
+
+
+def test_assistant_infers_today_and_report_matches_window(tmp_path, monkeypatch):
+    client, _, history = _client(tmp_path, monkeypatch)
+    history.append(
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="attendance",
+        outcome="compliant",
+        summary="Attendance matched today.",
+        details={},
+    )
+
+    assistant = client.post(
+        "/api/assistant/query",
+        json={
+            "centre_id": "DEMO-KA-104",
+            "period": "7d",
+            "question": "What happened today?",
+        },
+    )
+    assert assistant.status_code == 200
+    assert assistant.json()["period"] == "today"
+    assert "1 recorded analyses" in assistant.json()["answer"]
+
+    report = client.get("/api/centres/DEMO-KA-104/report?period=today")
+    assert report.status_code == 200
+    assert report.json()["period"] == "today"
+    assert report.json()["summary"]["analysis_runs"] == 1
+
+
+def test_saved_escalation_policy_changes_network_result(tmp_path, monkeypatch):
+    client, store, _ = _client(tmp_path, monkeypatch)
+    store.save(
+        ComplianceCase(
+            case_id="CASE-ESC-POLICY",
+            centre_id="DEMO-KA-104",
+            batch_id="ELEC-2026-08",
+            case_type="attendance_discrepancy",
+            severity="high",
+            summary="Repeated attendance mismatch",
+        )
+    )
+
+    updated = client.put(
+        "/api/centres/DEMO-KA-104/settings",
+        json={
+            "escalation_rules": {
+                "repeated_attendance_days": 1,
+                "unresolved_case_days": 30,
+                "multi_signal_escalation": True,
+                "duplicate_evidence_escalation": True,
+            }
+        },
+    )
+    assert updated.status_code == 200
+
+    network = client.get("/api/centres")
+    assert network.status_code == 200
+    bengaluru = next(
+        row for row in network.json()["centres"]
+        if row["centre_id"] == "DEMO-KA-104"
+    )
+    assert bengaluru["escalation"]["level"] >= 2
+    assert any(
+        "attendance discrepancy repeated" in reason
+        for reason in bengaluru["escalation"]["reasons"]
+    )
+    assert bengaluru["escalation"]["next_action"]
