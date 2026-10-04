@@ -16,7 +16,7 @@ export default function EscalationsPage(){
 
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Escalation operations" title="Escalations & Review" subtitle="Repeated, severe, unresolved or multi-signal issues rise above ordinary centre review."
-      actions={<><select className="headerSelect" value={selected} onChange={e=>setSelected(e.target.value)}>{centres.map(c=><option key={c.centre_id} value={c.centre_id}>{c.name}</option>)}</select><Link href={selectedCentre?\`/centres/\${selectedCentre.centre_id}/review\`:'#'} className="primaryBtn">Open Review Queue</Link></>}/>
+      actions={<><select className="headerSelect" value={selected} onChange={e=>setSelected(e.target.value)}>{centres.map(c=><option key={c.centre_id} value={c.centre_id}>{c.name}</option>)}</select><Link href={selectedCentre?`/centres/${selectedCentre.centre_id}/review`:'#'} className="primaryBtn">Open Review Queue</Link></>}/>
     <section className="metricGrid four">
       <Metric label="Open escalations" value={escalated.length} note="Any active escalation trigger" icon="!"/>
       <Metric label="High priority" value={escalated.filter(c=>c.escalation.level>=3).length} note="Regional or ministry review" tone="danger" icon="▲"/>
@@ -29,7 +29,7 @@ export default function EscalationsPage(){
         <div className="panelHead"><div><span className="sectionKicker">Priority order</span><h2>Active escalations</h2></div><span>{escalated.length} centres</span></div>
         <div className="escalationRows">
           {escalated.map(c=><button type="button" key={c.centre_id} className={selected===c.centre_id?'escalationRow selected':'escalationRow'} onClick={()=>setSelected(c.centre_id)}>
-            <span className={\`escalationIcon level\${c.escalation.level}\`}>!</span>
+            <span className={`escalationIcon level${c.escalation.level}`}>!</span>
             <div><strong>{c.name}</strong><small>{c.escalation.reasons.join(' · ')}</small><em>{c.location}</em></div>
             <Status tone={c.escalation.level>=3?'danger':c.escalation.level>=2?'warn':'info'}>{c.escalation.label}</Status>
           </button>)}
@@ -41,12 +41,12 @@ export default function EscalationsPage(){
         <span className="sectionKicker">AI summary</span>
         <h2>{selectedCentre?.name||'Select a centre'}</h2>
         {selectedCentre&&<>
-          <div className={\`escalationHero level\${selectedCentre.escalation.level}\`}><span>Level {selectedCentre.escalation.level}</span><strong>{selectedCentre.escalation.label}</strong></div>
+          <div className={`escalationHero level${selectedCentre.escalation.level}`}><span>Level {selectedCentre.escalation.level}</span><strong>{selectedCentre.escalation.label}</strong></div>
           <h3>Why this is escalated</h3>
           <ul>{selectedCentre.escalation.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
           <h3>Recommended next step</h3>
           <p>{selectedCentre.escalation.level>=3?'Regional reviewer should inspect evidence, review case history and confirm whether repeated issues require ministry attention.':'Centre monitoring officer should review the open evidence-backed cases before the next scheduled cycle.'}</p>
-          <div className="summaryActions"><Link href={\`/centres/\${selectedCentre.centre_id}/review\`} className="primaryBtn">Review Cases</Link><Link href={\`/reports?centre=\${selectedCentre.centre_id}&period=30d\`} className="secondaryBtn">Generate 30-day Report</Link></div>
+          <div className="summaryActions"><Link href={`/centres/${selectedCentre.centre_id}/review`} className="primaryBtn">Review Cases</Link><Link href={`/reports?centre=${selectedCentre.centre_id}&period=30d`} className="secondaryBtn">Generate 30-day Report</Link></div>
         </>}
       </section>
 
