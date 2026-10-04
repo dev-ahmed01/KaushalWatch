@@ -246,7 +246,9 @@ def centre_rows(
             case for case in centre_cases
             if case.status.value in {"open", "under_review", "virtual_verification"}
         ]
-        case_pillars = Counter(_case_pillar(case.case_type) for case in pending)
+        confirmed = [case for case in centre_cases if case.status.value == "confirmed"]
+        active_cases = pending + confirmed
+        case_pillars = Counter(_case_pillar(case.case_type) for case in active_cases)
         escalation = _escalation_level(
             centre_cases,
             settings_by_centre.get(centre_id),
@@ -261,10 +263,16 @@ def centre_rows(
         # happens to contain a stale compliant summary.
         if case_pillars["attendance"]:
             attendance_status = "attention"
+        elif attendance_status == "attention":
+            attendance_status = "compliant"
         if case_pillars["practical_work"]:
             practical_status = "attention"
+        elif practical_status == "attention":
+            practical_status = "compliant"
         if case_pillars["infrastructure"]:
             infrastructure_status = "attention"
+        elif infrastructure_status == "attention":
+            infrastructure_status = "compliant"
 
         has_video_analysis = bool(history)
         camera_status = (
@@ -272,10 +280,10 @@ def centre_rows(
             if case_pillars["camera_integrity"]
             else ("nominal" if has_video_analysis else "pending")
         )
-        duplicate_pending = any(_case_has_duplicate(case) for case in pending)
+        duplicate_active = any(_case_has_duplicate(case) for case in active_cases)
         evidence_integrity_status = (
             "attention"
-            if duplicate_pending
+            if duplicate_active
             else ("clear" if has_video_analysis else "pending")
         )
 
@@ -286,7 +294,7 @@ def centre_rows(
         ]
         if escalation["level"] >= 3:
             status = "high_priority"
-        elif pending or "attention" in checkpoint_states:
+        elif pending or confirmed or "attention" in checkpoint_states:
             status = "attention"
         elif any(state in {"pending", "blocked"} for state in checkpoint_states):
             status = "incomplete"
@@ -303,6 +311,7 @@ def centre_rows(
             **centre,
             "status": status,
             "pending_cases": len(pending),
+            "confirmed_cases": len(confirmed),
             "attendance_status": attendance_status,
             "practical_status": practical_status,
             "infrastructure_status": infrastructure_status,
