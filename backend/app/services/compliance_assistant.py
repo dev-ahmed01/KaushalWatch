@@ -9,11 +9,26 @@ from app.models import ComplianceCase
 
 def _period_start(period: str) -> datetime:
     now = datetime.now(timezone.utc)
-    if period == "yesterday":
+    if period == "today":
         return now - timedelta(days=1)
+    if period == "yesterday":
+        return now - timedelta(days=2)
     if period == "30d":
         return now - timedelta(days=30)
     return now - timedelta(days=7)
+
+
+def _period_for_question(question: str, fallback: str) -> str:
+    q = question.lower()
+    if "today" in q:
+        return "today"
+    if "yesterday" in q:
+        return "yesterday"
+    if any(token in q for token in ("month", "30 day", "30-day")):
+        return "30d"
+    if any(token in q for token in ("week", "7 day", "7-day")):
+        return "7d"
+    return fallback
 
 
 def _in_period(row: dict[str, Any], period: str) -> bool:
@@ -33,6 +48,7 @@ def answer_question(
     period: str = "7d",
 ) -> dict[str, Any]:
     q = question.lower().strip()
+    period = _period_for_question(question, period)
     period_rows = [row for row in history if _in_period(row, period)]
     pending = [
         case for case in cases
@@ -41,7 +57,7 @@ def answer_question(
     counts = Counter(row.get("analysis_type") for row in period_rows)
     outcomes = Counter(row.get("outcome") for row in period_rows)
 
-    if any(token in q for token in ("week", "last 7", "summary", "happened")):
+    if any(token in q for token in ("week", "last 7", "summary", "happened", "today", "yesterday", "month")):
         answer = (
             f"{centre['name']} had {len(period_rows)} recorded analyses in the selected period. "
             f"{outcomes.get('compliant', 0)} completed without an exception and "
