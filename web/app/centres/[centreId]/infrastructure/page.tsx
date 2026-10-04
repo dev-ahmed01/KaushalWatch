@@ -5,7 +5,9 @@ import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
-import { API } from '../../../lib/api';
+import { API, getCentre } from '../../../lib/api';
+import type { Centre } from '../../../lib/types';
+import { withRunningStep } from '../../../lib/workflow';
 import { OutcomeCard, PageHeader } from '../../../components/Ui';
 
 export default function InfrastructureVerification(){
@@ -18,13 +20,15 @@ export default function InfrastructureVerification(){
   const [result,setResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [centre,setCentre]=useState<Centre|null>(null);
 
   useEffect(()=>{
     fetch(`${API}/api/demo/infrastructure`)
       .then(r=>r.json())
       .then(p=>setManifest(p.items||[]))
       .catch(()=>{});
-  },[]);
+    getCentre(id).then(setCentre).catch(()=>setCentre(null));
+  },[id]);
 
   function onFile(e:ChangeEvent<HTMLInputElement>){
     const next=e.target.files?.[0]||null;
@@ -67,7 +71,7 @@ export default function InfrastructureVerification(){
         <button form="infra-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Infrastructure'}</button>
       </>}
     />
-    <WorkflowStepper centreId={id} states={{attendance:'complete',practical:'complete',infrastructure:busy?'running':result?(result.created?'attention':'complete'):'pending'}}/>
+    <WorkflowStepper centreId={id} states={withRunningStep(centre,'infrastructure',busy,result?(result.created?'attention':'complete'):undefined)}/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="infrastructureLayout">
