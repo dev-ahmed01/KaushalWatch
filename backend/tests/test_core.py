@@ -159,6 +159,45 @@ def test_case_review_history_is_appended(tmp_path):
     assert event["note"] == "Needs remote officer check"
 
 
+def test_terminal_case_status_cannot_reopen(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    case = ComplianceCase(
+        case_id="CASE-TERMINAL",
+        centre_id="DEMO",
+        batch_id="B1",
+        case_type="attendance_discrepancy",
+        severity="medium",
+        summary="test",
+    )
+    store.save(case)
+    confirmed = store.update_status("CASE-TERMINAL", CaseStatus.confirmed)
+    assert confirmed is not None
+    assert confirmed.status == CaseStatus.confirmed
+
+    with pytest.raises(ValueError, match="Invalid case transition"):
+        store.update_status("CASE-TERMINAL", CaseStatus.under_review)
+
+
+def test_duplicate_status_update_does_not_append_history(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    case = ComplianceCase(
+        case_id="CASE-IDEMPOTENT",
+        centre_id="DEMO",
+        batch_id="B1",
+        case_type="camera_integrity",
+        severity="medium",
+        summary="test",
+    )
+    store.save(case)
+    first = store.update_status("CASE-IDEMPOTENT", CaseStatus.under_review)
+    assert first is not None
+    assert len(first.review_history) == 1
+
+    second = store.update_status("CASE-IDEMPOTENT", CaseStatus.under_review)
+    assert second is not None
+    assert len(second.review_history) == 1
+
+
 def test_infrastructure_temporal_proof_ignores_transient_deficit():
     manifest = {"items": [{
         "id": "panel",
