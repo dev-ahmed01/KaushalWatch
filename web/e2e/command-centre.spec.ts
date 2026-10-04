@@ -105,21 +105,31 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   const pendingBefore = await page.locator('.queueCount').first().textContent();
 
   const firstInfraCase = infraCases.first();
+  const caseIdentity = await firstInfraCase.locator('.caseTitle small').textContent();
+  const selectedCaseId = caseIdentity?.split(' · ')[0] || '';
+  expect(selectedCaseId).toBeTruthy();
+
   await firstInfraCase.getByRole('button', { name: 'Inspect evidence' }).click();
   await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT', { exact: true })).toBeVisible();
   await expect(firstInfraCase.getByRole('img', { name: /Evidence for CASE-/ })).toBeVisible();
 
   // Final decisions require both an active review state and an auditable rationale.
-  const confirmButton = firstInfraCase.getByRole('button', { name: 'Confirm exception' });
+  let selectedCase = page.locator('.caseCard').filter({ hasText: selectedCaseId }).first();
+  let confirmButton = selectedCase.getByRole('button', { name: 'Confirm exception' });
   await expect(confirmButton).toBeDisabled();
-  await firstInfraCase.getByPlaceholder(/What did you verify/i).fill(
+  await selectedCase.getByPlaceholder(/What did you verify/i).fill(
     'Reviewed the visual manifest evidence and confirmed the persistent gap.'
   );
   await expect(confirmButton).toBeDisabled();
-  await expect(firstInfraCase.getByText(/Start review or virtual verification/i)).toBeVisible();
+  await expect(selectedCase.getByText(/Start review or virtual verification/i)).toBeVisible();
 
-  await firstInfraCase.getByRole('button', { name: 'Start review' }).click();
-  await expect(firstInfraCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
+  await selectedCase.getByRole('button', { name: 'Start review' }).click();
+
+  // Priority sorting can move an under-review case below newly-open cases, so
+  // reselect by stable case ID after each status-changing refresh.
+  selectedCase = page.locator('.caseCard').filter({ hasText: selectedCaseId }).first();
+  await expect(selectedCase.getByText('under review', { exact: true })).toBeVisible({ timeout: 10_000 });
+  confirmButton = selectedCase.getByRole('button', { name: 'Confirm exception' });
   await expect(confirmButton).toBeEnabled();
 
   // Resolve one pending case and verify it leaves the live priority queue.
@@ -127,7 +137,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.resolvedCase').first()).toBeVisible();
   await expect(page.getByText(/Reviewed the visual manifest evidence/i)).toBeVisible();
-  const resolvedCase=page.locator('.resolvedCase').first();
+  const resolvedCase=page.locator('.resolvedCase').filter({ hasText: selectedCaseId }).first();
   await resolvedCase.getByText(/Decision history/).click();
   await expect(resolvedCase.getByText(/under review → confirmed/i)).toBeVisible();
 
