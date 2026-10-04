@@ -17,7 +17,14 @@ export type Centre = {
   practical_status:string;
   infrastructure_status:string;
   camera_status:string;
-  escalation:{level:number;label:string;reasons:string[]};
+  escalation:{
+    level:number;
+    label:string;
+    reasons:string[];
+    score?:number;
+    next_action?:string;
+    policy?:Record<string,unknown>;
+  };
   last_analysis:string;
   settings?:Record<string,unknown>;
   recent_analyses?:AnalysisRow[];
