@@ -4,16 +4,18 @@ import path from 'path';
 test('command centre verifies attendance, evidence, review and infrastructure cases', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByText('KaushalWatch Command Centre')).toBeVisible();
-  await expect(page.getByText('PROTOTYPE — SIMULATED OPERATIONAL DATA')).toBeVisible();
+  await expect(page.getByText('KaushalWatch', { exact: true })).toBeVisible();
+  await expect(page.getByText('Simulated operational records')).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Attendance' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Infrastructure' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Practical work' })).toBeVisible();
-  await expect(page.getByText('Practical-work verification')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Analyse practical work' })).toBeVisible();
-  await expect(page.getByText('System posture')).toBeVisible();
-  await expect(page.getByText('Anonymous', { exact: true }).first()).toBeVisible();
+  const primaryNav = page.getByRole('navigation', { name: 'Primary navigation' });
+  await expect(primaryNav.getByRole('button', { name: /Attendance/ })).toBeVisible();
+  await expect(primaryNav.getByRole('button', { name: /Practical work/ })).toBeVisible();
+  await expect(primaryNav.getByRole('button', { name: /Infrastructure/ })).toBeVisible();
+  await expect(page.getByText('Three checks, one review workflow')).toBeVisible();
+  await primaryNav.getByRole('button', { name: /Practical work/ }).click();
+  await expect(page.getByText('Separate visible activity from authorization.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Run practical-work verification' })).toBeVisible();
+  await primaryNav.getByRole('button', { name: /Attendance/ }).click();
 
   const edgeSync = await page.request.post('http://127.0.0.1:8000/api/edge/sync', {
     data: {
@@ -30,21 +32,24 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   });
   expect(edgeSync.ok()).toBeTruthy();
   await page.reload();
-  await expect(page.getByText('Synced edge events')).toBeVisible();
-  const syncedMetric = page.locator('.metric').filter({ hasText: 'Synced edge events' });
+  await expect(page.getByText('Edge events synced')).toBeVisible();
+  const syncedMetric = page.locator('.kpi').filter({ hasText: 'Edge events synced' });
   await expect(syncedMetric.getByText('1', { exact: true })).toBeVisible();
+
+  await primaryNav.getByRole('button', { name: /Attendance/ }).click();
 
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required');
 
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.locator('input[name="reported_attendance"]').fill('12');
-  await page.getByRole('button', { name: 'Analyse video' }).click();
+  await page.getByRole('button', { name: 'Run attendance verification' }).click();
 
-  await expect(page.getByText('Created', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Persistent attendance exception')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Reported attendance 12/)).toBeVisible({ timeout: 10_000 });
 
-  const attendanceCase = page.locator('.case').first();
+  await primaryNav.getByRole('button', { name: /Review queue/ }).click();
+  const attendanceCase = page.locator('.caseCard').filter({ hasText: 'attendance discrepancy' }).first();
   const evidence = attendanceCase.getByRole('link', { name: 'Open evidence' });
   await expect(evidence).toBeVisible();
   const href = await evidence.getAttribute('href');
@@ -52,21 +57,22 @@ test('command centre verifies attendance, evidence, review and infrastructure ca
   const evidenceResponse = await page.request.get(href!);
   expect(evidenceResponse.ok()).toBeTruthy();
 
-  await attendanceCase.getByRole('button', { name: 'Review' }).click();
+  await attendanceCase.getByRole('button', { name: 'Start review' }).click();
   await expect(attendanceCase.getByText('under review')).toBeVisible({ timeout: 10_000 });
 
-  await expect(page.getByText(/Cached detections are a stage-safe fallback/i)).toBeVisible();
+  await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
+  await expect(page.getByText(/stage-safe visual manifest/i)).toBeVisible();
   await expect(page.getByText(/Electrical (Switchboard \/ )?Training Panel/)).toBeVisible();
 
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
-  await page.getByRole('button', { name: 'Analyse infrastructure evidence' }).click();
-  await expect(page.getByText(/visual manifest exception/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('infrastructure compliance')).toBeVisible();
+  await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
+  await expect(page.getByRole('heading', { name: 'Visual manifest exception created' })).toBeVisible({ timeout: 20_000 });
   await expect(
-    page.locator('.infraResult').getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
+    page.getByText(/APPARENTLY (ACTIVE|INACTIVE)|UNCERTAIN/)
   ).toBeVisible({ timeout: 10_000 });
 
-  const infraCase = page.locator('.case').first();
+  await primaryNav.getByRole('button', { name: /Review queue/ }).click();
+  const infraCase = page.locator('.caseCard').filter({ hasText: 'infrastructure compliance' }).first();
   await expect(infraCase.getByRole('link', { name: 'Open evidence' })).toBeVisible();
   const evidencePack = infraCase.getByRole('link', { name: 'Evidence pack' });
   await expect(evidencePack).toBeVisible();
