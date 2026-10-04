@@ -637,3 +637,7 @@
   .networkMapLegend{left:8px;right:8px;justify-content:center}
   .centreVisualCard{min-height:180px}
 }
+
+
+/* Prevent focus-driven horizontal scrolling inside the desktop content rail. */
+.neoMain,.neoViewport{overflow-x:clip}
