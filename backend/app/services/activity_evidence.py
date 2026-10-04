@@ -57,13 +57,64 @@ def roi_motion_fraction(
     return float(np.mean(changed))
 
 
+def inset_box(
+    box: tuple[int, int, int, int],
+    inset_ratio: float = 0.08,
+) -> tuple[int, int, int, int]:
+    """Inset a person box to reduce background-edge motion contamination."""
+    if not 0 <= inset_ratio < 0.5:
+        raise ValueError("inset_ratio must be in [0, 0.5)")
+
+    x1, y1, x2, y2 = [int(v) for v in box]
+    width = max(1, x2 - x1)
+    height = max(1, y2 - y1)
+    dx = int(round(width * inset_ratio))
+    dy = int(round(height * inset_ratio))
+
+    nx1, ny1 = x1 + dx, y1 + dy
+    nx2, ny2 = x2 - dx, y2 - dy
+
+    if nx2 <= nx1 or ny2 <= ny1:
+        return x1, y1, x2, y2
+    return nx1, ny1, nx2, ny2
+
+
+def worker_motion_fraction(
+    previous_frame: np.ndarray | None,
+    current_frame: np.ndarray,
+    worker_boxes: list[tuple[int, int, int, int]],
+    pixel_delta_threshold: int = 18,
+    inset_ratio: float = 0.08,
+) -> float:
+    """Measure motion around currently visible registered workers.
+
+    Each worker is scored in a slightly inset bounding box. The zone score is
+    the maximum worker score because one genuinely active operator is enough to
+    establish visual activity in that work cell. This avoids diluting worker
+    motion by the size of a large configured work-cell rectangle.
+    """
+    if previous_frame is None or not worker_boxes:
+        return 0.0
+
+    scores = [
+        roi_motion_fraction(
+            previous_frame,
+            current_frame,
+            inset_box(box, inset_ratio=inset_ratio),
+            pixel_delta_threshold=pixel_delta_threshold,
+        )
+        for box in worker_boxes
+    ]
+    return float(max(scores)) if scores else 0.0
+
+
 class TemporalActivityGate:
     """Require sustained motion evidence while a confirmed worker occupies a zone."""
 
     def __init__(
         self,
         window_frames: int,
-        motion_fraction_threshold: float = 0.015,
+        motion_fraction_threshold: float = 0.02,
         required_positive_ratio: float = 0.60,
     ) -> None:
         if window_frames <= 0:
