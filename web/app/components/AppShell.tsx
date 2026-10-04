@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
+import { getCentres } from '../lib/api';
 
 const networkNav=[
   ['/', 'Network Overview', '⌂'],
@@ -45,6 +47,8 @@ function NavLink({href,label,icon,pathname,badge}:{href:string;label:string;icon
 
 export default function AppShell({children}:{children:ReactNode}){
   const pathname=usePathname();
+  const [escalatedCount,setEscalatedCount]=useState(0);
+  useEffect(()=>{getCentres().then(r=>setEscalatedCount(r.centres.filter(c=>c.escalation.level>0).length)).catch(()=>{});},[]);
   const centreMatch=pathname.match(/^\/centres\/([^/]+)/);
   const centreId=centreMatch?.[1]||'DEMO-KA-104';
 
@@ -65,7 +69,7 @@ export default function AppShell({children}:{children:ReactNode}){
       </Link>
 
       <nav className="neoNav">
-        {networkNav.map(([href,label,icon])=><NavLink key={href} href={href} label={label} icon={icon} pathname={pathname} badge={label==='Escalations'?'3':undefined}/>)}
+        {networkNav.map(([href,label,icon])=><NavLink key={href} href={href} label={label} icon={icon} pathname={pathname} badge={label==='Escalations'&&escalatedCount>0?String(escalatedCount):undefined}/>)}
       </nav>
 
       <div className="neoNavDivider"></div>

@@ -8,7 +8,7 @@ import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
 import type { Centre } from '../../../lib/types';
 import { withRunningStep } from '../../../lib/workflow';
-import { OutcomeCard, PageHeader, Status } from '../../../components/Ui';
+import { OutcomeCard, PageHeader, ProcessingBanner, Status } from '../../../components/Ui';
 
 export default function PracticalVerification(){
   const {centreId}=useParams<{centreId:string}>();
@@ -59,6 +59,7 @@ export default function PracticalVerification(){
       actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="practical-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Practical Work'}</button></>}
     />
     <WorkflowStepper centreId={id} states={withRunningStep(centre,'practical',busy,result?(result.decision==='camera_evidence_insufficient'?'blocked':result.case?'attention':'complete'):undefined)}/>
+    {busy&&<ProcessingBanner title="Practical-work analysis is running" text="Checking stable worker presence, work-cell motion and authorization." step="Step 2 of 4"/>}
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">

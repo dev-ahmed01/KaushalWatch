@@ -36,7 +36,14 @@ export default function CentreHistory(){
 
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Selected Centre / History" title="Analysis History" subtitle="Review completed verification runs by time period, outcome and analysis type without opening raw footage."
-      actions={<><select className="headerSelect" value={period} onChange={e=>setPeriod(e.target.value)}><option value="yesterday">Yesterday</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select><a href={`/reports?centre=${id}&period=${period}`} className="primaryBtn">Generate Report</a></>}/>
+      actions={<>
+        <div className="historyPeriods">
+          <button className={period==='yesterday'?'active':''} onClick={()=>setPeriod('yesterday')}>Yesterday</button>
+          <button className={period==='7d'?'active':''} onClick={()=>setPeriod('7d')}>Last 7 days</button>
+          <button className={period==='30d'?'active':''} onClick={()=>setPeriod('30d')}>Last 30 days</button>
+        </div>
+        <a href={`/reports?centre=${id}&period=${period}`} className="primaryBtn">Generate Report</a>
+      </>}/>
 
     <div className="historyLayout">
       <section className="panel historyTablePanel">

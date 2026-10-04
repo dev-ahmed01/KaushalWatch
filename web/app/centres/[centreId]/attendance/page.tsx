@@ -8,7 +8,7 @@ import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
 import type { Centre } from '../../../lib/types';
 import { withRunningStep } from '../../../lib/workflow';
-import { OutcomeCard, PageHeader, Status } from '../../../components/Ui';
+import { OutcomeCard, PageHeader, ProcessingBanner, Status } from '../../../components/Ui';
 
 export default function AttendanceVerification(){
   const {centreId}=useParams<{centreId:string}>();
@@ -59,6 +59,7 @@ export default function AttendanceVerification(){
       actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
     />
     <WorkflowStepper centreId={id} states={withRunningStep(centre,'attendance',busy,result?(result.decision==='compliant'?'complete':result.decision==='detector_unavailable'?'blocked':'attention'):undefined)}/>
+    {busy&&<ProcessingBanner title="Attendance analysis is running" text="Checking camera trust, stable occupancy and reported attendance." step="Step 1 of 4"/>}
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">

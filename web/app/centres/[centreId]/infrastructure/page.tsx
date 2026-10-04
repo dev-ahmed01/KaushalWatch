@@ -8,7 +8,7 @@ import WorkflowStepper from '../../../components/WorkflowStepper';
 import { API, getCentre } from '../../../lib/api';
 import type { Centre } from '../../../lib/types';
 import { withRunningStep } from '../../../lib/workflow';
-import { OutcomeCard, PageHeader } from '../../../components/Ui';
+import { OutcomeCard, PageHeader, ProcessingBanner } from '../../../components/Ui';
 
 export default function InfrastructureVerification(){
   const {centreId}=useParams<{centreId:string}>();
@@ -69,6 +69,7 @@ export default function InfrastructureVerification(){
       </>}
     />
     <WorkflowStepper centreId={id} states={withRunningStep(centre,'infrastructure',busy,result?(result.created?'attention':'complete'):undefined)}/>
+    {busy&&<ProcessingBanner title="Infrastructure analysis is running" text="Comparing the visual manifest and preparing review evidence." step="Step 3 of 4"/>}
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="infrastructureLayout">
