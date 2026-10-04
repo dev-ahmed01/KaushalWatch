@@ -318,3 +318,66 @@ def test_edge_sync_updates_history_without_raw_video(tmp_path, monkeypatch):
     centre = client.get("/api/centres/DEMO-KA-104").json()
     assert centre["attendance_status"] == "blocked"
     assert centre["status"] == "incomplete"
+
+
+
+def test_review_resolution_reconciles_current_pillar_state(tmp_path, monkeypatch):
+    client, store, history = _client(tmp_path, monkeypatch)
+    history.append(
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="infrastructure",
+        outcome="attention",
+        summary="Possible infrastructure gap.",
+        details={},
+    )
+    store.save(
+        ComplianceCase(
+            case_id="CASE-RECONCILE-1",
+            centre_id="DEMO-KA-104",
+            batch_id="ELEC-2026-08",
+            case_type="infrastructure_compliance",
+            severity="high",
+            summary="Possible infrastructure gap.",
+        )
+    )
+
+    before = client.get("/api/centres/DEMO-KA-104").json()
+    assert before["infrastructure_status"] == "attention"
+
+    assert client.post(
+        "/api/cases/CASE-RECONCILE-1/review",
+        json={"action": "under_review"},
+    ).status_code == 200
+    assert client.post(
+        "/api/cases/CASE-RECONCILE-1/review",
+        json={"action": "false_positive", "note": "Evidence recheck cleared the finding."},
+    ).status_code == 200
+
+    cleared = client.get("/api/centres/DEMO-KA-104").json()
+    assert cleared["infrastructure_status"] == "compliant"
+    assert cleared["pending_cases"] == 0
+
+    store.save(
+        ComplianceCase(
+            case_id="CASE-RECONCILE-2",
+            centre_id="DEMO-KA-104",
+            batch_id="ELEC-2026-08",
+            case_type="infrastructure_compliance",
+            severity="high",
+            summary="Confirmed infrastructure gap.",
+        )
+    )
+    assert client.post(
+        "/api/cases/CASE-RECONCILE-2/review",
+        json={"action": "under_review"},
+    ).status_code == 200
+    assert client.post(
+        "/api/cases/CASE-RECONCILE-2/review",
+        json={"action": "confirmed", "note": "Evidence confirms the missing item."},
+    ).status_code == 200
+
+    confirmed = client.get("/api/centres/DEMO-KA-104").json()
+    assert confirmed["infrastructure_status"] == "attention"
+    assert confirmed["confirmed_cases"] == 1
+    assert confirmed["status"] in {"attention", "high_priority"}
