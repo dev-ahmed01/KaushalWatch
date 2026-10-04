@@ -112,6 +112,11 @@ svg{display:block}
   box-shadow:0 2px 8px rgba(16,24,40,.02)
 }
 .centreProgressLead strong{display:block;font-size:11px;margin-top:3px;color:#344054}
+.resetFlowButton{
+  margin-top:7px;border:0;background:transparent;color:#667085;padding:0;font-size:8px;font-weight:800;
+  text-decoration:underline;text-decoration-color:#d0d5dd;text-underline-offset:3px
+}
+.resetFlowButton:hover{color:#344054}
 .centreProgressSteps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .centreProgressStep{
   border:1px solid #e4e7ec;background:#f8fafc;border-radius:10px;padding:9px 10px;color:#475467;
@@ -124,10 +129,18 @@ svg{display:block}
 .centreProgressStep strong,.centreProgressStep small{display:block}
 .centreProgressStep strong{font-size:9px}
 .centreProgressStep small{font-size:8px;color:#98a2b3;margin-top:2px}
-.centreProgressStep.active{border-color:#9bb8ff;background:#f5f8ff}
-.centreProgressStep.active>span{background:#dbe7ff;color:#175cd3}
-.centreProgressStep.done{border-color:#abefc6;background:#f6fef9}
-.centreProgressStep.done>span{background:#dcfae6;color:#067647}
+.centreProgressStep.active{box-shadow:0 0 0 2px rgba(21,94,239,.08)}
+.centreProgressStep.pending.active{border-color:#9bb8ff;background:#f5f8ff}
+.centreProgressStep.pending.active>span{background:#dbe7ff;color:#175cd3}
+.centreProgressStep.passed{border-color:#abefc6;background:#f6fef9}
+.centreProgressStep.passed>span{background:#dcfae6;color:#067647}
+.centreProgressStep.passed small{color:#067647}
+.centreProgressStep.attention{border-color:#fedf89;background:#fffcf5}
+.centreProgressStep.attention>span{background:#fef0c7;color:#b54708}
+.centreProgressStep.attention small{color:#b54708}
+.centreProgressStep.blocked{border-color:#fda29b;background:#fff7f6}
+.centreProgressStep.blocked>span{background:#fee4e2;color:#b42318}
+.centreProgressStep.blocked small{color:#b42318}
 
 .errorBanner{
   display:flex;align-items:center;gap:9px;background:var(--red-soft);border:1px solid #fecdca;color:var(--red);

@@ -44,6 +44,43 @@ def health():
     return {"ok": True, "service": "kaushalwatch-api", "prototype": True}
 
 
+@app.get("/api/runtime-readiness")
+def runtime_readiness():
+    detector = PIPELINE.detector.info
+    return {
+        "attendance": {
+            "ready": bool(detector.authoritative),
+            "backend": detector.backend,
+            "mode": detector.mode,
+            "message": detector.message,
+        },
+        "practical_work": {
+            "ready": DEFAULT_WORK_ZONES.exists(),
+            "default_zone_profiles": ["default", "authorized", "unauthorized"],
+            "message": (
+                "Bundled work-zone profiles available"
+                if DEFAULT_WORK_ZONES.exists()
+                else "Bundled work-zone profiles missing"
+            ),
+        },
+        "infrastructure": {
+            "ready": True,
+            "mode": "stage_safe_cached_adapter",
+            "message": (
+                "Infrastructure demo uses reviewed cached/synthetic detector telemetry; "
+                "uploaded video supplies evidence/operability frames."
+            ),
+        },
+        "evidence": {
+            "ready": EVIDENCE.exists(),
+            "privacy_note": (
+                "Person regions are blurred where a primary person detector is available; "
+                "human review remains required."
+            ),
+        },
+    }
+
+
 @app.get("/api/dashboard")
 def dashboard():
     cases = STORE.list()
@@ -195,7 +232,10 @@ def get_evidence_pack(case_id: str):
 
 @app.post("/api/cases/{case_id}/review")
 def review_case(case_id: str, request: ReviewRequest):
-    case = STORE.update_status(case_id, request.action, note=request.note)
+    try:
+        case = STORE.update_status(case_id, request.action, note=request.note)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     return case.model_dump(mode="json")
