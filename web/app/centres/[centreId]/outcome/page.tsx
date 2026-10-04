@@ -27,16 +27,16 @@ export default function FinalOutcome(){
 
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Selected Centre / Final Review" title="Final Review Outcome" subtitle="One centre-level summary across attendance, practical work, infrastructure, camera integrity and evidence integrity."
-      actions={<><Link href={\`/centres/\${id}/review\`} className="secondaryBtn">Open Review Queue</Link><Link href={\`/reports?centre=\${id}&period=7d\`} className="secondaryBtn">Download / Print Report</Link><Link href={\`/centres/\${id}\`} className="primaryBtn">Close Analysis</Link></>}/>
+      actions={<><Link href={`/centres/${id}/review`} className="secondaryBtn">Open Review Queue</Link><Link href={`/reports?centre=${id}&period=7d`} className="secondaryBtn">Download / Print Report</Link><Link href={`/centres/${id}`} className="primaryBtn">Close Analysis</Link></>}/>
     <WorkflowStepper centreId={id} states={{attendance:'complete',practical:'complete',infrastructure:centre?.infrastructure_status==='compliant'?'complete':'attention',review:hasAttention?'attention':'complete'}}/>
 
     <div className="outcomeLayout">
-      <section className={\`finalOutcomeHero \${hasAttention?'attention':'good'}\`}>
+      <section className={`finalOutcomeHero ${hasAttention?'attention':'good'}`}>
         <div className="finalOutcomeIcon">{hasAttention?'!':'✓'}</div>
         <div>
           <span className="sectionKicker">Centre-level result</span>
           <h2>{hasAttention?'Human review required':'Compliant'}</h2>
-          <p>{hasAttention?\`\${pending} pending case(s) still require an officer decision before this centre can be closed for the current review cycle.\`:'All current verification checkpoints completed without an unresolved compliance exception.'}</p>
+          <p>{hasAttention?`${pending} pending case(s) still require an officer decision before this centre can be closed for the current review cycle.`:'All current verification checkpoints completed without an unresolved compliance exception.'}</p>
         </div>
         {centre&&<Status tone={centre.escalation.level>=3?'danger':centre.escalation.level>0?'warn':'good'}>{centre.escalation.label}</Status>}
       </section>
@@ -60,7 +60,7 @@ export default function FinalOutcome(){
             <div><span>High priority</span><b>{high}</b><small>Cases requiring urgent review</small></div>
             <div><span>Escalation</span><b>{centre?.escalation.label||'Normal'}</b><small>{centre?.escalation.reasons?.[0]||'No escalation trigger'}</small></div>
           </div>
-          <Link href={\`/centres/\${id}/review\`} className="primaryBtn fullBtn">{pending?'Review pending cases':'View audit history'}</Link>
+          <Link href={`/centres/${id}/review`} className="primaryBtn fullBtn">{pending?'Review pending cases':'View audit history'}</Link>
         </section>
 
         <AssistantPanel centreId={id}/>
