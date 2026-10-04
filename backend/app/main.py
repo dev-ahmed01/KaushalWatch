@@ -7,7 +7,7 @@ import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.models import ReviewRequest, EdgeSyncRequest
+from app.models import ReviewRequest, EdgeSyncRequest, DemoResetRequest
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
@@ -78,6 +78,41 @@ def runtime_readiness():
                 "human review remains required."
             ),
         },
+    }
+
+
+@app.post("/api/demo/reset")
+def reset_demo_workspace(request: DemoResetRequest):
+    """Clear generated prototype state for a clean presentation rehearsal.
+
+    Only generated runtime data is removed. Source videos, manifests, configs and
+    repository assets are untouched.
+    """
+    if not request.confirm:
+        raise HTTPException(
+            status_code=400,
+            detail="Explicit confirmation is required to reset demo data",
+        )
+
+    cases = STORE.list()
+    evidence_files = list(EVIDENCE.glob("*.jpg")) if EVIDENCE.exists() else []
+
+    for path in evidence_files:
+        path.unlink(missing_ok=True)
+
+    for path in (
+        DATA / "cases.json",
+        DATA / "evidence_index.json",
+        DATA / "edge_events.json",
+    ):
+        path.unlink(missing_ok=True)
+
+    return {
+        "reset": True,
+        "cases_cleared": len(cases),
+        "evidence_files_cleared": len(evidence_files),
+        "edge_events_cleared": True,
+        "message": "Demo workspace reset. Source assets were not modified.",
     }
 
 
