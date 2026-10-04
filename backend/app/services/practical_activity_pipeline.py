@@ -82,6 +82,17 @@ def scale_work_zones(
     """
     if reference_width <= 0 or reference_height <= 0:
         raise ValueError("Zone reference dimensions must be positive")
+    if width <= 0 or height <= 0:
+        raise ValueError("Video dimensions must be positive")
+
+    reference_ratio = reference_width / reference_height
+    target_ratio = width / height
+    aspect_delta = abs(target_ratio - reference_ratio) / reference_ratio
+    if aspect_delta > 0.03:
+        raise ValueError(
+            "Bundled work-zone profile is calibrated for a different aspect ratio. "
+            "Use footage from the same camera geometry or upload a custom work-zone JSON."
+        )
 
     scale_x = width / reference_width
     scale_y = height / reference_height
