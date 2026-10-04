@@ -86,6 +86,7 @@ def process_practical_activity(
     file: UploadFile = File(...),
     zones_json: str = Form(...),
     authorization: str = Form("unknown"),
+    zone_profile: str = Form(""),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-03"),
@@ -102,12 +103,21 @@ def process_practical_activity(
 
     if isinstance(parsed, dict) and isinstance(parsed.get("zones"), list):
         zones = parsed["zones"]
+    elif (
+        isinstance(parsed, dict)
+        and zone_profile
+        and isinstance(parsed.get(zone_profile), list)
+    ):
+        zones = parsed[zone_profile]
     elif isinstance(parsed, list):
         zones = parsed
     else:
         raise HTTPException(
             status_code=400,
-            detail="Work-zone JSON must be a list or an object containing a 'zones' list",
+            detail=(
+                "Work-zone JSON must be a list, contain a 'zones' list, or contain "
+                "a list matching the supplied zone profile"
+            ),
         )
 
     suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
