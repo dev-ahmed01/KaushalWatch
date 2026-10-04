@@ -136,8 +136,13 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await confirmButton.click();
   await expect(page.getByText('RESOLVED / HISTORY')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.resolvedCase').first()).toBeVisible();
-  await expect(page.getByText(/Reviewed the visual manifest evidence/i)).toBeVisible();
   const resolvedCase=page.locator('.resolvedCase').filter({ hasText: selectedCaseId }).first();
+  await expect(
+    resolvedCase.getByText(
+      'Reviewed the visual manifest evidence and confirmed the persistent gap.',
+      { exact: true },
+    ).first()
+  ).toBeVisible();
   await resolvedCase.getByText(/Decision history/).click();
   await expect(resolvedCase.getByText(/under review → confirmed/i)).toBeVisible();
 
