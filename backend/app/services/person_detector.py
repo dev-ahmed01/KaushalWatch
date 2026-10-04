@@ -10,6 +10,8 @@ import cv2
 import numpy as np
 
 LOGGER = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_OPENVINO_XML = REPO_ROOT / "models" / "openvino" / "person-detection-retail-0013" / "FP16" / "person-detection-retail-0013.xml"
 
 
 @dataclass
@@ -206,13 +208,28 @@ class OpenVinoPersonDetector:
         return detections
 
 
+def _resolve_openvino_xml() -> Path:
+    raw = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
+    if not raw:
+        return DEFAULT_OPENVINO_XML
+
+    candidate = Path(raw).expanduser()
+    if candidate.is_absolute():
+        return candidate
+
+    repo_relative = (REPO_ROOT / candidate).resolve()
+    if repo_relative.exists():
+        return repo_relative
+
+    backend_relative = (REPO_ROOT / "backend" / candidate).resolve()
+    if backend_relative.exists():
+        return backend_relative
+
+    return repo_relative
+
+
 def _build_openvino() -> OpenVinoPersonDetector:
-    xml = Path(
-        os.getenv(
-            "KAUSHALWATCH_OPENVINO_MODEL_XML",
-            "../models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml",
-        )
-    )
+    xml = _resolve_openvino_xml()
     confidence = float(os.getenv("KAUSHALWATCH_PERSON_CONFIDENCE", "0.45"))
     device = os.getenv("KAUSHALWATCH_OPENVINO_DEVICE", "CPU")
     return OpenVinoPersonDetector(xml, device=device, confidence=confidence)
@@ -244,23 +261,26 @@ def build_person_detector() -> Detector:
 
     failures: list[str] = []
 
-    try:
-        detector = _build_yolo()
-        LOGGER.info("Attendance detector selected: %s", detector.info.message)
-        return detector
-    except Exception as exc:  # pragma: no cover - optional runtime
-        failures.append(f"YOLO unavailable: {exc}")
-        LOGGER.warning("YOLO person detector unavailable", exc_info=True)
-
-    openvino_xml = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
-    if openvino_xml:
+    # The SIH demo is benchmarked against the local OpenVINO model. Prefer it
+    # whenever the verified model files are present so an installed Ultralytics
+    # package cannot silently change the demo detector.
+    openvino_xml = _resolve_openvino_xml()
+    if openvino_xml.exists():
         try:
             detector = _build_openvino()
-            LOGGER.info("Attendance detector selected: %s", detector.info.message)
+            LOGGER.info("Person detector selected: %s", detector.info.message)
             return detector
         except Exception as exc:  # pragma: no cover - optional runtime
             failures.append(f"OpenVINO unavailable: {exc}")
             LOGGER.warning("OpenVINO person detector unavailable", exc_info=True)
+
+    try:
+        detector = _build_yolo()
+        LOGGER.info("Person detector selected: %s", detector.info.message)
+        return detector
+    except Exception as exc:  # pragma: no cover - optional runtime
+        failures.append(f"YOLO unavailable: {exc}")
+        LOGGER.warning("YOLO person detector unavailable", exc_info=True)
 
     detector = HogPersonDetector()
     detail = "; ".join(failures) if failures else "Primary detector not configured"
