@@ -48,6 +48,21 @@ def test_scale_work_zones_preserves_geometry_for_resized_same_scene():
     assert zones[0]["x"] == 100
 
 
+def test_scale_work_zones_rejects_different_camera_aspect_ratio():
+    zones = [
+        {"zone_id": "work_zone_1", "x": 100, "y": 200, "w": 400, "h": 300},
+    ]
+
+    with pytest.raises(ValueError, match="different aspect ratio"):
+        scale_work_zones(
+            zones,
+            reference_width=1920,
+            reference_height=1080,
+            width=640,
+            height=480,
+        )
+
+
 def test_practical_activity_case_created_when_authorization_absent():
     case = build_practical_activity_case(
         centre_id="DEMO-KA-104",
