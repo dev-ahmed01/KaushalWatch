@@ -16,6 +16,7 @@ from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.person_detector import Detection
 from app.services.offline_queue import EdgeEventQueue, bandwidth_measurement
 from app.services.case_store import CaseStore
+from app.services.demo_assets import build_compliant_demo_cache
 from app.models import ComplianceCase, CaseStatus
 
 
@@ -200,3 +201,34 @@ def test_infrastructure_temporal_proof_flags_persistent_deficit():
     row = compare_manifest(manifest, observed)[0]
     assert row["state"] == "DISCREPANCY"
     assert row["deficit_ratio"] == 1.0
+
+
+
+def test_compliant_demo_cache_produces_no_camera_verifiable_discrepancy():
+    manifest = {
+        "job_role": "Demo",
+        "items": [
+            {
+                "id": "panel",
+                "label": "Training Panel",
+                "required": 4,
+                "verification_tier": "camera_verifiable",
+                "temporal_required_ratio": 0.8,
+            },
+            {
+                "id": "ppe",
+                "label": "PPE",
+                "required": 1,
+                "verification_tier": "officer_verification_required",
+            },
+        ],
+    }
+    rows = build_compliant_demo_cache(manifest)
+    observed = aggregate_cached_observations(rows)
+    results = compare_manifest(manifest, observed)
+
+    panel = next(item for item in results if item["id"] == "panel")
+    ppe = next(item for item in results if item["id"] == "ppe")
+    assert panel["state"] == "COMPLIANT"
+    assert panel["observed"] == 4
+    assert ppe["state"] == "OFFICER_VERIFICATION_REQUIRED"
