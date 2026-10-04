@@ -196,42 +196,119 @@ def _escalation_level(
     }
 
 
+def _latest_by_type(history: list[dict[str, Any]], analysis_type: str) -> dict[str, Any] | None:
+    """History rows are normally newest-first; remain correct for arbitrary order."""
+    matches = [row for row in history if row.get("analysis_type") == analysis_type]
+    if not matches:
+        return None
+
+    def sort_key(row: dict[str, Any]) -> str:
+        return str(row.get("created_at") or "")
+
+    return max(matches, key=sort_key)
+
+
+def _analysis_state(history: list[dict[str, Any]], analysis_type: str) -> str:
+    row = _latest_by_type(history, analysis_type)
+    if not row:
+        return "pending"
+    outcome = str(row.get("outcome") or "").lower()
+    if outcome == "compliant":
+        return "compliant"
+    if outcome == "blocked":
+        return "blocked"
+    return "attention"
+
+
 def centre_rows(
     cases: Iterable[ComplianceCase],
     settings_by_centre: dict[str, dict[str, Any]] | None = None,
+    history_by_centre: dict[str, list[dict[str, Any]]] | None = None,
 ) -> list[dict]:
     cases = list(cases)
     settings_by_centre = settings_by_centre or {}
+    history_by_centre = history_by_centre or {}
     rows = []
-    now = datetime.now(timezone.utc).isoformat()
+
     for centre in DEMO_CENTRES:
-        centre_cases = [case for case in cases if case.centre_id == centre["centre_id"]]
+        centre_id = centre["centre_id"]
+        centre_cases = [case for case in cases if case.centre_id == centre_id]
         pending = [
             case for case in centre_cases
             if case.status.value in {"open", "under_review", "virtual_verification"}
         ]
-        pillars = Counter(_case_pillar(case.case_type) for case in pending)
+        case_pillars = Counter(_case_pillar(case.case_type) for case in pending)
         escalation = _escalation_level(
             centre_cases,
-            settings_by_centre.get(centre["centre_id"]),
+            settings_by_centre.get(centre_id),
+        )
+        history = history_by_centre.get(centre_id, [])
+
+        attendance_status = _analysis_state(history, "attendance")
+        practical_status = _analysis_state(history, "practical_work")
+        infrastructure_status = _analysis_state(history, "infrastructure")
+
+        # A still-open evidence-backed case must remain visible even if a later page
+        # happens to contain a stale compliant summary.
+        if case_pillars["attendance"]:
+            attendance_status = "attention"
+        if case_pillars["practical_work"]:
+            practical_status = "attention"
+        if case_pillars["infrastructure"]:
+            infrastructure_status = "attention"
+
+        has_video_analysis = bool(history)
+        camera_status = (
+            "attention"
+            if case_pillars["camera_integrity"]
+            else ("nominal" if has_video_analysis else "pending")
+        )
+        duplicate_pending = any(
+            evidence.duplicate_of
+            for case in pending
+            for evidence in case.evidence
+        )
+        evidence_integrity_status = (
+            "attention"
+            if duplicate_pending
+            else ("clear" if has_video_analysis else "pending")
         )
 
-        status = "compliant"
+        checkpoint_states = [
+            attendance_status,
+            practical_status,
+            infrastructure_status,
+        ]
         if escalation["level"] >= 3:
             status = "high_priority"
-        elif pending:
+        elif pending or "attention" in checkpoint_states:
             status = "attention"
+        elif any(state in {"pending", "blocked"} for state in checkpoint_states):
+            status = "incomplete"
+        else:
+            status = "compliant"
+
+        latest_history = max(
+            history,
+            key=lambda row: str(row.get("created_at") or ""),
+            default=None,
+        )
 
         rows.append({
             **centre,
             "status": status,
             "pending_cases": len(pending),
-            "attendance_status": "attention" if pillars["attendance"] else "compliant",
-            "practical_status": "attention" if pillars["practical_work"] else "compliant",
-            "infrastructure_status": "attention" if pillars["infrastructure"] else "compliant",
-            "camera_status": "attention" if pillars["camera_integrity"] else "nominal",
+            "attendance_status": attendance_status,
+            "practical_status": practical_status,
+            "infrastructure_status": infrastructure_status,
+            "camera_status": camera_status,
+            "evidence_integrity_status": evidence_integrity_status,
+            "verification_complete": all(
+                state not in {"pending", "blocked"} for state in checkpoint_states
+            ),
+            "analysis_count": len(history),
             "escalation": escalation,
-            "last_analysis": centre_cases[-1].created_at if centre_cases else now,
+            "last_analysis": latest_history.get("created_at") if latest_history else None,
         })
     return rows
 
@@ -240,9 +317,11 @@ def get_centre(
     centre_id: str,
     cases: Iterable[ComplianceCase],
     settings: dict[str, Any] | None = None,
+    history: list[dict[str, Any]] | None = None,
 ) -> dict | None:
     rows = centre_rows(
         cases,
         settings_by_centre={centre_id: settings or {}},
+        history_by_centre={centre_id: history or []},
     )
     return next((row for row in rows if row["centre_id"] == centre_id), None)
