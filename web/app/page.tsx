@@ -27,7 +27,13 @@ type Dashboard = {
   banner:string;
   centres_monitored:number;
   open_cases:number;
+  global_open_cases?:number;
   resolved_cases?:number;
+  scope?:{
+    centre_id?:string|null;
+    batch_id?:string|null;
+    is_filtered?:boolean;
+  };
   camera_issues:number;
   synced_edge_events:number;
   edge_sync_state?:string;
@@ -117,8 +123,12 @@ export default function Page(){
   ].filter(Boolean).length;
 
   const refresh=async()=>{
+    const dashboardQuery=new URLSearchParams({
+      centre_id:centreId,
+      batch_id:batchId,
+    });
     const [dashboardResponse,infraResponse,readinessResponse]=await Promise.all([
-      fetch(`${API}/api/dashboard`,{cache:'no-store'}),
+      fetch(`${API}/api/dashboard?${dashboardQuery.toString()}`,{cache:'no-store'}),
       fetch(`${API}/api/demo/infrastructure`,{cache:'no-store'}),
       fetch(`${API}/api/runtime-readiness`,{cache:'no-store'}),
     ]);
@@ -133,10 +143,18 @@ export default function Page(){
     }
   };
 
-  useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  useEffect(()=>{
+    const handle=window.setTimeout(()=>{
+      refresh().catch(err=>setError(String(err.message||err)));
+    },200);
+    return ()=>window.clearTimeout(handle);
+  },[centreId,batchId]);
   const progressStorageKey=`kaushalwatch-centre-progress:${centreId}:${batchId}`;
 
   useEffect(()=>{
+    setAttendanceResult(null);
+    setPracticalResult(null);
+    setInfraResult(null);
     const pending:WorkflowProgress={
       attendance:'pending',
       practical:'pending',
@@ -387,12 +405,21 @@ export default function Page(){
       </header>
 
       <div className="page">
+        <ContextBar
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
+          scopedPending={data?.open_cases??0}
+          globalPending={data?.global_open_cases??data?.open_cases??0}
+        />
         <CentreProgress
           progress={workflowProgress}
           activeView={activeView}
           onOpen={setActiveView}
           onReset={resetWorkflow}
         />
+        <CentreOutcome progress={workflowProgress} onOpen={setActiveView}/>
         {error&&<div className="errorBanner"><Icon name="alert"/><span>{error}</span></div>}
 
         {activeView==='overview'&&<Overview
@@ -408,9 +435,7 @@ export default function Page(){
           reported={attendanceReported}
           setReported={setAttendanceReported}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -425,9 +450,7 @@ export default function Page(){
           setProfile={setPracticalProfile}
           readiness={runtimeReadiness?.practical_work}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setPracticalPreview)}
           onSubmit={submitPractical}
         />}
@@ -439,9 +462,7 @@ export default function Page(){
           preview={infraPreview}
           readiness={runtimeReadiness?.infrastructure}
           centreId={centreId}
-          setCentreId={setCentreId}
           batchId={batchId}
-          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setInfraPreview)}
           onSubmit={submitInfrastructure}
         />}
@@ -450,6 +471,8 @@ export default function Page(){
           cases={priority}
           history={history}
           review={review}
+          centreId={centreId}
+          batchId={batchId}
         />}
 
         {activeView==='evidence'&&<EvidenceView/>}
@@ -483,7 +506,15 @@ function Overview({
 
     <section className="kpis">
       <Kpi icon="site" label="Demo centres loaded" value={data?.centres_monitored??'—'} note="Simulated command-centre dataset"/>
-      <Kpi icon="cases" label="Pending review cases" value={data?.open_cases??'—'} note="Persistent exceptions awaiting action" attention={(data?.open_cases??0)>0}/>
+      <Kpi
+        icon="cases"
+        label="Pending in active batch"
+        value={data?.open_cases??'—'}
+        note={(data?.global_open_cases??data?.open_cases??0)>(data?.open_cases??0)
+          ? `${data?.global_open_cases} pending across all demo contexts`
+          : 'Scoped to the active centre / batch'}
+        attention={(data?.open_cases??0)>0}
+      />
       <Kpi
         icon="camera"
         label="Open camera-integrity cases"
@@ -562,7 +593,7 @@ function Overview({
 }
 
 function AttendanceView({
-  result,busy,preview,reported,setReported,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  result,busy,preview,reported,setReported,centreId,batchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
@@ -570,9 +601,7 @@ function AttendanceView({
   reported:number;
   setReported:(value:number)=>void;
   centreId:string;
-  setCentreId:(value:string)=>void;
   batchId:string;
-  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -631,6 +660,8 @@ function AttendanceView({
             <button type="button" className={reported===3?'presetChip active':'presetChip'} onClick={()=>setReported(3)}>Matching report · 3</button>
             <button type="button" className={reported===12?'presetChip active attention':'presetChip attention'} onClick={()=>setReported(12)}>Mismatch report · 12</button>
           </div>
+          <input type="hidden" name="centre_id" value={centreId}/>
+          <input type="hidden" name="batch_id" value={batchId}/>
           <div className="formGrid two">
             <Field label="Reported attendance" help="Demo clean preset = 3. Use 12 to demonstrate a deliberate mismatch.">
               <input
@@ -643,8 +674,6 @@ function AttendanceView({
               />
             </Field>
             <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-01"/></Field>
-            <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
-            <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           </div>
         </div>
 
@@ -700,7 +729,7 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,profile,setProfile,readiness,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,profile,setProfile,readiness,centreId,batchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
@@ -711,9 +740,7 @@ function PracticalView({
   setProfile:(value:'authorized'|'unauthorized'|'default')=>void;
   readiness?:RuntimeReadiness['practical_work'];
   centreId:string;
-  setCentreId:(value:string)=>void;
   batchId:string;
-  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -811,9 +838,9 @@ function PracticalView({
           </div>
         </div>
 
-        <div className="formGrid three">
-          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
-          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
+        <input type="hidden" name="centre_id" value={centreId}/>
+        <input type="hidden" name="batch_id" value={batchId}/>
+        <div className="formGrid one">
           <Field label="Camera ID"><input name="camera_id" defaultValue="LAB-CAM-03"/></Field>
         </div>
 
@@ -874,7 +901,7 @@ function PracticalView({
 }
 
 function InfrastructureView({
-  infra,result,busy,preview,readiness,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  infra,result,busy,preview,readiness,centreId,batchId,onPreview,onSubmit,
 }:{
   infra:InfraItem[];
   result:any;
@@ -882,9 +909,7 @@ function InfrastructureView({
   preview:string;
   readiness?:RuntimeReadiness['infrastructure'];
   centreId:string;
-  setCentreId:(value:string)=>void;
   batchId:string;
-  setBatchId:(value:string)=>void;
   onPreview:(event:ChangeEvent<HTMLInputElement>)=>void;
   onSubmit:(event:FormEvent<HTMLFormElement>)=>void;
 }){
@@ -920,15 +945,15 @@ function InfrastructureView({
 
         <VideoDrop name="infra_file" preview={preview} onPreview={onPreview}/>
 
-        <div className="formGrid four">
+        <input type="hidden" name="centre_id" value={centreId}/>
+        <input type="hidden" name="batch_id" value={batchId}/>
+        <div className="formGrid two">
           <Field label="Demo evidence profile" help="Equipment counts below are demo telemetry, not live detections from the uploaded clip.">
             <select name="demo_profile" defaultValue="compliant">
               <option value="compliant">Compliant demo telemetry</option>
               <option value="discrepancy">Discrepancy demo telemetry</option>
             </select>
           </Field>
-          <Field label="Centre ID"><input name="centre_id" value={centreId} onChange={event=>setCentreId(event.target.value)}/></Field>
-          <Field label="Batch ID"><input name="batch_id" value={batchId} onChange={event=>setBatchId(event.target.value)}/></Field>
           <Field label="Camera ID · optional"><input name="camera_id" defaultValue="LAB-CAM-02"/></Field>
         </div>
 
@@ -1013,19 +1038,27 @@ function InfrastructureView({
   </>;
 }
 
-function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus,note?:string)=>void}){
+function CasesView({
+  cases,history,review,centreId,batchId,
+}:{
+  cases:Case[];
+  history:Case[];
+  review:(caseId:string,action:CaseStatus,note?:string)=>void;
+  centreId:string;
+  batchId:string;
+}){
   return <>
     <ModuleHero
       eyebrow="HUMAN REVIEW"
       title="AI surfaces evidence. Officers make the decision."
-      text="Pending exceptions stay in the priority queue. Confirmed and false-positive decisions move into resolved history so the live counter reflects work still requiring attention."
+      text={`Showing only cases for ${centreId} / ${batchId}. Pending exceptions stay in the priority queue; final decisions move into resolved history.`}
       badge={`${cases.length} pending`}
       policy={['Open evidence','Inspect hashes','Virtual verification','Officer decision']}
     />
 
     <section className="caseWorkspace">
       <div className="queueHeader">
-        <div><span className="eyebrow">PRIORITY EXCEPTIONS</span><h2>Pending review</h2></div>
+        <div><span className="eyebrow">PRIORITY EXCEPTIONS</span><h2>Pending review · active batch only</h2></div>
         <span className="queueCount">{cases.length} pending</span>
       </div>
 
@@ -1081,6 +1114,64 @@ function EvidenceView(){
       </div>
     </section>
   </>;
+}
+
+function ContextBar({
+  centreId,setCentreId,batchId,setBatchId,scopedPending,globalPending,
+}:{
+  centreId:string;
+  setCentreId:(value:string)=>void;
+  batchId:string;
+  setBatchId:(value:string)=>void;
+  scopedPending:number;
+  globalPending:number;
+}){
+  return <section className="contextBar" aria-label="Active verification context">
+    <div className="contextIdentity">
+      <span className="contextIcon"><Icon name="site"/></span>
+      <div><span className="eyebrow">ACTIVE VERIFICATION CONTEXT</span><strong>{centreId} · {batchId}</strong></div>
+    </div>
+    <div className="contextFields">
+      <Field label="Centre ID"><input value={centreId} onChange={event=>setCentreId(event.target.value)} aria-label="Active centre ID"/></Field>
+      <Field label="Batch ID"><input value={batchId} onChange={event=>setBatchId(event.target.value)} aria-label="Active batch ID"/></Field>
+    </div>
+    <div className="contextQueue">
+      <span>Scoped queue <b>{scopedPending}</b></span>
+      <small>{globalPending===scopedPending?'All pending cases are in this context':`${globalPending} pending across all demo contexts`}</small>
+    </div>
+  </section>;
+}
+
+function CentreOutcome({
+  progress,onOpen,
+}:{
+  progress:WorkflowProgress;
+  onOpen:(view:ViewKey)=>void;
+}){
+  const values=Object.values(progress);
+  if(values.some(value=>value==='pending')) return null;
+
+  const blocked=values.filter(value=>value==='blocked').length;
+  const attention=values.filter(value=>value==='attention').length;
+  const passed=values.filter(value=>value==='passed').length;
+
+  const tone=blocked>0?'blocked':attention>0?'attention':'passed';
+  const title=blocked>0
+    ? 'Centre verification incomplete'
+    : attention>0
+      ? 'Centre requires human review'
+      : 'Centre checkpoints completed with no exception';
+  const text=blocked>0
+    ? `${blocked} checkpoint${blocked===1?'':'s'} could not produce an authoritative result. Resolve runtime/camera issues before final review.`
+    : attention>0
+      ? `${attention} checkpoint${attention===1?'':'s'} produced an exception; ${passed} completed without an exception.`
+      : 'All three checkpoints completed without creating a review exception in this walkthrough.';
+
+  return <section className={`centreOutcome ${tone}`}>
+    <span className="centreOutcomeIcon"><Icon name={tone==='passed'?'check':'alert'}/></span>
+    <div><span className="eyebrow">CENTRE-LEVEL OUTCOME</span><strong>{title}</strong><p>{text}</p></div>
+    {attention>0&&<button type="button" onClick={()=>onOpen('cases')}>Open scoped review queue →</button>}
+  </section>;
 }
 
 function CentreProgress({

@@ -110,6 +110,43 @@ svg{display:block}
 .healthChip.warn i{background:#f79009}
 
 .page{max-width:1540px;margin:0 auto;padding:30px 34px 50px}
+.contextBar{
+  display:grid;grid-template-columns:minmax(220px,.9fr) minmax(360px,1.2fr) minmax(190px,.6fr);
+  gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:12px 14px;margin-bottom:10px;box-shadow:0 2px 8px rgba(16,24,40,.02)
+}
+.contextIdentity{display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:center;min-width:0}
+.contextIdentity strong{display:block;font-size:12px;color:#344054;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contextIcon{width:31px;height:31px;border-radius:9px;background:#eef4ff;color:#175cd3;display:grid;place-items:center}
+.contextIcon svg{width:15px;height:15px}
+.contextFields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.contextFields .field{gap:4px}
+.contextFields .field>span{font-size:8px;color:#667085}
+.contextFields input{padding:8px 9px;font-size:9px;background:#fcfcfd}
+.contextQueue{text-align:right}
+.contextQueue span,.contextQueue small{display:block}
+.contextQueue span{font-size:9px;color:#475467}
+.contextQueue b{font-size:14px;color:#101828;margin-left:3px}
+.contextQueue small{font-size:8px;color:#98a2b3;margin-top:3px;line-height:1.35}
+
+.centreOutcome{
+  display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-radius:12px;
+  padding:11px 13px;margin:-6px 0 16px;border:1px solid #e4e7ec;background:#fff
+}
+.centreOutcomeIcon{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:#f2f4f7;color:#475467}
+.centreOutcome strong{display:block;font-size:11px;margin-top:3px;color:#344054}
+.centreOutcome p{font-size:8px;color:#667085;line-height:1.4;margin:3px 0 0}
+.centreOutcome button{
+  border:1px solid #d0d5dd;background:#fff;color:#344054;border-radius:8px;padding:7px 9px;
+  font-size:8px;font-weight:850;white-space:nowrap
+}
+.centreOutcome.passed{border-color:#abefc6;background:#f6fef9}
+.centreOutcome.passed .centreOutcomeIcon{background:#dcfae6;color:#067647}
+.centreOutcome.attention{border-color:#fedf89;background:#fffcf5}
+.centreOutcome.attention .centreOutcomeIcon{background:#fef0c7;color:#b54708}
+.centreOutcome.blocked{border-color:#fda29b;background:#fff7f6}
+.centreOutcome.blocked .centreOutcomeIcon{background:#fee4e2;color:#b42318}
+
 .centreProgress{
   display:grid;grid-template-columns:220px 1fr;gap:14px;align-items:center;
   background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:16px;
@@ -305,6 +342,7 @@ svg{display:block}
 
 .formSection{margin:16px 18px 0;padding-top:15px;border-top:1px solid #eef0f3}
 .formGrid{display:grid;gap:10px;margin-top:12px}
+.formGrid.one{grid-template-columns:minmax(0,1fr)}
 .formGrid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 .formGrid.three{grid-template-columns:repeat(3,minmax(0,1fr));padding:0 18px;margin-top:16px}
 .formGrid.four{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -616,6 +654,8 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
   .navText small,.navArrow{display:none}
   .topbar{position:static;padding:0 16px}
   .page{padding:20px 16px 34px}
+  .contextBar{grid-template-columns:1fr}
+  .contextQueue{text-align:left}
   .centreProgress{grid-template-columns:1fr}
   .hero,.moduleHero{grid-template-columns:1fr}
   .hero h1,.moduleHero h1{font-size:30px}
@@ -638,7 +678,10 @@ input:focus,select:focus{border-color:#84adff;box-shadow:0 0 0 3px #eff4ff}
   .kpi{grid-template-columns:1fr}
   .kpiIcon{display:none}
   .formGrid.two,.formGrid.three,.formGrid.four,.filePair,.authSelector{grid-template-columns:1fr}
+  .contextFields{grid-template-columns:1fr}
   .centreProgressSteps{grid-template-columns:1fr}
+  .centreOutcome{grid-template-columns:auto 1fr}
+  .centreOutcome button{grid-column:1/-1;width:100%}
   .formGrid.three{padding:0 18px}
   .submitBar{align-items:stretch;flex-direction:column}
   .primaryButton{width:100%}

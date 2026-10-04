@@ -43,8 +43,8 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // as unavailable rather than silently reporting zero occupancy.
   await primaryNav.getByRole('button', { name: /Attendance/ }).click();
   await expect(page.locator('input[name="reported_attendance"]')).toHaveValue('3');
-  await page.locator('input[name="centre_id"]').fill('DEMO-KA-205');
-  await page.locator('input[name="batch_id"]').fill('CTX-BATCH-01');
+  await page.getByLabel('Active centre ID').fill('DEMO-KA-205');
+  await page.getByLabel('Active batch ID').fill('CTX-BATCH-01');
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.locator('input[name="reported_attendance"]').fill('12');
   await page.getByRole('button', { name: 'Run attendance verification' }).click();
@@ -91,7 +91,9 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   ).toBeVisible({ timeout: 20_000 });
 
   await primaryNav.getByRole('button', { name: /Review queue/ }).click();
+  await expect(page.getByText(/Showing only cases for DEMO-KA-205 \/ CTX-BATCH-01/i)).toBeVisible();
   await expect(page.getByText(/pending$/).first()).toBeVisible();
+  await expect(page.locator('.caseCard').filter({ hasText: 'DEMO-KA-104' })).toHaveCount(0);
 
   const infraCases = page.locator('.caseCard').filter({ hasText: 'infrastructure compliance' });
   await expect(infraCases.first()).toBeVisible();
