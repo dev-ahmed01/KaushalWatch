@@ -341,9 +341,18 @@ class VideoCompliancePipeline:
                 evidence=[evidence],
             )
 
+        if case is not None and case.case_type == "camera_integrity":
+            decision = "camera_integrity_exception"
+        elif not runtime_authoritative:
+            decision = "detector_unavailable"
+        elif case is not None and case.case_type == "attendance_discrepancy":
+            decision = "attendance_exception"
+        else:
+            decision = "compliant"
+
         LOGGER.info(
             "Attendance completed sampled=%s detector=%s mode=%s failures=%s "
-            "authoritative=%s estimated=%s trusted_ratio=%.3f",
+            "authoritative=%s estimated=%s trusted_ratio=%.3f decision=%s",
             frames_sampled,
             detector_info.backend,
             detector_mode,
@@ -351,6 +360,7 @@ class VideoCompliancePipeline:
             runtime_authoritative,
             estimated,
             trusted_ratio,
+            decision,
         )
 
         return ProcessSummary(
@@ -359,6 +369,10 @@ class VideoCompliancePipeline:
             reported_attendance=reported_attendance,
             estimated_occupancy=estimated,
             discrepancy_pct=round(overall_pct, 2) if overall_pct is not None else None,
+            decision=decision,
+            trusted_sample_ratio=round(trusted_ratio, 4),
+            mismatch_persistence_ratio=round(persistence, 4),
+            sample_every_seconds=float(sample_every_seconds),
             observations=observations,
             detector_backend=detector_info.backend,
             detector_mode=detector_mode,
