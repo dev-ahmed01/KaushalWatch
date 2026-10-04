@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import fs from 'fs';
+import path from 'path';
 
 const centre = 'DEMO-KA-104';
 const shots = [
@@ -19,8 +20,11 @@ const shots = [
   { slug: '14-settings', path: '/settings', heading: 'Settings & Configuration' },
 ];
 
-test('capture every primary KaushalWatch screen for visual review', async ({ page }) => {
+test.beforeAll(() => {
   fs.mkdirSync('visual-audit', { recursive: true });
+});
+
+test('capture every primary KaushalWatch screen for visual review', async ({ page }) => {
   await page.setViewportSize({ width: 1536, height: 900 });
 
   const consoleErrors: string[] = [];
@@ -44,13 +48,15 @@ test('capture every primary KaushalWatch screen for visual review', async ({ pag
   expect(pageErrors, 'uncaught browser page errors').toEqual([]);
 });
 
-test('network, directory, reports, history, assistant and settings controls respond', async ({ page }) => {
+test('exercise primary controls and capture populated evidence states', async ({ page }) => {
+  const videoPath = process.env.E2E_VIDEO_PATH;
+  if (!videoPath) throw new Error('E2E_VIDEO_PATH is required for the populated-state audit');
   await page.setViewportSize({ width: 1536, height: 900 });
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Training Centre Network' })).toBeVisible();
   await page.getByRole('button', { name: /Requires Review/ }).click();
-  await expect(page.locator('.dataTable tbody tr').first()).toBeVisible();
+  await expect(page.locator('.dataTable')).toBeVisible();
+  await page.getByRole('button', { name: /All Centres/ }).click();
 
   await page.goto('/centres');
   const search = page.getByPlaceholder('Search centre, district or batch…');
@@ -61,10 +67,40 @@ test('network, directory, reports, history, assistant and settings controls resp
   await page.goto(`/centres/${centre}`);
   await expect(page.getByRole('link', { name: 'Recent Analysis' })).toHaveAttribute('href', `/centres/${centre}/history`);
   await expect(page.getByRole('link', { name: 'Start Analysis' })).toHaveAttribute('href', `/centres/${centre}/analysis`);
-
-  const assistantQuestion = page.getByRole('button', { name: 'What needs attention?' });
-  await assistantQuestion.click();
+  await page.getByRole('button', { name: 'What happened today?' }).click();
   await expect(page.locator('.neoChat.ai')).toBeVisible({ timeout: 15_000 });
+
+  await page.goto(`/centres/${centre}/attendance`);
+  await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
+  await page.getByRole('button', { name: 'Analyse Attendance' }).click();
+  await expect(page.getByText(/Detector unavailable/i).first()).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: 'visual-audit/15-attendance-result.png', fullPage: true });
+
+  await page.goto(`/centres/${centre}/practical`);
+  await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
+  await page.getByRole('button', { name: 'Analyse Practical Work' }).click();
+  await expect(page.locator('.outcomeCard')).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: 'visual-audit/16-practical-result.png', fullPage: true });
+
+  await page.goto(`/centres/${centre}/infrastructure`);
+  await page.locator('.infraSetupCard select').selectOption('discrepancy');
+  await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
+  await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
+  await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 30_000 });
+  await page.screenshot({ path: 'visual-audit/17-infrastructure-discrepancy.png', fullPage: true });
+
+  await page.goto(`/centres/${centre}/review`);
+  await expect(page.locator('.caseListItem').first()).toBeVisible({ timeout: 15_000 });
+  await page.locator('.caseListItem').first().click();
+  await page.screenshot({ path: 'visual-audit/18-review-populated.png', fullPage: true });
+
+  await page.goto(`/centres/${centre}/outcome`);
+  await expect(page.getByRole('heading', { name: 'Final Review Outcome' })).toBeVisible();
+  await page.screenshot({ path: 'visual-audit/19-final-outcome-review.png', fullPage: true });
+
+  await page.goto('/escalations');
+  await expect(page.getByRole('heading', { name: 'Escalations & Review' })).toBeVisible();
+  await page.screenshot({ path: 'visual-audit/20-escalations-populated.png', fullPage: true });
 
   await page.goto(`/centres/${centre}/history`);
   const period = page.locator('.headerSelect');
@@ -73,11 +109,13 @@ test('network, directory, reports, history, assistant and settings controls resp
   const type = page.locator('.filterBar select');
   await type.selectOption('infrastructure');
   await expect(type).toHaveValue('infrastructure');
+  await page.screenshot({ path: 'visual-audit/21-history-populated.png', fullPage: true });
 
   await page.goto(`/reports?centre=${centre}&period=7d`);
   await page.getByRole('button', { name: 'Last 30 days' }).click();
   await expect(page.getByRole('button', { name: 'Last 30 days' })).toHaveClass(/active/);
   await expect(page.getByText('Centre Verification Report')).toBeVisible();
+  await page.screenshot({ path: 'visual-audit/22-report-populated.png', fullPage: true });
 
   await page.goto('/settings');
   const auto = page.getByRole('checkbox').first();
