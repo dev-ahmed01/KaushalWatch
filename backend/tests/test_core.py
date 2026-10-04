@@ -66,6 +66,36 @@ def test_manifest_compare():
     assert rows[1]["state"] == "OFFICER_VERIFICATION_REQUIRED"
 
 
+def test_explicit_yolo_detector_alias_is_accepted(monkeypatch):
+    class StubYoloDetector:
+        info = None
+
+    stub = StubYoloDetector()
+    monkeypatch.setenv("KAUSHALWATCH_PERSON_DETECTOR", "yolo")
+    monkeypatch.setattr(
+        "app.services.person_detector._build_yolo",
+        lambda: stub,
+    )
+
+    detector = build_person_detector()
+    assert detector is stub
+
+
+def test_yolo11_and_ultralytics_aliases_are_accepted(monkeypatch):
+    class StubYoloDetector:
+        info = None
+
+    stub = StubYoloDetector()
+    monkeypatch.setattr(
+        "app.services.person_detector._build_yolo",
+        lambda: stub,
+    )
+
+    for alias in ("yolo11", "ultralytics"):
+        monkeypatch.setenv("KAUSHALWATCH_PERSON_DETECTOR", alias)
+        assert build_person_detector() is stub
+
+
 def test_explicit_hog_detector_factory(monkeypatch):
     monkeypatch.setenv("KAUSHALWATCH_PERSON_DETECTOR", "hog")
     detector = build_person_detector()
