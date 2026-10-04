@@ -8,7 +8,7 @@ import uuid
 import cv2
 import numpy as np
 
-from app.models import AttendanceObservation, ComplianceCase, ProcessSummary
+from app.models import AttendanceObservation, AttendanceOverlayBox, AttendanceOverlaySample, ComplianceCase, ProcessSummary
 from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.camera_trust import assess_camera
 from app.services.compliance_cases import build_camera_integrity_case
@@ -76,6 +76,9 @@ class VideoCompliancePipeline:
         )
 
         observations: list[AttendanceObservation] = []
+        overlay_samples: list[AttendanceOverlaySample] = []
+        overlay_interval_seconds = max(0.8, float(sample_every_seconds))
+        next_overlay_second = 0.0
         mismatch_flags: list[bool] = []
         trust_flags: list[bool] = []
         trust_reason_counter: Counter[str] = Counter()
@@ -170,6 +173,40 @@ class VideoCompliancePipeline:
                 candidate_count = presence.candidate_count
                 confirmed_count = presence.confirmed_count
                 registered_count = presence.registered_count
+
+                if sec + 1e-6 >= next_overlay_second and len(overlay_samples) < 180:
+                    frame_height, frame_width = frame.shape[:2]
+                    overlay_boxes: list[AttendanceOverlayBox] = []
+                    for obs in presence_observations:
+                        track_state = presence.get(obs.track_id)
+                        status = (
+                            "registered"
+                            if track_state is not None and track_state.registered
+                            else "confirmed"
+                            if track_state is not None and track_state.confirmed
+                            else "candidate"
+                        )
+                        overlay_boxes.append(
+                            AttendanceOverlayBox(
+                                track_id=obs.track_id,
+                                x1=obs.x1,
+                                y1=obs.y1,
+                                x2=obs.x2,
+                                y2=obs.y2,
+                                status=status,
+                            )
+                        )
+                    overlay_samples.append(
+                        AttendanceOverlaySample(
+                            second=round(sec, 2),
+                            frame_width=frame_width,
+                            frame_height=frame_height,
+                            trusted=trust.trusted,
+                            boxes=overlay_boxes,
+                        )
+                    )
+                    while next_overlay_second <= sec:
+                        next_overlay_second += overlay_interval_seconds
 
                 warmup_complete = sec >= attendance_registration_seconds
                 # Do not seed the decision smoother with intentional pre-registration
@@ -384,6 +421,7 @@ class VideoCompliancePipeline:
             mismatch_persistence_ratio=round(persistence, 4),
             sample_every_seconds=float(sample_every_seconds),
             observations=observations,
+            overlay_samples=overlay_samples,
             detector_backend=detector_info.backend,
             detector_mode=detector_mode,
             detector_authoritative=runtime_authoritative,
