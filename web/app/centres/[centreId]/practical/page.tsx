@@ -1,11 +1,13 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
-import { API } from '../../../lib/api';
+import { API, getCentre } from '../../../lib/api';
+import type { Centre } from '../../../lib/types';
+import { withRunningStep } from '../../../lib/workflow';
 import { OutcomeCard, PageHeader, Status } from '../../../components/Ui';
 
 export default function PracticalVerification(){
@@ -19,6 +21,8 @@ export default function PracticalVerification(){
   const [result,setResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [centre,setCentre]=useState<Centre|null>(null);
+  useEffect(()=>{getCentre(id).then(setCentre).catch(()=>setCentre(null));},[id]);
 
   function onFile(e:ChangeEvent<HTMLInputElement>){
     const next=e.target.files?.[0]||null;
@@ -54,7 +58,7 @@ export default function PracticalVerification(){
       subtitle="Verify sustained worker activity in configured work cells, then compare it with external training authorization."
       actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="practical-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Practical Work'}</button></>}
     />
-    <WorkflowStepper centreId={id} states={{attendance:'complete',practical:busy?'running':result?(result.case?'attention':'complete'):'pending'}}/>
+    <WorkflowStepper centreId={id} states={withRunningStep(centre,'practical',busy,result?(result.decision==='camera_evidence_insufficient'?'blocked':result.case?'attention':'complete'):undefined)}/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">
