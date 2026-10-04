@@ -92,13 +92,21 @@ Read [`docs/privacy-design.md`](docs/privacy-design.md). Core prototype rule: **
 
 ## SIH demo vision profile
 
+Prepare the benchmarked OpenVINO detector in the same Python environment used by the API:
+
 ```bash
-python -m pip install -r backend/requirements-vision.txt
-python scripts/download_openvino_person_model.py
-# copy/use backend/.env.demo.example values in your environment
+python scripts/prepare_demo_vision.py --install
 ```
 
-HOG remains available as a zero-download fallback, but it is not the detector selected for the SIH demo.
+That command installs the vision runtime when requested, downloads the checksum-verified
+`person-detection-retail-0013` model when needed, and verifies both model files. In
+`KAUSHALWATCH_PERSON_DETECTOR=auto` mode, KaushalWatch now prefers that local benchmarked
+OpenVINO model automatically. You no longer need to rely on the process working directory
+for the model path.
+
+For an explicit deployment, copy the values from `backend/.env.demo.example`. HOG remains
+available as a zero-download development/CI fallback, but it is non-authoritative and never
+produces a final compliance conclusion.
 
 
 ## Low-bandwidth / offline mode

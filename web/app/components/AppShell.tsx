@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { FormEvent, type ReactNode, useEffect, useState } from 'react';
+import { FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { getCentres } from '../lib/api';
 
 const networkNav=[
@@ -49,11 +49,28 @@ export default function AppShell({children}:{children:ReactNode}){
   const router=useRouter();
   const [search,setSearch]=useState('');
   const [escalationCount,setEscalationCount]=useState(0);
+  const viewportRef=useRef<HTMLElement|null>(null);
   const centreMatch=pathname.match(/^\/centres\/([^/]+)/);
   const centreId=centreMatch?.[1]||'DEMO-KA-104';
 
   useEffect(()=>{
     getCentres().then(payload=>setEscalationCount(payload.centres.filter(c=>c.escalation.level>0).length)).catch(()=>setEscalationCount(0));
+  },[pathname]);
+
+  useEffect(()=>{
+    const viewport=viewportRef.current;
+    if(!viewport) return;
+    const lockHorizontalRail=()=>{
+      if(viewport.scrollLeft!==0) viewport.scrollLeft=0;
+    };
+    lockHorizontalRail();
+    viewport.addEventListener('scroll',lockHorizontalRail,{passive:true});
+    const focusReset=()=>requestAnimationFrame(lockHorizontalRail);
+    viewport.addEventListener('focusin',focusReset);
+    return ()=>{
+      viewport.removeEventListener('scroll',lockHorizontalRail);
+      viewport.removeEventListener('focusin',focusReset);
+    };
   },[pathname]);
 
   function submitSearch(event:FormEvent){
@@ -115,7 +132,7 @@ export default function AppShell({children}:{children:ReactNode}){
         </div>
       </header>
 
-      <main className="neoViewport">
+      <main ref={viewportRef} className="neoViewport">
         <div className="neoPageGlow"></div>
         {children}
       </main>

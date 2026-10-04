@@ -1,6 +1,6 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import EvidenceGallery from '../../../components/EvidenceGallery';
@@ -20,6 +20,7 @@ export default function AttendanceVerification(){
   const [reported,setReported]=useState(3);
   const [cameraId,setCameraId]=useState('LAB-CAM-01');
   const [result,setResult]=useState<any>(null);
+  const [videoTime,setVideoTime]=useState(0);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
   const [centre,setCentre]=useState<Centre|null>(null);
@@ -52,6 +53,17 @@ export default function AttendanceVerification(){
 
   const authoritative=result?.detector_authoritative;
   const tone=result?.decision==='compliant'?'good':result?.decision==='attendance_exception'?'danger':'warn';
+  const overlaySample=useMemo(()=>{
+    const samples=(result?.overlay_samples||[]) as any[];
+    if(!samples.length) return null;
+    let best=samples[0];
+    let distance=Math.abs(Number(best.second||0)-videoTime);
+    for(const sample of samples){
+      const nextDistance=Math.abs(Number(sample.second||0)-videoTime);
+      if(nextDistance<distance){best=sample;distance=nextDistance;}
+    }
+    return distance<=1.1?best:null;
+  },[result,videoTime]);
 
   return <div className="pageScene fadeIn">
     <PageHeader
@@ -65,7 +77,15 @@ export default function AttendanceVerification(){
 
     <div className="analysisThreeCol">
       <form id="attendance-form" className="analysisPrimary" onSubmit={analyse}>
-        <VideoWorkspace preview={preview} inputName="file" onFile={onFile} label="CAM 01 · Training Lab" badge={preview?'Recorded clip':'No feed'}/>
+        <VideoWorkspace
+          preview={preview}
+          inputName="file"
+          onFile={onFile}
+          onTimeChange={setVideoTime}
+          label="CAM 01 · Training Lab"
+          badge={result?(authoritative?'Verified overlay':'Diagnostic overlay'):preview?'Recorded clip':'No feed'}
+          overlay={result&&overlaySample?<AttendanceOverlay sample={overlaySample} authoritative={Boolean(authoritative)}/>:undefined}
+        />
         <VideoSampleStrip file={file}/>
       </form>
 
@@ -99,10 +119,38 @@ export default function AttendanceVerification(){
           </details>
         </div>
 
-        <div className="privacyCallout">✓ Anonymous stable occupancy · no facial identification · detector failure is shown as unavailable, never as a real zero.</div>
+        <div className="privacyCallout">✓ Anonymous stable occupancy · no facial identification · overlay IDs are temporary in-stream track labels, not identities · detector failure is shown as unavailable, never as a real zero.</div>
       </section>
 
       <AssistantPanel centreId={id}/>
     </div>
+  </div>;
+}
+
+
+function AttendanceOverlay({sample,authoritative}:{sample:any;authoritative:boolean}){
+  const width=Math.max(1,Number(sample.frame_width)||1);
+  const height=Math.max(1,Number(sample.frame_height)||1);
+  return <div className="attendanceOverlay">
+    <div className={authoritative?'overlayMode authoritative':'overlayMode diagnostic'}>
+      {authoritative?'Anonymous occupancy overlay':'Diagnostic detector overlay · decision withheld'}
+    </div>
+    {(sample.boxes||[]).map((box:any)=>{
+      const status=String(box.status||'candidate');
+      return <div
+        key={String(box.track_id)}
+        className={'attendanceBox '+status+(authoritative?'':' diagnostic')}
+        style={{
+          left:(Number(box.x1)/width*100)+'%',
+          top:(Number(box.y1)/height*100)+'%',
+          width:((Number(box.x2)-Number(box.x1))/width*100)+'%',
+          height:((Number(box.y2)-Number(box.y1))/height*100)+'%',
+        }}
+      >
+        <span>Anon {String(box.track_id).padStart(2,'0')}</span>
+        <b>{status}</b>
+      </div>;
+    })}
+    <div className="overlayTimestamp">{Number(sample.second||0).toFixed(1)}s · {sample.trusted?'camera trusted':'camera trust warning'}</div>
   </div>;
 }

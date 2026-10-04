@@ -95,6 +95,14 @@ def test_full_attendance_pipeline_returns_known_nonzero_occupancy(tmp_path):
     assert result.mismatch_persistence_ratio == 0
     assert result.case is None
     assert max(o.raw_count for o in result.observations) == 3
+    assert result.overlay_samples
+    assert any(len(sample.boxes) == 3 for sample in result.overlay_samples)
+    assert all(sample.frame_width == 640 for sample in result.overlay_samples)
+    assert any(
+        box.status == "registered"
+        for sample in result.overlay_samples
+        for box in sample.boxes
+    )
 
 
 def test_fallback_detector_never_presents_zero_or_nonzero_as_attendance_truth(tmp_path):
@@ -121,6 +129,10 @@ def test_fallback_detector_never_presents_zero_or_nonzero_as_attendance_truth(tm
     assert result.decision == "detector_unavailable"
     assert result.case is None
     assert "fallback" in result.detector_message.lower()
+    assert result.overlay_samples
+    # Diagnostic overlays remain available for operator context, but never
+    # become attendance truth while the detector is non-authoritative.
+    assert any(sample.boxes for sample in result.overlay_samples)
 
 
 @pytest.mark.real_video

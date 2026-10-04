@@ -532,3 +532,118 @@
   .evidenceHeroMeta{position:static;border-radius:0;align-items:flex-start;flex-direction:column}
   .workZoneBox>span,.workZoneBox>b{font-size:7px;padding:2px 4px}
 }
+
+
+/* Cycle 5: authoritative-demo readiness + visual fidelity */
+.attendanceOverlay{position:absolute;inset:0}
+.overlayMode{
+  position:absolute;left:10px;top:10px;z-index:4;
+  border-radius:7px;padding:5px 8px;font-size:9px;font-weight:900;
+  backdrop-filter:blur(8px);box-shadow:0 3px 12px rgba(7,16,31,.18)
+}
+.overlayMode.authoritative{background:rgba(9,104,67,.88);color:#fff}
+.overlayMode.diagnostic{background:rgba(146,82,0,.90);color:#fff}
+.attendanceBox{
+  position:absolute;border:2px solid #21b66f;border-radius:5px;
+  background:rgba(21,179,105,.04);box-shadow:0 0 0 1px rgba(255,255,255,.28) inset
+}
+.attendanceBox.confirmed{border-color:#53a7ff;background:rgba(53,135,255,.05)}
+.attendanceBox.candidate{border-style:dashed;border-color:#f2a42d;background:rgba(242,164,45,.05)}
+.attendanceBox.diagnostic{border-color:#f0a33a;background:rgba(240,163,58,.035)}
+.attendanceBox>span,.attendanceBox>b{
+  position:absolute;background:rgba(7,16,31,.88);color:#fff;border-radius:4px;
+  padding:2px 5px;white-space:nowrap;font-size:8px;line-height:1.2
+}
+.attendanceBox>span{left:-2px;top:-21px;font-weight:900}
+.attendanceBox>b{right:-2px;bottom:-20px;font-weight:700;text-transform:capitalize}
+.overlayTimestamp{
+  position:absolute;right:10px;bottom:42px;z-index:4;
+  background:rgba(7,16,31,.82);color:#dce8f7;border-radius:6px;
+  padding:4px 7px;font-size:8px;font-weight:750
+}
+
+.centreVisualCard{
+  position:relative;min-height:158px;border-radius:14px;overflow:hidden;
+  background:linear-gradient(180deg,#dbeaff 0 45%,#dfe9db 45% 55%,#cbd8c5 55% 100%);
+  border:1px solid #d7e3f0
+}
+.centreVisualSky{position:absolute;inset:0 0 45% 0;background:linear-gradient(135deg,#edf6ff,#cfe3fb)}
+.centreVisualSun{position:absolute;right:14px;top:14px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.76);box-shadow:0 0 22px rgba(255,255,255,.7)}
+.centreBuilding{
+  position:absolute;left:12%;right:12%;bottom:17%;height:53%;
+  background:linear-gradient(180deg,#fbfdff,#e9edf2);
+  border:1px solid #aebdcd;border-radius:7px 7px 2px 2px;
+  box-shadow:0 12px 18px rgba(55,73,95,.18)
+}
+.centreBuilding:before{
+  content:"";position:absolute;left:-7%;right:-7%;top:-13%;height:15%;
+  background:#506985;clip-path:polygon(6% 100%,12% 15%,88% 15%,94% 100%);
+}
+.centreBuilding:after{
+  content:"";position:absolute;left:46%;bottom:0;width:12%;height:30%;
+  background:#5e7184;border:2px solid #e8edf2;border-bottom:0
+}
+.centreFloor{
+  position:absolute;left:7%;right:7%;height:21%;display:grid;grid-template-columns:repeat(5,1fr);gap:5px
+}
+.centreFloor.one{top:12%}.centreFloor.two{top:42%}
+.centreFloor i{display:block;background:linear-gradient(180deg,#7ca0b8,#47677f);border:2px solid #eef4f8;border-radius:2px}
+.centreSign{
+  position:absolute;left:21%;right:21%;bottom:8%;z-index:3;
+  background:rgba(8,22,39,.88);color:#fff;border-radius:7px;padding:5px 8px;text-align:center
+}
+.centreSign b,.centreSign small{display:block}.centreSign b{font-size:9px}.centreSign small{font-size:7px;color:#bad1ea;margin-top:1px}
+.centreVisualBadge{
+  position:absolute;left:9px;top:9px;z-index:4;background:rgba(255,255,255,.9);
+  border:1px solid rgba(201,215,231,.9);border-radius:999px;padding:4px 7px;
+  font-size:7px;font-weight:900;color:#41546a
+}
+
+.networkMapLegend{
+  position:absolute;right:10px;bottom:10px;z-index:3;display:flex;gap:8px;flex-wrap:wrap;
+  background:rgba(255,255,255,.9);border:1px solid #dfe7f0;border-radius:9px;padding:6px 8px;
+  box-shadow:0 5px 18px rgba(30,52,84,.08)
+}
+.networkMapLegend span{display:flex;align-items:center;gap:4px;font-size:7px;color:#5f7188;font-weight:800}
+.networkMapLegend i{width:7px;height:7px;border-radius:50%;display:block;background:#1ebc70}
+.networkMapLegend i.review{background:#f79009}.networkMapLegend i.high{background:#f04438}.networkMapLegend i.pending{background:#94a3b8}
+.networkCanvas .mapNode{z-index:3}
+.networkCanvas .mapNode b{max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.networkCanvas .mapNode.high_priority span{animation:mapPulse 1.7s ease-in-out infinite}
+@keyframes mapPulse{0%,100%{box-shadow:0 0 0 2px rgba(240,68,56,.18)}50%{box-shadow:0 0 0 8px rgba(240,68,56,.07)}}
+
+.runtimeEngineGrid{display:grid;gap:7px}
+.runtimeEngineRow{
+  display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;
+  padding:8px 0;border-bottom:1px solid #edf2f7
+}
+.runtimeEngineRow:last-child{border-bottom:0}
+.runtimeEngineDot{width:9px;height:9px;border-radius:50%;background:#94a3b8;box-shadow:0 0 0 4px rgba(148,163,184,.12)}
+.runtimeEngineDot.ready{background:#12a866;box-shadow:0 0 0 4px rgba(18,168,102,.12)}
+.runtimeEngineDot.blocked{background:#f79009;box-shadow:0 0 0 4px rgba(247,144,9,.12)}
+.runtimeEngineRow b,.runtimeEngineRow small{display:block}
+.runtimeEngineRow b{font-size:8px;color:#25364d}.runtimeEngineRow small{font-size:7px;color:#8694a7;margin-top:2px;line-height:1.35}
+.runtimeEngineRow em{font-size:7px;font-style:normal;font-weight:900;color:#52657d;text-transform:capitalize}
+
+.infrastructureLayout{grid-template-columns:minmax(320px,.95fr) minmax(0,1.45fr) minmax(285px,.62fr)}
+.infraTierGrid{align-content:start}
+.infraTierGrid .tierCard{min-width:0}
+.infraTierGrid .tierItem{min-height:34px}
+.infraMediaPanel .keyFrameStrip{border-top:1px solid #edf2f7;background:#fbfcfe}
+
+@media(max-width:720px){
+  .attendanceBox>span,.attendanceBox>b{font-size:7px}
+  .overlayTimestamp{bottom:50px;font-size:7px}
+  .networkMapLegend{left:8px;right:8px;justify-content:center}
+  .centreVisualCard{min-height:180px}
+}
+
+
+/* Prevent focus-driven horizontal scrolling inside the desktop content rail. */
+.neoMain,.neoViewport{overflow-x:clip}
+
+
+.infraResultsColumn{display:grid;gap:11px;align-content:start;min-width:0}
+.infraInlineOutcome{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(190px,.85fr);gap:9px;align-items:stretch}
+.infraInlineOutcome .outcomeCard{margin-top:0}
+@media(max-width:1180px){.infraInlineOutcome{grid-template-columns:1fr}}

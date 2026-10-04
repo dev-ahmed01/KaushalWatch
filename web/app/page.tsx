@@ -73,6 +73,12 @@ export default function NetworkOverview(){
             style={MAP_POSITIONS[centre.centre_id]||{left:'50%',top:'50%'}}
             title={centre.name}
           ><span></span><b>{centre.name.replace(' TC-',' ')}</b></Link>)}
+          <div className="networkMapLegend" aria-label="Network status legend">
+            <span><i></i>Compliant</span>
+            <span><i className="review"></i>Review</span>
+            <span><i className="high"></i>High priority</span>
+            <span><i className="pending"></i>Incomplete</span>
+          </div>
           {!centres.length&&<Skeleton lines={5}/>}
         </div>
       </div>

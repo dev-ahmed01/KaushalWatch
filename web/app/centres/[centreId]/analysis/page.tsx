@@ -208,10 +208,25 @@ export default function AnalysisRun(){
 
         <section className="panel runScheduleCard">
           <div className="panelHead"><div><span className="sectionKicker">Runtime readiness</span><h2>Analysis engines</h2></div></div>
-          <div className="runScheduleBody">
-            <div><span>Attendance</span><b>{readiness?.attendance?.ready?'Ready':'Fallback / blocked conclusions'}</b></div>
-            <div><span>Practical work</span><b>{readiness?.practical_work?.ready?'Ready':'Optional YOLO runtime missing'}</b></div>
-            <div><span>Infrastructure</span><b>{readiness?.infrastructure?.ready?'Ready':'Unavailable'}</b></div>
+          <div className="runtimeEngineGrid">
+            <RuntimeEngine
+              label="Attendance"
+              ready={Boolean(readiness?.attendance?.ready)}
+              backend={readiness?.attendance?.backend||'checking'}
+              message={readiness?.attendance?.message||'Checking person detector runtime.'}
+            />
+            <RuntimeEngine
+              label="Practical work"
+              ready={Boolean(readiness?.practical_work?.ready)}
+              backend={readiness?.practical_work?.backend||'checking'}
+              message={readiness?.practical_work?.message||'Checking shared person detector and work-zone runtime.'}
+            />
+            <RuntimeEngine
+              label="Infrastructure"
+              ready={Boolean(readiness?.infrastructure?.ready)}
+              backend={readiness?.infrastructure?.mode||'checking'}
+              message={readiness?.infrastructure?.message||'Checking infrastructure adapter.'}
+            />
           </div>
         </section>
 
@@ -256,4 +271,13 @@ function LaunchStep({number,title,text,href,tone}:{number:string;title:string;te
     <div><b>{title}</b><small>{text}</small></div>
     <em>Open →</em>
   </Link>;
+}
+
+
+function RuntimeEngine({label,ready,backend,message}:{label:string;ready:boolean;backend:string;message:string}){
+  return <div className="runtimeEngineRow">
+    <span className={'runtimeEngineDot '+(ready?'ready':'blocked')}></span>
+    <div><b>{label}</b><small>{message}</small></div>
+    <em>{ready?'Ready':backend}</em>
+  </div>;
 }
