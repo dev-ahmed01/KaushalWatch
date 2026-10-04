@@ -274,6 +274,30 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
 .analyticsGrid{display:grid;grid-template-columns:1.2fr 1fr .8fr;gap:10px}.trendPanel,.barsPanel,.issueMixPanel{min-height:310px}.lineChartMock{padding:20px;color:#1f63f2}.lineChartMock svg{width:100%;height:200px}.chartAxis{display:flex;justify-content:space-between;color:#96a1af;font-size:7px}.barList{padding:13px}.barRow{display:grid;grid-template-columns:110px 1fr 20px;gap:8px;align-items:center;margin:9px 0}.barRow>span{font-size:7px}.barRow>i{height:7px;border-radius:999px;background:#e9eef5;overflow:hidden}.barRow>i>b{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#7ba6ff,#1f63f2)}.barRow>em{font-size:7px;font-style:normal;text-align:right}.donutMock{display:grid;justify-items:center;padding:18px}.donut{width:120px;height:120px;border-radius:50%;background:conic-gradient(#1f63f2 0 40%,#f79009 40% 65%,#7047eb 65% 80%,#f04438 80%);position:relative}.donut:after{content:"";position:absolute;inset:28px;border-radius:50%;background:#fff}.donutMock>div:last-child{display:grid;gap:6px;margin-top:15px}.donutMock span{display:flex;align-items:center;gap:6px;font-size:7px}.donutMock i{width:8px;height:8px;border-radius:2px}.donutMock i.blue{background:#1f63f2}.donutMock i.orange{background:#f79009}.donutMock i.purple{background:#7047eb}.donutMock i.red{background:#f04438}
 
+
+.outcomeLayout{display:grid;gap:10px}
+.finalOutcomeHero{
+  display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;border-radius:18px;
+  padding:18px;border:1px solid #c8edd8;background:linear-gradient(135deg,#effcf5,#f8fffb);box-shadow:var(--shadow-soft)
+}
+.finalOutcomeHero.attention{border-color:#ffd5a3;background:linear-gradient(135deg,#fff8ee,#fffdf8)}
+.finalOutcomeIcon{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:#10a865;color:#fff;font-size:22px;font-weight:900;box-shadow:0 10px 24px rgba(16,168,101,.18)}
+.finalOutcomeHero.attention .finalOutcomeIcon{background:#f79009;box-shadow:0 10px 24px rgba(247,144,9,.18)}
+.finalOutcomeHero h2{font-size:22px;margin:3px 0 4px;letter-spacing:-.03em}
+.finalOutcomeHero p{font-size:9px;line-height:1.55;color:#62748c;margin:0;max-width:760px}
+.outcomeContent{display:grid;grid-template-columns:minmax(0,1.2fr) 340px 290px;gap:10px;align-items:start}
+.pillarRows{padding:5px 14px 10px}
+.pillarRow{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;padding:10px 0;border-bottom:1px solid #edf2f7}
+.pillarRow:last-child{border-bottom:0}
+.pillarState{width:25px;height:25px;border-radius:50%;display:grid;place-items:center;font-size:8px;font-weight:900}
+.pillarState.good{background:#e8fbf2;color:#079455}.pillarState.warn{background:#fff5e9;color:#d56b05}
+.pillarRow b,.pillarRow small{display:block}.pillarRow b{font-size:8px}.pillarRow small{font-size:7px;color:#8190a2;margin-top:2px;line-height:1.4}
+.outcomeActionRows{padding:6px 14px}
+.outcomeActionRows>div{padding:9px 0;border-bottom:1px solid #edf2f7}
+.outcomeActionRows>div:last-child{border-bottom:0}
+.outcomeActionRows span,.outcomeActionRows b,.outcomeActionRows small{display:block}
+.outcomeActionRows span{font-size:7px;color:#8795a7}.outcomeActionRows b{font-size:13px;margin-top:2px}.outcomeActionRows small{font-size:7px;color:#8190a2;margin-top:2px;line-height:1.35}
+.fullBtn{width:calc(100% - 28px);margin:4px 14px 14px}
 .settingsLayout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:10px}.settingsMain,.settingsSide{display:grid;gap:10px;align-content:start}.settingsCard{padding-bottom:12px}.settingRows{padding:4px 14px}.settingRows>label{display:block;border-bottom:1px solid #edf2f7;padding:10px 0}.settingRows>label:last-child{border-bottom:0}.settingRows label>span{display:block;font-size:7px;font-weight:800;margin-bottom:5px}.settingRows input,.settingRows select{font-size:8px}.switchRow{display:flex!important;align-items:center;justify-content:space-between;gap:20px}.switchRow>div b,.switchRow>div small{display:block}.switchRow>div b{font-size:8px}.switchRow>div small{font-size:7px;color:#8491a2;margin-top:2px;line-height:1.4}.switchRow>input{width:36px;height:18px;accent-color:#1f63f2}.inlineSetting{display:grid;grid-template-columns:90px 1fr;gap:7px;align-items:center}.inlineSetting small{font-size:7px;color:#8593a5}.connectivityChoices{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:11px 14px 0}.connectivityChoices button{border:1px solid #dce4ef;background:#fff;border-radius:9px;padding:9px;text-align:left}.connectivityChoices button.active{border-color:#8db1fb;background:#f1f6ff}.connectivityChoices b,.connectivityChoices small{display:block}.connectivityChoices b{font-size:8px}.connectivityChoices small{font-size:7px;color:#8290a2;margin-top:2px}.bandwidthNote{margin:9px 14px 0;background:#f2f7ff;border-radius:9px;padding:8px;font-size:7px;color:#5e7088;line-height:1.45}.trustCard{padding:14px}.trustCard h2{font-size:13px;margin:4px 0 10px}.trustRule{font-size:7px;color:#4f637d;padding:7px 0;border-bottom:1px solid #edf2f7}.trustRule:last-child{border-bottom:0}
 
 .skeletonBlock{display:grid;gap:8px;padding:20px}.skeletonBlock span{height:18px;border-radius:7px;background:linear-gradient(90deg,#edf2f7,#f8fbff,#edf2f7);background-size:240% 100%;animation:shimmer 1.4s infinite}@keyframes shimmer{to{background-position:-240% 0}}
@@ -299,7 +323,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .appMain{grid-column:auto}.globalTopbar{position:static;padding:0 12px}.globalSearch{display:none}.officerIdentity{display:none}
   .routeViewport{padding:16px 12px 32px}.pageHeader{align-items:flex-start;flex-direction:column}.pageHeaderActions{justify-content:flex-start}
   .metricGrid.four,.centreCardGrid,.overviewCards,.centreSide,.analyticsGrid{grid-template-columns:1fr}
-  .analysisThreeCol,.infrastructureLayout,.reviewLayout,.escalationLayout,.reportLayout,.historyLayout,.runningLayout{grid-template-columns:1fr}
+  .analysisThreeCol,.infrastructureLayout,.reviewLayout,.escalationLayout,.reportLayout,.historyLayout,.runningLayout,.outcomeContent{grid-template-columns:1fr}
+  .finalOutcomeHero{grid-template-columns:auto 1fr}.finalOutcomeHero>.statusChip{grid-column:2}
   .infraTierGrid{grid-template-columns:1fr}.caseEvidenceGrid{grid-template-columns:1fr}.workflowStepper{grid-template-columns:1fr}.workflowNode>i{display:none}
   .workflowNode{border-bottom:1px solid #edf2f7;padding:6px 0}.workflowNode:last-child{border-bottom:0}
 }
