@@ -52,7 +52,7 @@ export default function PracticalVerification(){
       eyebrow="Selected Centre / Practical Work"
       title="Practical Work Verification"
       subtitle="Verify sustained worker activity in configured work cells, then compare it with external training authorization."
-      actions={<><button className="secondaryBtn" type="button">Demo Clip⌄</button><button className="secondaryBtn" type="button">⚙ Advanced Settings</button><button form="practical-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Practical Work'}</button></>}
+      actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="practical-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Practical Work'}</button></>}
     />
     <WorkflowStepper centreId={id} states={{attendance:'complete',practical:busy?'running':result?(result.case?'attention':'complete'):'pending'}}/>
     {error&&<div className="inlineError">{error}</div>}
