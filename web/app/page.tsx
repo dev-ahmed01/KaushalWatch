@@ -26,9 +26,19 @@ type Dashboard = {
   banner:string;
   centres_monitored:number;
   open_cases:number;
+  resolved_cases?:number;
   camera_issues:number;
   synced_edge_events:number;
+  edge_sync_state?:string;
+  pending_cases?:Case[];
+  resolved_case_history?:Case[];
   cases:Case[];
+};
+
+type WorkflowProgress = {
+  attendance:boolean;
+  practical:boolean;
+  infrastructure:boolean;
 };
 
 type InfraItem = {
@@ -52,7 +62,7 @@ const navItems:{key:ViewKey;label:string;description:string;icon:string}[] = [
 ];
 
 export default function Page(){
-  const [activeView,setActiveView]=useState<ViewKey>('overview');
+  const [activeView,setActiveView]=useState<ViewKey>('infrastructure');
   const [data,setData]=useState<Dashboard|null>(null);
   const [infra,setInfra]=useState<InfraItem[]>([]);
   const [attendanceResult,setAttendanceResult]=useState<any>(null);
@@ -66,6 +76,11 @@ export default function Page(){
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('unknown');
+  const [workflowProgress,setWorkflowProgress]=useState<WorkflowProgress>({
+    attendance:false,
+    practical:false,
+    infrastructure:false,
+  });
 
   const refresh=async()=>{
     const [dashboardResponse,infraResponse]=await Promise.all([
@@ -81,9 +96,27 @@ export default function Page(){
   };
 
   useEffect(()=>{refresh().catch(err=>setError(String(err.message||err)));},[]);
+  useEffect(()=>{
+    try{
+      const saved=window.localStorage.getItem('kaushalwatch-centre-progress');
+      if(saved) setWorkflowProgress(JSON.parse(saved));
+    }catch{}
+  },[]);
+
+  function markWorkflowComplete(step:keyof WorkflowProgress){
+    setWorkflowProgress(current=>{
+      const next={...current,[step]:true};
+      try{window.localStorage.setItem('kaushalwatch-centre-progress',JSON.stringify(next));}catch{}
+      return next;
+    });
+  }
 
   const priority=useMemo(
-    ()=>[...(data?.cases||[])].reverse(),
+    ()=>[...(data?.pending_cases||data?.cases?.filter(item=>['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
+    [data]
+  );
+  const history=useMemo(
+    ()=>[...(data?.resolved_case_history||data?.cases?.filter(item=>!['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
     [data]
   );
   const cameraHealthy=(data?.camera_issues??0)===0;
@@ -110,6 +143,7 @@ export default function Page(){
       const body=await response.json();
       if(!response.ok) throw new Error(body.detail||'Attendance analysis failed');
       setAttendanceResult(body);
+      markWorkflowComplete('attendance');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -128,11 +162,12 @@ export default function Page(){
       const video=incoming.get('practical_file');
       const zonesFile=incoming.get('zones_file');
       if(!(video instanceof File)) throw new Error('Choose a practical-work CCTV video');
-      if(!(zonesFile instanceof File)) throw new Error('Choose a work-zone JSON file');
 
       const body=new FormData();
       body.append('file',video);
-      body.append('zones_json',await zonesFile.text());
+      if(zonesFile instanceof File && zonesFile.size>0){
+        body.append('zones_json',await zonesFile.text());
+      }
       body.append('authorization',practicalAuth);
 
       for(const key of ['zone_profile','centre_id','batch_id','camera_id']){
@@ -147,6 +182,7 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Practical-work analysis failed');
       setPracticalResult(payload);
+      markWorkflowComplete('practical');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -179,6 +215,7 @@ export default function Page(){
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Infrastructure analysis failed');
       setInfraResult(payload);
+      markWorkflowComplete('infrastructure');
       await refresh();
     }catch(err:any){
       setError(err.message||String(err));
@@ -256,6 +293,11 @@ export default function Page(){
       </header>
 
       <div className="page">
+        <CentreProgress
+          progress={workflowProgress}
+          activeView={activeView}
+          onOpen={setActiveView}
+        />
         {error&&<div className="errorBanner"><Icon name="alert"/><span>{error}</span></div>}
 
         {activeView==='overview'&&<Overview
@@ -294,6 +336,7 @@ export default function Page(){
 
         {activeView==='cases'&&<CasesView
           cases={priority}
+          history={history}
           review={review}
         />}
 
