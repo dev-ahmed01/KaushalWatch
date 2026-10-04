@@ -111,6 +111,11 @@ class PracticalActivitySummary(BaseModel):
     first_practical_activity_time_sec: float | None = None
     active_work_cells: int
     work_cells: list[WorkCellActivity] = Field(default_factory=list)
+    detector_backend: str = "unknown"
+    detector_mode: str = "unknown"
+    detector_authoritative: bool = False
+    detector_message: str = ""
+    detector_failures: int = 0
     case: ComplianceCase | None = None
     note: str = (
         "Practical activity is a worker-centric visual motion proxy. "
