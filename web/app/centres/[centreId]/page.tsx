@@ -76,7 +76,7 @@ export default function CentreOverview(){
               <div><span>Frequency</span><b>{frequencyLabel}</b></div>
               <div><span>Windows</span><b>{windows}</b></div>
               <div><span>Connectivity</span><b>{centre.connectivity_mode.replaceAll('_',' ')}</b></div>
-              <div><span>Trigger</span><b>{automatic?'When a connected live/edge feed enters a configured window':'Manual only'}</b></div>
+              <div><span>Trigger</span><b>{automatic?'Attendance edge agent · once per configured window':'Manual only'}</b></div>
             </div>
             <Link href={'/centres/'+centreId+'/analysis'} className="scheduleAction">Run analysis now →</Link>
           </article>
