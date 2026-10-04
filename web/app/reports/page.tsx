@@ -1,21 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import AssistantPanel from '../components/AssistantPanel';
 import { API, getCentres } from '../lib/api';
 import type { Centre } from '../lib/types';
 import { Metric, PageHeader, Status } from '../components/Ui';
 
 export default function ReportsPage(){
-  const params=useSearchParams();
   const [centres,setCentres]=useState<Centre[]>([]);
-  const [centreId,setCentreId]=useState(params.get('centre')||'DEMO-KA-104');
-  const [period,setPeriod]=useState(params.get('period')||'7d');
+  const [centreId,setCentreId]=useState('DEMO-KA-104');
+  const [period,setPeriod]=useState('7d');
   const [report,setReport]=useState<any>(null);
   const [busy,setBusy]=useState(false);
 
-  useEffect(()=>{getCentres().then(r=>setCentres(r.centres)).catch(()=>{});},[]);
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    setCentreId(params.get('centre')||'DEMO-KA-104');
+    setPeriod(params.get('period')||'7d');
+    getCentres().then(r=>setCentres(r.centres)).catch(()=>{});
+  },[]);
   useEffect(()=>{generate().catch(()=>{});},[centreId,period]);
 
   async function generate(){
