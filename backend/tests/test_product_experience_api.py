@@ -381,3 +381,25 @@ def test_review_resolution_reconciles_current_pillar_state(tmp_path, monkeypatch
     assert confirmed["infrastructure_status"] == "attention"
     assert confirmed["confirmed_cases"] == 1
     assert confirmed["status"] in {"attention", "high_priority"}
+
+
+
+def test_practical_zone_endpoint_and_runtime_readiness(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, monkeypatch)
+
+    zones = client.get("/api/practical-work-zones?profile=authorized")
+    assert zones.status_code == 200
+    payload = zones.json()
+    assert payload["profile"] == "authorized"
+    assert payload["reference"]["width"] == 1920
+    assert len(payload["zones"]) >= 1
+
+    missing = client.get("/api/practical-work-zones?profile=does-not-exist")
+    assert missing.status_code == 404
+
+    readiness = client.get("/api/runtime-readiness")
+    assert readiness.status_code == 200
+    practical = readiness.json()["practical_work"]
+    assert "processing_available" in practical
+    assert "backend" in practical
+    assert practical["processing_available"] is True
