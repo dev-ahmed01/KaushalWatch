@@ -291,15 +291,16 @@ export default function Page(){
     }
   }
 
-  async function review(caseId:string,action:CaseStatus){
+  async function review(caseId:string,action:CaseStatus,note?:string){
     setError('');
     const response=await fetch(`${API}/api/cases/${caseId}/review`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action}),
+      body:JSON.stringify({action,note:note?.trim()||null}),
     });
     if(!response.ok){
-      setError('Could not update the case');
+      const payload=await response.json().catch(()=>null);
+      setError(payload?.detail||'Could not update the case');
       return;
     }
     await refresh();
@@ -925,7 +926,7 @@ function InfrastructureView({
   </>;
 }
 
-function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus)=>void}){
+function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus,note?:string)=>void}){
   return <>
     <ModuleHero
       eyebrow="HUMAN REVIEW"
@@ -1155,9 +1156,13 @@ function WorkCellResult({cell}:{cell:any}){
   </div>;
 }
 
-function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus)=>void;resolved?:boolean}){
+function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,action:CaseStatus,note?:string)=>void;resolved?:boolean}){
   const pillar=casePillar(item.case_type);
   const duplicate=item.evidence?.find(evidence=>Boolean(evidence.duplicate_of));
+  const [reviewNote,setReviewNote]=useState('');
+  const finalReady=reviewNote.trim().length>0;
+  const latestReview=item.review_history?.at(-1);
+
   return <article className={resolved?'caseCard resolvedCase':'caseCard'}>
     <div className="caseCardHead">
       <div className="caseTitle"><span className={`severityDot ${item.severity}`}></span><div><strong>{item.case_type.replaceAll('_',' ')}</strong><small>{item.case_id} · {item.centre_id}</small></div></div>
@@ -1183,12 +1188,27 @@ function CaseCard({item,review,resolved=false}:{item:Case;review:(caseId:string,
       <a href={`${API}/api/cases/${item.case_id}/evidence-pack`} target="_blank" rel="noreferrer"><Icon name="package"/>Evidence pack</a>
     </div>
     {!!item.review_history?.length&&<div className="auditRow"><Icon name="history"/><span>{item.review_history.length} officer action{item.review_history.length===1?'':'s'} recorded</span></div>}
-    {!resolved&&<div className="reviewActions">
-      <button type="button" onClick={()=>review(item.case_id,'under_review')}>Start review</button>
-      <button type="button" onClick={()=>review(item.case_id,'virtual_verification')}>Virtual verify</button>
-      <button type="button" onClick={()=>review(item.case_id,'false_positive')}>False positive</button>
-      <button type="button" className="confirm" onClick={()=>review(item.case_id,'confirmed')}>Confirm exception</button>
+    {resolved&&latestReview?.note&&<div className="resolvedRationale">
+      <span>Officer rationale</span>
+      <strong>{latestReview.note}</strong>
     </div>}
+    {!resolved&&<>
+      <label className="reviewNoteField">
+        <span>Officer note <b>required for final decision</b></span>
+        <textarea
+          value={reviewNote}
+          onChange={event=>setReviewNote(event.target.value)}
+          placeholder="What did you verify, and why is this case confirmed or a false positive?"
+          rows={3}
+        />
+      </label>
+      <div className="reviewActions">
+        <button type="button" onClick={()=>review(item.case_id,'under_review',reviewNote)}>Start review</button>
+        <button type="button" onClick={()=>review(item.case_id,'virtual_verification',reviewNote)}>Virtual verify</button>
+        <button type="button" disabled={!finalReady} onClick={()=>review(item.case_id,'false_positive',reviewNote)}>False positive</button>
+        <button type="button" disabled={!finalReady} className="confirm" onClick={()=>review(item.case_id,'confirmed',reviewNote)}>Confirm exception</button>
+      </div>
+    </>}
   </article>;
 }
 
