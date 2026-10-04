@@ -273,6 +273,11 @@ def build_person_detector() -> Detector:
         except Exception as exc:  # pragma: no cover - optional runtime
             failures.append(f"OpenVINO unavailable: {exc}")
             LOGGER.warning("OpenVINO person detector unavailable", exc_info=True)
+    else:
+        failures.append(
+            "OpenVINO demo model is not prepared at "
+            f"{openvino_xml}"
+        )
 
     try:
         detector = _build_yolo()
@@ -290,7 +295,9 @@ def build_person_detector() -> Detector:
         authoritative=False,
         message=(
             "Validated person detector unavailable / fallback mode. "
-            f"{detail}. Automated compliance conclusions are suspended."
+            f"{detail}. Run 'python scripts/prepare_demo_vision.py --install' "
+            "for the benchmarked OpenVINO demo detector. Automated compliance "
+            "conclusions are suspended."
         ),
     )
     LOGGER.error(detector.info.message)
