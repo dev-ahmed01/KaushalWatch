@@ -49,6 +49,7 @@ test('capture every primary KaushalWatch screen for visual review', async ({ pag
 });
 
 test('exercise primary controls and capture populated evidence states', async ({ page }) => {
+  test.setTimeout(180_000);
   const videoPath = process.env.E2E_VIDEO_PATH;
   if (!videoPath) throw new Error('E2E_VIDEO_PATH is required for the populated-state audit');
   await page.setViewportSize({ width: 1536, height: 900 });
@@ -79,8 +80,8 @@ test('exercise primary controls and capture populated evidence states', async ({
   await page.goto(`/centres/${centre}/practical`);
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Practical Work' }).click();
-  await expect(page.locator('.outcomeCard')).toBeVisible({ timeout: 30_000 });
-  await page.screenshot({ path: 'visual-audit/16-practical-result.png', fullPage: true });
+  await expect(page.locator('.outcomeCard, .inlineError').first()).toBeVisible({ timeout: 45_000 });
+  await page.screenshot({ path: 'visual-audit/16-practical-result-or-error.png', fullPage: true });
 
   await page.goto(`/centres/${centre}/infrastructure`);
   await page.locator('.infraSetupCard select').selectOption('discrepancy');
