@@ -252,3 +252,10 @@ button,input,select,textarea{font:inherit}
 .infraSetupCard span{font-size:7px;color:#68798f;font-weight:850;text-transform:uppercase;letter-spacing:.05em}
 .infraSetupCard select{border:1px solid #dfe6ee;background:#fff;border-radius:8px;padding:7px 8px;font-size:8px;color:#4c5e74}
 .infraSetupCard p{font-size:7px;line-height:1.45;color:#7c8b9e;margin:7px 0 0;padding-top:7px;border-top:1px solid #eef2f6}
+
+/* cycle 2 — network filters */
+.networkFilterTabs{display:flex;gap:5px;align-items:center;padding:9px 11px;border-bottom:1px solid #edf1f6;overflow:auto}
+.networkFilterTabs button{min-height:30px;border:1px solid transparent;background:transparent;border-radius:8px;padding:0 9px;font-size:7px;color:#6b7b90;font-weight:800;white-space:nowrap}
+.networkFilterTabs button:hover{background:#f7f9fc}
+.networkFilterTabs button.active{background:#eef4ff;color:#245fcf;border-color:#d7e2ff}
+.networkFilterTabs button span{margin-left:4px;color:#94a1b1}
