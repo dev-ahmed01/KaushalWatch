@@ -1,4 +1,5 @@
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -192,3 +193,90 @@ def test_saved_escalation_policy_changes_network_result(tmp_path, monkeypatch):
         for reason in bengaluru["escalation"]["reasons"]
     )
     assert bengaluru["escalation"]["next_action"]
+
+
+
+def test_unanalysed_centre_is_incomplete_not_compliant(tmp_path, monkeypatch):
+    client, _, history = _client(tmp_path, monkeypatch)
+
+    network = client.get("/api/centres")
+    assert network.status_code == 200
+    bengaluru = next(
+        row for row in network.json()["centres"]
+        if row["centre_id"] == "DEMO-KA-104"
+    )
+    assert bengaluru["status"] == "incomplete"
+    assert bengaluru["attendance_status"] == "pending"
+    assert bengaluru["practical_status"] == "pending"
+    assert bengaluru["infrastructure_status"] == "pending"
+    assert bengaluru["camera_status"] == "pending"
+    assert bengaluru["evidence_integrity_status"] == "pending"
+
+    history.append(
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="attendance",
+        outcome="blocked",
+        summary="Detector unavailable.",
+        details={},
+    )
+    detail = client.get("/api/centres/DEMO-KA-104")
+    assert detail.status_code == 200
+    assert detail.json()["status"] == "incomplete"
+    assert detail.json()["attendance_status"] == "blocked"
+
+
+def test_report_pdf_and_custom_range_are_real_outputs(tmp_path, monkeypatch):
+    client, _, history = _client(tmp_path, monkeypatch)
+    history.append(
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="attendance",
+        outcome="compliant",
+        summary="Attendance matched.",
+        details={},
+    )
+    today = datetime.now(timezone.utc).date().isoformat()
+
+    custom = client.get(
+        f"/api/centres/DEMO-KA-104/report?period=custom&start_date={today}&end_date={today}"
+    )
+    assert custom.status_code == 200
+    assert custom.json()["summary"]["analysis_runs"] == 1
+    assert custom.json()["period_label"] == f"{today} to {today}"
+
+    pdf = client.get(
+        f"/api/centres/DEMO-KA-104/report.pdf?period=custom&start_date={today}&end_date={today}"
+    )
+    assert pdf.status_code == 200
+    assert pdf.headers["content-type"].startswith("application/pdf")
+    assert "attachment;" in pdf.headers["content-disposition"]
+    assert pdf.content.startswith(b"%PDF-1.4")
+
+
+def test_practical_runtime_unavailable_becomes_blocked_history(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, monkeypatch)
+
+    def unavailable(**kwargs):
+        raise RuntimeError("Practical-work runtime unavailable for test")
+
+    monkeypatch.setattr(app_main.PRACTICAL_PIPELINE, "run", unavailable)
+    response = client.post(
+        "/api/process-practical-activity",
+        data={
+            "centre_id": "DEMO-KA-104",
+            "batch_id": "ELEC-2026-08",
+            "authorization": "valid",
+            "zone_profile": "authorized",
+        },
+        files={"file": ("sample.avi", b"not-empty", "video/x-msvideo")},
+    )
+    assert response.status_code == 200
+    assert response.json()["decision"] == "detector_unavailable"
+    assert response.json()["detector_authoritative"] is False
+
+    history = client.get("/api/analysis-history?centre_id=DEMO-KA-104")
+    assert history.status_code == 200
+    latest = history.json()["rows"][0]
+    assert latest["analysis_type"] == "practical_work"
+    assert latest["outcome"] == "blocked"
