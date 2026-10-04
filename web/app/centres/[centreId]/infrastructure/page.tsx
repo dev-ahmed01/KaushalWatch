@@ -111,7 +111,7 @@ export default function InfrastructureVerification(){
             <small>Uploaded video supplies the retained review frame; equipment counts currently come from the declared detector adapter/profile.</small>
           </div>
         </div>}
-        {result.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence" compact/>}
+        {result?.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence" compact/>}
       </div>
 
       <AssistantPanel centreId={id}/>
