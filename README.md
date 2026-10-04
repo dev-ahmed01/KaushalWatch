@@ -119,11 +119,24 @@ python scripts/calibrate_attendance_detector.py \
   --true-count 5
 ```
 
-The tiled pass is **off by default** and exists to recover partially occluded or crowded
-workers that become too small when a 1080p frame is resized to the model input. The sweep
-ranks candidates using stable-occupancy error first, then registered/raw count consistency.
-Do not change benchmark claims from a single calibration clip; validate the selected
-candidate on held-out footage before freezing it.
+The generic runtime keeps tiled inference **off by default**, while the SIH demo profile now
+enables it after calibration on the manually counted five-worker industrial fixed-camera
+clip. The selected candidate is OpenVINO confidence 0.45 with overlapping tiled inference:
+stable occupancy 5/5, registered-count MAE 0.36 after warm-up, and no attendance exception
+when reported attendance equals the manual count. See `docs/attendance-calibration.md`.
+
+This is a target-clip calibration result, not a new general benchmark. The EPFL benchmark
+numbers remain unchanged, and held-out CCTV validation is still required before making any
+broader accuracy claim.
+
+To start the backend with the frozen target-clip demo profile after preparing OpenVINO:
+
+```bash
+python scripts/start_demo_backend.py
+```
+
+That launcher forces the selected OpenVINO confidence/tiled settings and fails closed if the
+authoritative OpenVINO runtime is unavailable.
 
 
 ## Low-bandwidth / offline mode
