@@ -4,12 +4,12 @@ import Link from 'next/link';
 
 export type StepState='pending'|'running'|'complete'|'attention'|'blocked';
 
-const META:Record<StepState,{label:string;short:string;symbol:string}> = {
-  pending:{label:'Pending',short:'Pending',symbol:'•'},
-  running:{label:'Analysis in progress',short:'In progress',symbol:'↻'},
-  complete:{label:'Completed',short:'Completed',symbol:'✓'},
-  attention:{label:'Needs human review',short:'Needs review',symbol:'!'},
-  blocked:{label:'Verification blocked',short:'Blocked',symbol:'×'},
+const META:Record<StepState,{label:string;symbol:string}> = {
+  pending:{label:'Pending',symbol:'•'},
+  running:{label:'In progress',symbol:'↻'},
+  complete:{label:'Completed',symbol:'✓'},
+  attention:{label:'Needs review',symbol:'!'},
+  blocked:{label:'Blocked',symbol:'×'},
 };
 
 export default function WorkflowStepper({
@@ -26,23 +26,17 @@ export default function WorkflowStepper({
     ['review','Review Outcome','/centres/'+centreId+'/outcome'],
   ] as const;
 
-  return <section className="workflowShell" aria-label="Centre verification workflow">
-    <div className="workflowIntro">
-      <span>Centre verification</span>
-      <strong>4 checkpoints</strong>
-    </div>
-    <div className="workflowStepper">
-      {steps.map(([key,label,href],index)=>{
-        const state=states?.[key]||'pending';
-        const meta=META[state];
-        return <div className={'workflowNode '+state} key={key}>
-          <Link href={href} className="workflowStepLink" title={meta.label}>
-            <span className="workflowStepIcon">{state==='pending'?index+1:meta.symbol}</span>
-            <div><strong>{label}</strong><small>{meta.short}</small></div>
-          </Link>
-          {index<steps.length-1&&<i className="workflowConnector"><b></b></i>}
-        </div>;
-      })}
-    </div>
+  return <section className="neoWorkflow" aria-label="Centre verification workflow">
+    {steps.map(([key,label,href],index)=>{
+      const state=states?.[key]||'pending';
+      const meta=META[state];
+      return <div className={'neoWorkflowNode '+state} key={key}>
+        <Link href={href}>
+          <span className="neoWorkflowCircle">{state==='pending'?index+1:meta.symbol}</span>
+          <div><b>{label}</b><small>{meta.label}</small></div>
+        </Link>
+        {index<steps.length-1&&<span className="neoWorkflowLine"><i></i></span>}
+      </div>;
+    })}
   </section>;
 }
