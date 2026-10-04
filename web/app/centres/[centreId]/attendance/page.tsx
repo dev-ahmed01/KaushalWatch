@@ -1,11 +1,13 @@
 'use client';
 
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import AssistantPanel from '../../../components/AssistantPanel';
 import VideoWorkspace from '../../../components/VideoWorkspace';
 import WorkflowStepper from '../../../components/WorkflowStepper';
-import { API } from '../../../lib/api';
+import { API, getCentre } from '../../../lib/api';
+import type { Centre } from '../../../lib/types';
+import { withRunningStep } from '../../../lib/workflow';
 import { OutcomeCard, PageHeader, Status } from '../../../components/Ui';
 
 export default function AttendanceVerification(){
@@ -18,6 +20,8 @@ export default function AttendanceVerification(){
   const [result,setResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
+  const [centre,setCentre]=useState<Centre|null>(null);
+  useEffect(()=>{getCentre(id).then(setCentre).catch(()=>setCentre(null));},[id]);
 
   function onFile(e:ChangeEvent<HTMLInputElement>){
     const next=e.target.files?.[0]||null;
@@ -52,9 +56,9 @@ export default function AttendanceVerification(){
       eyebrow="Selected Centre / Attendance"
       title="Attendance Verification"
       subtitle="Estimate stable physical presence and compare it with the centre’s reported attendance — without facial identification."
-      actions={<><button className="secondaryBtn" type="button">Demo Clip⌄</button><button className="secondaryBtn" type="button">⚙ Advanced Settings</button><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
+      actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
     />
-    <WorkflowStepper centreId={id} states={{attendance:busy?'running':result?(result.decision==='compliant'?'complete':'attention'):'pending'}}/>
+    <WorkflowStepper centreId={id} states={withRunningStep(centre,'attendance',busy,result?(result.decision==='compliant'?'complete':result.decision==='detector_unavailable'?'blocked':'attention'):undefined)}/>
     {error&&<div className="inlineError">{error}</div>}
 
     <div className="analysisThreeCol">

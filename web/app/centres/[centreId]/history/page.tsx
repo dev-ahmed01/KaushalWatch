@@ -15,10 +15,27 @@ export default function CentreHistory(){
   const [type,setType]=useState('all');
   useEffect(()=>{getHistory(id,200).then(r=>setRows(r.rows)).catch(()=>{});},[id]);
 
-  const filtered=useMemo(()=>rows.filter(row=>type==='all'||row.analysis_type===type),[rows,type]);
+  const filtered=useMemo(()=>{
+    const now=Date.now();
+    const cutoff=period==='yesterday'
+      ? now-48*60*60*1000
+      : period==='30d'
+        ? now-30*24*60*60*1000
+        : now-7*24*60*60*1000;
+    return rows.filter(row=>{
+      const matchesType=type==='all'||row.analysis_type===type;
+      const created=Date.parse(row.created_at);
+      if(!Number.isFinite(created)) return matchesType;
+      if(period==='yesterday'){
+        const oneDayAgo=now-24*60*60*1000;
+        return matchesType&&created>=cutoff&&created<oneDayAgo;
+      }
+      return matchesType&&created>=cutoff;
+    });
+  },[rows,type,period]);
 
   return <div className="pageScene fadeIn">
-    <PageHeader eyebrow="Selected Centre / History" title="Analysis History" subtitle="Every recorded verification run for this centre, with outcome and report context."
+    <PageHeader eyebrow="Selected Centre / History" title="Analysis History" subtitle="Review completed verification runs by time period, outcome and analysis type without opening raw footage."
       actions={<><select className="headerSelect" value={period} onChange={e=>setPeriod(e.target.value)}><option value="yesterday">Yesterday</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select><a href={`/reports?centre=${id}&period=${period}`} className="primaryBtn">Generate Report</a></>}/>
 
     <div className="historyLayout">

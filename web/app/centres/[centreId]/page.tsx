@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { getCentre } from '../../lib/api';
 import type { Centre } from '../../lib/types';
+import { workflowStatesForCentre } from '../../lib/workflow';
 import AssistantPanel from '../../components/AssistantPanel';
 import WorkflowStepper from '../../components/WorkflowStepper';
 import { PageHeader, Status, Skeleton } from '../../components/Ui';
@@ -15,12 +16,7 @@ export default function CentreOverview(){
   const [centre,setCentre]=useState<Centre|null>(null);
   useEffect(()=>{getCentre(centreId).then(setCentre).catch(()=>setCentre(null));},[centreId]);
 
-  const stepStates=useMemo(()=>({
-    attendance: centre?.attendance_status==='compliant'?'complete' as const:'attention' as const,
-    practical: centre?.practical_status==='compliant'?'complete' as const:'attention' as const,
-    infrastructure: centre?.infrastructure_status==='compliant'?'complete' as const:'attention' as const,
-    review: centre?.pending_cases ? 'attention' as const:'pending' as const,
-  }),[centre]);
+  const stepStates=useMemo(()=>workflowStatesForCentre(centre),[centre]);
 
   if(!centre) return <div className="pageScene"><Skeleton lines={8}/></div>;
 
@@ -80,10 +76,29 @@ export default function CentreOverview(){
       </div>
 
       <div className="centreSide">
-        <section className={`escalationCard level${centre.escalation.level}`}>
-          <span className="sectionKicker">Escalation</span><h2>{centre.escalation.label}</h2>
-          <p>{centre.escalation.reasons.join(' · ')}</p>
-          <Link href="/escalations">View escalation details →</Link>
+        <section className="centrePulseCard">
+          <div className="centrePulseHead">
+            <span className="aiPulseIcon">✦</span>
+            <div><span className="sectionKicker">AI summary</span><h2>Centre pulse</h2></div>
+          </div>
+          <p className="centrePulseSummary">
+            {centre.status==='compliant'
+              ? 'All current verification pillars are clear. No unresolved exception is blocking this centre.'
+              : centre.status==='high_priority'
+                ? `This centre needs priority attention. ${centre.pending_cases} case(s) remain unresolved and the escalation policy has been triggered.`
+                : `${centre.pending_cases} evidence-backed case(s) still need officer review before the current cycle can be closed.`}
+          </p>
+          <div className="centrePulseFacts">
+            <div><span>Pending</span><b>{centre.pending_cases}</b></div>
+            <div><span>Connectivity</span><b>{centre.connectivity_mode.replace('_',' ')}</b></div>
+            <div><span>Camera</span><b>{centre.camera_status}</b></div>
+          </div>
+          <div className={`pulseEscalation level${centre.escalation.level}`}>
+            <div><span>Escalation</span><strong>{centre.escalation.label}</strong></div>
+            <p>{centre.escalation.reasons[0]}</p>
+            <small>{centre.escalation.next_action}</small>
+            <Link href="/escalations">View escalation details →</Link>
+          </div>
         </section>
         <AssistantPanel centreId={centreId}/>
       </div>

@@ -37,7 +37,7 @@ export default function ReportsPage(){
 
   return <div className="pageScene fadeIn">
     <PageHeader eyebrow="Reports & analytics" title="Compliance Reports" subtitle="Review yesterday, the last week, the last month, or a selected centre’s audit trail."
-      actions={<><button className={period==='yesterday'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('yesterday')}>Yesterday</button><button className={period==='7d'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('7d')}>Last 7 days</button><button className={period==='30d'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('30d')}>Last 30 days</button><button className="primaryBtn" onClick={()=>window.print()}>Generate / Print Report</button></>}/>
+      actions={<><button className={period==='today'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('today')}>Today</button><button className={period==='yesterday'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('yesterday')}>Yesterday</button><button className={period==='7d'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('7d')}>Last 7 days</button><button className={period==='30d'?'periodBtn active':'periodBtn'} onClick={()=>setPeriod('30d')}>Last 30 days</button><button className="primaryBtn" onClick={()=>window.print()}>Generate / Print Report</button></>}/>
 
     <div className="reportFilterRow"><select value={centreId} onChange={e=>setCentreId(e.target.value)}>{centres.map(c=><option key={c.centre_id} value={c.centre_id}>{c.name}</option>)}</select><span>{busy?'Refreshing report…':'Report ready'}</span></div>
 
@@ -68,6 +68,7 @@ export default function ReportsPage(){
 }
 
 function periodLabel(period:string){
+  if(period==='today') return 'Today';
   if(period==='yesterday') return 'Yesterday';
   if(period==='30d') return 'Last 30 days';
   return 'Last 7 days';

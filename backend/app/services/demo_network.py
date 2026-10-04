@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from collections import Counter
 from datetime import datetime, timezone
-from typing import Iterable
+from typing import Iterable, Any
 
 from app.models import ComplianceCase
+from app.services.centre_settings import DEFAULT_SETTINGS
 
 DEMO_CENTRES = [
     {
@@ -94,7 +95,23 @@ def _case_pillar(case_type: str) -> str:
     return "other"
 
 
-def _escalation_level(cases: list[ComplianceCase]) -> dict:
+def _age_days(case: ComplianceCase) -> float:
+    try:
+        created = datetime.fromisoformat(case.created_at.replace("Z", "+00:00"))
+    except ValueError:
+        return 0.0
+    return max(0.0, (datetime.now(timezone.utc) - created).total_seconds() / 86400)
+
+
+def _escalation_level(
+    cases: list[ComplianceCase],
+    settings: dict[str, Any] | None = None,
+) -> dict:
+    effective = {**DEFAULT_SETTINGS, **(settings or {})}
+    rules = {
+        **DEFAULT_SETTINGS["escalation_rules"],
+        **effective.get("escalation_rules", {}),
+    }
     pending = [
         case for case in cases
         if case.status.value in {"open", "under_review", "virtual_verification"}
@@ -105,44 +122,86 @@ def _escalation_level(cases: list[ComplianceCase]) -> dict:
     )
     pillars = {_case_pillar(case.case_type) for case in pending + confirmed}
 
+    attendance_days = {
+        case.created_at[:10]
+        for case in pending + confirmed
+        if case.case_type == "attendance_discrepancy"
+    }
+    oldest_pending_days = max((_age_days(case) for case in pending), default=0.0)
+
     score = 0
     reasons: list[str] = []
+
     if len(pending) >= 3:
         score += 2
         reasons.append(f"{len(pending)} unresolved exceptions")
-    elif len(pending) >= 1:
+    elif pending:
         score += 1
         reasons.append(f"{len(pending)} pending exception{'s' if len(pending) != 1 else ''}")
+
+    attendance_threshold = max(1, int(rules.get("repeated_attendance_days", 3)))
+    if len(attendance_days) >= attendance_threshold:
+        score += 2
+        reasons.append(
+            f"attendance discrepancy repeated on {len(attendance_days)} training days"
+        )
+
+    unresolved_threshold = max(1, int(rules.get("unresolved_case_days", 3)))
+    if oldest_pending_days >= unresolved_threshold:
+        score += 2
+        reasons.append(
+            f"oldest unresolved case is {int(oldest_pending_days)} days old"
+        )
+
     if len(confirmed) >= 2:
         score += 2
         reasons.append("repeated confirmed issues")
-    if len(pillars) >= 2:
+
+    if bool(rules.get("multi_signal_escalation", True)) and len(pillars) >= 2:
         score += 1
         reasons.append("multiple independent compliance signals")
-    if duplicate_count:
+
+    if bool(rules.get("duplicate_evidence_escalation", True)) and duplicate_count:
         score += 1
         reasons.append("possible duplicate evidence")
 
     if score >= 5:
         level, label = 4, "Ministry review"
+        next_action = "Escalate the evidence pack and case history for ministry-level review."
     elif score >= 3:
         level, label = 3, "Regional escalation"
+        next_action = "Regional reviewer should inspect repeated or multi-signal exceptions."
     elif score >= 2:
         level, label = 2, "Regional attention"
+        next_action = "Regional monitoring should review this centre before the next cycle."
     elif score >= 1:
         level, label = 1, "Centre review"
+        next_action = "Centre monitoring officer should resolve the pending evidence-backed case."
     else:
         level, label = 0, "Normal"
+        next_action = "No escalation action is currently required."
 
     return {
         "level": level,
         "label": label,
+        "score": score,
         "reasons": reasons or ["No escalation trigger"],
+        "next_action": next_action,
+        "policy": {
+            "repeated_attendance_days": attendance_threshold,
+            "unresolved_case_days": unresolved_threshold,
+            "multi_signal_escalation": bool(rules.get("multi_signal_escalation", True)),
+            "duplicate_evidence_escalation": bool(rules.get("duplicate_evidence_escalation", True)),
+        },
     }
 
 
-def centre_rows(cases: Iterable[ComplianceCase]) -> list[dict]:
+def centre_rows(
+    cases: Iterable[ComplianceCase],
+    settings_by_centre: dict[str, dict[str, Any]] | None = None,
+) -> list[dict]:
     cases = list(cases)
+    settings_by_centre = settings_by_centre or {}
     rows = []
     now = datetime.now(timezone.utc).isoformat()
     for centre in DEMO_CENTRES:
@@ -152,7 +211,10 @@ def centre_rows(cases: Iterable[ComplianceCase]) -> list[dict]:
             if case.status.value in {"open", "under_review", "virtual_verification"}
         ]
         pillars = Counter(_case_pillar(case.case_type) for case in pending)
-        escalation = _escalation_level(centre_cases)
+        escalation = _escalation_level(
+            centre_cases,
+            settings_by_centre.get(centre["centre_id"]),
+        )
 
         status = "compliant"
         if escalation["level"] >= 3:
@@ -174,5 +236,13 @@ def centre_rows(cases: Iterable[ComplianceCase]) -> list[dict]:
     return rows
 
 
-def get_centre(centre_id: str, cases: Iterable[ComplianceCase]) -> dict | None:
-    return next((row for row in centre_rows(cases) if row["centre_id"] == centre_id), None)
+def get_centre(
+    centre_id: str,
+    cases: Iterable[ComplianceCase],
+    settings: dict[str, Any] | None = None,
+) -> dict | None:
+    rows = centre_rows(
+        cases,
+        settings_by_centre={centre_id: settings or {}},
+    )
+    return next((row for row in rows if row["centre_id"] == centre_id), None)
