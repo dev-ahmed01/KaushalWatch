@@ -70,6 +70,10 @@ class ProcessSummary(BaseModel):
     reported_attendance: int
     estimated_occupancy: int | None
     discrepancy_pct: float | None
+    decision: str = "unknown"
+    trusted_sample_ratio: float = Field(default=0.0, ge=0, le=1)
+    mismatch_persistence_ratio: float = Field(default=0.0, ge=0, le=1)
+    sample_every_seconds: float = 0.2
     observations: list[AttendanceObservation]
     detector_backend: str
     detector_mode: str
