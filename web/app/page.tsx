@@ -375,7 +375,12 @@ function Overview({
       <Kpi icon="site" label="Centres monitored" value={data?.centres_monitored??'—'} note="Demo workspace"/>
       <Kpi icon="cases" label="Open review cases" value={data?.open_cases??'—'} note="Persistent exceptions only" attention={(data?.open_cases??0)>0}/>
       <Kpi icon="camera" label="Camera integrity" value={cameraHealthy?'Nominal':`${data?.camera_issues??0} issue`} note="Trust gates every inference" attention={!cameraHealthy}/>
-      <Kpi icon="sync" label="Edge events synced" value={data?.synced_edge_events??'—'} note="Raw video not required"/>
+      <Kpi
+        icon="sync"
+        label="Edge sync"
+        value={data==null?'—':`${data.synced_edge_events} synced`}
+        note={(data?.synced_edge_events??0)===0?'Idle · no pending events':'Synced · raw video not required'}
+      />
     </section>
 
     <section className="sectionBlock">
@@ -505,20 +510,32 @@ function AttendanceView({
     </section>
 
     {result&&<section className="resultSection">
-      <DecisionHeader
-        tone={result.case?'warn':'good'}
-        eyebrow="ATTENDANCE RESULT"
-        title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
-        text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
-      />
+      {!result.detector_authoritative
+        ? <DecisionHeader
+            tone="warn"
+            eyebrow="ATTENDANCE RESULT"
+            title="Detector unavailable / fallback mode"
+            text={result.detector_message||'Attendance conclusions are suspended because the primary detector was not available.'}
+          />
+        : <DecisionHeader
+            tone={result.case?'warn':'good'}
+            eyebrow="ATTENDANCE RESULT"
+            title={result.case?'Persistent attendance exception':'No persistent attendance exception'}
+            text={result.case?.summary||'Observed stable occupancy did not produce a persistent review case under the current policy.'}
+          />
+      }
       <div className="resultGrid">
+        <ResultMetric label="Detector" value={result.detector_backend||'—'}/>
+        <ResultMetric label="Frames sampled" value={result.frames_sampled??'—'}/>
         <ResultMetric label="Reported" value={result.reported_attendance}/>
-        <ResultMetric label="Stable occupancy" value={result.estimated_occupancy}/>
-        <ResultMetric label="Mismatch" value={`${result.discrepancy_pct}%`}/>
-        <ResultMetric label="Registered now" value={latest?.registered_count??'—'}/>
-        <ResultMetric label="Confirmed now" value={latest?.confirmed_count??'—'}/>
+        <ResultMetric label="Stable occupancy" value={result.detector_authoritative?(result.estimated_occupancy??'—'):'Unavailable'}/>
+        <ResultMetric label="Mismatch" value={result.detector_authoritative&&result.discrepancy_pct!=null?`${result.discrepancy_pct}%`:'Suspended'}/>
         <ResultMetric label="Raw detections now" value={latest?.raw_count??'—'}/>
       </div>
+      {!result.detector_authoritative&&<div className="detectorNotice">
+        <Icon name="alert"/>
+        <div><strong>Attendance decision withheld</strong><span>Fallback detector counts are diagnostic only and are never presented as real occupancy.</span></div>
+      </div>}
     </section>}
   </>;
 }
@@ -566,11 +583,15 @@ function PracticalView({
         <div className="filePair">
           <label className="fileBox">
             <span className="fileIcon"><Icon name="zones"/></span>
-            <span><strong>Work-zone JSON</strong><small>Configured practical work cells</small></span>
-            <input name="zones_file" type="file" accept=".json,application/json" required/>
+            <span><strong>Work-zone JSON · optional</strong><small>Override the bundled demo profile only when needed</small></span>
+            <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
-          <Field label="Zone profile" help="Use the named profile inside your JSON, e.g. authorized or unauthorized.">
-            <input name="zone_profile" placeholder="authorized"/>
+          <Field label="Bundled zone profile" help="Works without uploading JSON. Choose the profile that matches the demo clip.">
+            <select name="zone_profile" defaultValue="authorized">
+              <option value="authorized">Authorized demo layout</option>
+              <option value="unauthorized">Unauthorized demo layout</option>
+              <option value="default">Default demo layout</option>
+            </select>
           </Field>
         </div>
 
@@ -730,26 +751,39 @@ function InfrastructureView({
   </>;
 }
 
-function CasesView({cases,review}:{cases:Case[];review:(caseId:string,action:CaseStatus)=>void}){
+function CasesView({cases,history,review}:{cases:Case[];history:Case[];review:(caseId:string,action:CaseStatus)=>void}){
   return <>
     <ModuleHero
       eyebrow="HUMAN REVIEW"
       title="AI surfaces evidence. Officers make the decision."
-      text="Every persistent exception lands in one queue with its evidence, integrity metadata and review history. KaushalWatch does not issue penalties automatically."
-      badge={`${cases.length} cases`}
+      text="Pending exceptions stay in the priority queue. Confirmed and false-positive decisions move into resolved history so the live counter reflects work still requiring attention."
+      badge={`${cases.length} pending`}
       policy={['Open evidence','Inspect hashes','Virtual verification','Officer decision']}
     />
 
     <section className="caseWorkspace">
       <div className="queueHeader">
-        <div><span className="eyebrow">PRIORITY QUEUE</span><h2>Reviewable exceptions</h2></div>
-        <span className="queueCount">{cases.filter(item=>!['resolved','false_positive'].includes(item.status)).length} unresolved</span>
+        <div><span className="eyebrow">PRIORITY EXCEPTIONS</span><h2>Pending review</h2></div>
+        <span className="queueCount">{cases.length} pending</span>
       </div>
 
-      {cases.length===0&&<div className="card"><EmptyState title="No cases yet" text="Run one of the verification lanes to generate evidence-backed exceptions."/></div>}
+      {cases.length===0&&<EmptyState title="Priority queue clear" text="No pending cases require an officer decision."/>}
 
       <div className="caseGrid">
         {cases.map(item=><CaseCard key={item.case_id} item={item} review={review}/>)}
+      </div>
+
+      <div className="resolvedSection">
+        <div className="queueHeader resolvedHead">
+          <div><span className="eyebrow">RESOLVED / HISTORY</span><h2>Closed decisions</h2></div>
+          <span className="queueCount">{history.length} archived</span>
+        </div>
+        {history.length===0
+          ? <div className="historyEmpty">Confirmed and false-positive decisions will move here.</div>
+          : <div className="caseGrid resolvedGrid">
+              {history.map(item=><CaseCard key={item.case_id} item={item} review={review} resolved/>)}
+            </div>
+        }
       </div>
     </section>
   </>;
