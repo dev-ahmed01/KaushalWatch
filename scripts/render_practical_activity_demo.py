@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
-from app.services.activity_evidence import TemporalActivityGate, roi_motion_fraction
+from app.services.activity_evidence import (\n    TemporalActivityGate,\n    roi_motion_fraction,\n    worker_motion_fraction,\n)
 from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
 
@@ -175,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--zone-overlap", type=float, default=0.15)
     parser.add_argument("--activity-window-seconds", type=float, default=1.0)
     parser.add_argument("--activity-required-ratio", type=float, default=0.60)
-    parser.add_argument("--motion-threshold", type=float, default=0.015)
+    parser.add_argument(\n        "--motion-threshold",\n        type=float,\n        default=0.02,\n        help="Minimum worker-box motion fraction for one positive activity sample.",\n    )
     parser.add_argument("--motion-pixel-delta", type=int, default=18)
     parser.add_argument(
         "--mode",
@@ -324,25 +324,46 @@ def main() -> int:
 
             presence.update(timestamp, observations)
 
+            # Only currently visible attendance-registered tracks may contribute
+            # to practical-work evidence. Grace-held tracks remain useful for
+            # attendance continuity but cannot create activity while invisible.
             registered_by_zone: dict[str, list] = defaultdict(list)
             for track in presence.registered_tracks:
-                if track.zone_id:
+                if track.track_id in current_ids and track.zone_id:
                     registered_by_zone[track.zone_id].append(track)
 
             zone_decisions = {}
+            zone_diagnostics = {}
             for index, zone in enumerate(zones):
                 name = zone_name(zone, index)
                 rect = zone_rect(zone)
-                motion = roi_motion_fraction(
+
+                # Whole-zone motion is retained only as a diagnostic. Large work
+                # cells dilute local operator movement, so the activity gate uses
+                # motion inside currently visible registered worker boxes instead.
+                zone_motion = roi_motion_fraction(
                     previous_frame,
                     source_frame,
                     rect,
                     pixel_delta_threshold=args.motion_pixel_delta,
                 )
-                worker_present = bool(registered_by_zone.get(name))
-                decision = activity_gates[name].update(worker_present, motion)
+                worker_boxes = [track.bbox for track in registered_by_zone.get(name, [])]
+                worker_motion = worker_motion_fraction(
+                    previous_frame,
+                    source_frame,
+                    worker_boxes,
+                    pixel_delta_threshold=args.motion_pixel_delta,
+                )
+
+                worker_present = bool(worker_boxes)
+                decision = activity_gates[name].update(worker_present, worker_motion)
                 zone_decisions[name] = decision
-                zone_motion_scores[name].append(motion)
+                zone_diagnostics[name] = {
+                    "worker_motion": worker_motion,
+                    "zone_motion": zone_motion,
+                }
+                worker_motion_scores[name].append(worker_motion)
+                zone_motion_scores[name].append(zone_motion)
 
                 if worker_present:
                     zone_presence_frames[name] += 1
@@ -475,7 +496,12 @@ def main() -> int:
                 name = zone_name(zone, index)
                 decision = zone_decisions[name]
                 row[f"{name}_stable_workers"] = len(registered_by_zone.get(name, []))
-                row[f"{name}_motion_fraction"] = round(decision.motion_fraction, 6)
+                row[f"{name}_worker_motion_fraction"] = round(
+                    zone_diagnostics[name]["worker_motion"], 6
+                )
+                row[f"{name}_zone_motion_fraction"] = round(
+                    zone_diagnostics[name]["zone_motion"], 6
+                )
                 row[f"{name}_motion_positive_ratio"] = round(decision.positive_ratio, 4)
                 row[f"{name}_active"] = decision.active
             frame_rows.append(row)
@@ -503,13 +529,17 @@ def main() -> int:
     zone_summaries = []
     for index, zone in enumerate(zones):
         name = zone_name(zone, index)
-        scores = np.asarray(zone_motion_scores[name], dtype=float)
+        worker_scores = np.asarray(worker_motion_scores[name], dtype=float)
+        zone_scores = np.asarray(zone_motion_scores[name], dtype=float)
         zone_summaries.append(
             {
                 "zone_id": name,
-                "motion_fraction_p50": float(np.percentile(scores, 50)),
-                "motion_fraction_p90": float(np.percentile(scores, 90)),
-                "motion_fraction_p95": float(np.percentile(scores, 95)),
+                "worker_motion_fraction_p50": float(np.percentile(worker_scores, 50)),
+                "worker_motion_fraction_p90": float(np.percentile(worker_scores, 90)),
+                "worker_motion_fraction_p95": float(np.percentile(worker_scores, 95)),
+                "zone_motion_fraction_p50": float(np.percentile(zone_scores, 50)),
+                "zone_motion_fraction_p90": float(np.percentile(zone_scores, 90)),
+                "zone_motion_fraction_p95": float(np.percentile(zone_scores, 95)),
                 "registered_worker_presence_fraction": (
                     zone_presence_frames[name] / frame_no
                 ),
@@ -543,18 +573,19 @@ def main() -> int:
             "motion_fraction_threshold": args.motion_threshold,
             "pixel_delta_threshold": args.motion_pixel_delta,
             "rule": (
-                "A work cell is active only when at least one attendance-registered "
-                "anonymous track occupies the cell and visual motion persists for "
-                "the configured temporal ratio."
+                "A work cell is active only when at least one currently visible, "
+                "attendance-registered anonymous track occupies the cell and "
+                "worker-centric visual motion persists for the configured temporal ratio."
             ),
         },
         "practical_activity_fraction": practical_activity_frames / frame_no,
         "first_practical_activity_time_sec": first_activity_time,
         "work_cells": zone_summaries,
         "interpretation_note": (
-            "Practical activity is a visual evidence proxy, not task recognition, "
-            "skill-quality assessment, safety classification, mechanical diagnosis, "
-            "or worker identity. Authorization is external scenario/work-order state."
+            "Practical activity is a worker-centric visual motion proxy, not task "
+            "recognition, skill-quality assessment, safety classification, mechanical "
+            "diagnosis, or worker identity. Whole-zone motion is diagnostic only. "
+            "Authorization is external scenario/work-order state."
         ),
     }
     summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
