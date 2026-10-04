@@ -16,7 +16,7 @@ from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
-from app.services.demo_assets import load_demo_manifest_and_cache
+from app.services.demo_assets import load_demo_manifest_and_cache, build_compliant_demo_cache
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -223,6 +223,7 @@ def process_infrastructure_video(
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-02"),
+    demo_profile: str = Form("compliant"),
     operability_item_id: str | None = Form("drill_machine"),
     roi_x1: int | None = Form(None),
     roi_y1: int | None = Form(None),
@@ -239,6 +240,17 @@ def process_infrastructure_video(
         manifest, rows = load_demo_manifest_and_cache()
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    if demo_profile == "compliant":
+        rows = build_compliant_demo_cache(manifest)
+    elif demo_profile != "discrepancy":
+        raise HTTPException(
+            status_code=400,
+            detail="demo_profile must be 'compliant' or 'discrepancy'",
+        )
+
+    observed_preview = aggregate_cached_observations(rows)
+    preview_items = compare_manifest(manifest, observed_preview)
 
     roi_values = (roi_x1, roi_y1, roi_x2, roi_y2)
     if any(v is not None for v in roi_values) and not all(v is not None for v in roi_values):
@@ -264,7 +276,14 @@ def process_infrastructure_video(
         if not case:
             return {
                 "created": False,
-                "banner": "Prototype — cached equipment detections; no persistent visual manifest exception",
+                "banner": (
+                    "Prototype — explicit compliant demo profile; no persistent "
+                    "visual manifest exception"
+                    if demo_profile == "compliant"
+                    else "Prototype — cached equipment detections; no persistent visual manifest exception"
+                ),
+                "demo_profile": demo_profile,
+                "items": preview_items,
             }
         STORE.save(case)
         return {
@@ -273,6 +292,8 @@ def process_infrastructure_video(
                 "Prototype — uploaded video evidence with cached equipment detections; "
                 "not official live compliance data"
             ),
+            "demo_profile": demo_profile,
+            "items": preview_items,
             "case": case.model_dump(mode="json"),
         }
     except Exception as exc:
