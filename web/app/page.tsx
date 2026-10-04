@@ -99,6 +99,7 @@ export default function Page(){
   const [practicalPreview,setPracticalPreview]=useState('');
   const [infraPreview,setInfraPreview]=useState('');
   const [practicalAuth,setPracticalAuth]=useState<'valid'|'absent'|'unknown'>('valid');
+  const [practicalProfile,setPracticalProfile]=useState<'authorized'|'unauthorized'|'default'>('authorized');
   const [attendanceReported,setAttendanceReported]=useState(3);
   const [centreId,setCentreId]=useState('DEMO-KA-104');
   const [batchId,setBatchId]=useState('ELEC-DEMO-01');
@@ -190,8 +191,6 @@ export default function Page(){
     ()=>[...(data?.resolved_case_history||data?.cases?.filter(item=>!['open','under_review','virtual_verification'].includes(item.status))||[])].reverse(),
     [data]
   );
-  const cameraHealthy=(data?.camera_issues??0)===0;
-
   function previewFile(
     event:ChangeEvent<HTMLInputElement>,
     setter:(value:string)=>void,
@@ -395,7 +394,6 @@ export default function Page(){
         {activeView==='overview'&&<Overview
           data={data}
           priority={priority}
-          cameraHealthy={cameraHealthy}
           onOpen={setActiveView}
         />}
 
@@ -419,6 +417,8 @@ export default function Page(){
           preview={practicalPreview}
           auth={practicalAuth}
           setAuth={setPracticalAuth}
+          profile={practicalProfile}
+          setProfile={setPracticalProfile}
           centreId={centreId}
           setCentreId={setCentreId}
           batchId={batchId}
@@ -455,12 +455,10 @@ export default function Page(){
 function Overview({
   data,
   priority,
-  cameraHealthy,
   onOpen,
 }:{
   data:Dashboard|null;
   priority:Case[];
-  cameraHealthy:boolean;
   onOpen:(view:ViewKey)=>void;
 }){
   return <>
@@ -478,9 +476,15 @@ function Overview({
     </section>
 
     <section className="kpis">
-      <Kpi icon="site" label="Centres monitored" value={data?.centres_monitored??'—'} note="Demo workspace"/>
-      <Kpi icon="cases" label="Open review cases" value={data?.open_cases??'—'} note="Persistent exceptions only" attention={(data?.open_cases??0)>0}/>
-      <Kpi icon="camera" label="Camera integrity" value={cameraHealthy?'Nominal':`${data?.camera_issues??0} issue`} note="Trust gates every inference" attention={!cameraHealthy}/>
+      <Kpi icon="site" label="Demo centres loaded" value={data?.centres_monitored??'—'} note="Simulated command-centre dataset"/>
+      <Kpi icon="cases" label="Pending review cases" value={data?.open_cases??'—'} note="Persistent exceptions awaiting action" attention={(data?.open_cases??0)>0}/>
+      <Kpi
+        icon="camera"
+        label="Open camera-integrity cases"
+        value={data==null?'—':`${data.camera_issues} open`}
+        note="Case-derived status · not a live camera-health reading"
+        attention={(data?.camera_issues??0)>0}
+      />
       <Kpi
         icon="sync"
         label="Edge sync"
@@ -690,13 +694,15 @@ function AttendanceView({
 }
 
 function PracticalView({
-  result,busy,preview,auth,setAuth,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
+  result,busy,preview,auth,setAuth,profile,setProfile,centreId,setCentreId,batchId,setBatchId,onPreview,onSubmit,
 }:{
   result:any;
   busy:boolean;
   preview:string;
   auth:'valid'|'absent'|'unknown';
   setAuth:(value:'valid'|'absent'|'unknown')=>void;
+  profile:'authorized'|'unauthorized'|'default';
+  setProfile:(value:'authorized'|'unauthorized'|'default')=>void;
   centreId:string;
   setCentreId:(value:string)=>void;
   batchId:string;
@@ -769,7 +775,7 @@ function PracticalView({
             <input name="zones_file" type="file" accept=".json,application/json"/>
           </label>
           <Field label="Bundled zone profile" help="Works without uploading JSON. Same-camera geometry auto-scales if the clip resolution changes.">
-            <select name="zone_profile" defaultValue="authorized">
+            <select name="zone_profile" value={profile} onChange={event=>setProfile(event.target.value as 'authorized'|'unauthorized'|'default')}>
               <option value="authorized">Authorized demo layout</option>
               <option value="unauthorized">Unauthorized demo layout</option>
               <option value="default">Default demo layout</option>
@@ -779,6 +785,12 @@ function PracticalView({
 
         <div className="formSection">
           <div className="formSectionTitle"><span className="stepNumber">02</span><div><h3>External authorization</h3><p>This state comes from the training schedule or work order—not the camera.</p></div></div>
+          <div className="scenarioPresetRow">
+            <span>Quick demo</span>
+            <button type="button" className={profile==='authorized'&&auth==='valid'?'presetChip active':'presetChip'} onClick={()=>{setProfile('authorized');setAuth('valid');}}>Authorized activity</button>
+            <button type="button" className={profile==='unauthorized'&&auth==='absent'?'presetChip attention active':'presetChip attention'} onClick={()=>{setProfile('unauthorized');setAuth('absent');}}>Unauthorized alert</button>
+            <button type="button" className={auth==='unknown'?'presetChip active':'presetChip'} onClick={()=>{setProfile('authorized');setAuth('unknown');}}>Needs review</button>
+          </div>
           <div className="authSelector">
             <AuthChoice active={auth==='valid'} tone="good" title="Valid" detail="Matching training/work authorization exists" onClick={()=>setAuth('valid')}/>
             <AuthChoice active={auth==='absent'} tone="danger" title="Not found" detail="No matching authorization was supplied" onClick={()=>setAuth('absent')}/>
@@ -1065,9 +1077,9 @@ function CentreProgress({
 
   const meta:Record<WorkflowStepState,{label:string;symbol:string}> = {
     pending:{label:'Pending',symbol:'•'},
-    passed:{label:'Compliant / complete',symbol:'✓'},
-    attention:{label:'Review attention',symbol:'!'},
-    blocked:{label:'Blocked / unavailable',symbol:'×'},
+    passed:{label:'Completed · no exception',symbol:'✓'},
+    attention:{label:'Exception · review',symbol:'!'},
+    blocked:{label:'Could not verify',symbol:'×'},
   };
 
   return <section className="centreProgress" aria-label="Centre verification progress">

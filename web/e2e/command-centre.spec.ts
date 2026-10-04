@@ -54,12 +54,17 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   ).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Attendance decision withheld')).toBeVisible();
   await expect(page.getByText('Unavailable', { exact: true })).toBeVisible();
-  await expect(page.getByText('Blocked / unavailable', { exact: true })).toBeVisible();
+  await expect(page.getByText('Could not verify', { exact: true })).toBeVisible();
 
   // Practical-work configuration upload is optional; bundled profiles are present.
   await primaryNav.getByRole('button', { name: /Practical work/ }).click();
   await expect(page.locator('input[name="centre_id"]')).toHaveValue('DEMO-KA-205');
   await expect(page.locator('input[name="batch_id"]')).toHaveValue('CTX-BATCH-01');
+  await expect(page.getByRole('button', { name: 'Authorized activity' })).toBeVisible();
+  await page.getByRole('button', { name: 'Unauthorized alert' }).click();
+  await expect(page.locator('select[name="zone_profile"]')).toHaveValue('unauthorized');
+  await page.getByRole('button', { name: 'Authorized activity' }).click();
+  await expect(page.locator('select[name="zone_profile"]')).toHaveValue('authorized');
   const zoneInput = page.locator('input[name="zones_file"]');
   await expect(zoneInput).not.toHaveAttribute('required', '');
   await expect(page.getByText(/Work-zone JSON · optional/i)).toBeVisible();
@@ -75,7 +80,7 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   await expect(
     page.getByRole('heading', { name: 'Visual manifest exception created' })
   ).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Review attention', { exact: true })).toBeVisible();
+  await expect(page.getByText('Exception · review', { exact: true })).toBeVisible();
 
   // Re-run the same evidence to exercise the independent duplicate-evidence signal.
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
