@@ -357,3 +357,10 @@
 .issueCountRow span{color:#64748b}.issueCountRow b{font-size:15px;color:#17233b}
 .primaryBtn.disabled{opacity:.45;pointer-events:none}
 .customRange.panel{padding:12px;margin-bottom:12px}
+
+.networkSilhouette{position:absolute;inset:7% 8% 6% 10%;width:82%;height:87%;overflow:visible;pointer-events:none}
+.networkSilhouette>path:first-child{fill:#eef4fb;stroke:#c9d7e8;stroke-width:2}
+.networkSilhouette .networkRoute{fill:none;stroke:#c4d5ee;stroke-width:2;stroke-dasharray:5 7}
+.networkMapLabel{position:absolute;left:13%;bottom:9%;display:grid;gap:2px;pointer-events:none}
+.networkMapLabel b{font-size:12px;color:#334155}.networkMapLabel span{font-size:9px;color:#8391a4}
+.mapNode.incomplete span{background:#94a3b8;box-shadow:0 0 0 5px rgba(148,163,184,.16)}
