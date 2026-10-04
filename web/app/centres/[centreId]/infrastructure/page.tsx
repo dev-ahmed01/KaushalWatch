@@ -92,30 +92,30 @@ export default function InfrastructureVerification(){
         </div>
       </form>
 
-      <div className="infraTierGrid">
-        <TierCard title="Camera-Verifiable Assets" icon="▣" tone="good" items={tier('camera_verifiable')}/>
-        <TierCard title="Partially Verifiable Assets" icon="◉" tone="warn" items={tier('camera_partially_verifiable')}/>
-        <TierCard title="Officer-Only Assets" icon="◆" tone="info" items={tier('officer_verification_required')}/>
+      <div className="infraResultsColumn">
+        <div className="infraTierGrid">
+          <TierCard title="Camera-Verifiable Assets" icon="▣" tone="good" items={tier('camera_verifiable')}/>
+          <TierCard title="Partially Verifiable Assets" icon="◉" tone="warn" items={tier('camera_partially_verifiable')}/>
+          <TierCard title="Officer-Only Assets" icon="◆" tone="info" items={tier('officer_verification_required')}/>
+        </div>
+
+        {result&&<div className="infraInlineOutcome">
+          <OutcomeCard
+            tone={result.created?'danger':'good'}
+            title={result.created?'Infrastructure item not detected':'Infrastructure profile completed without a persistent exception'}
+            text={result.case?.summary||result.banner}
+          />
+          <div className="infraEvidenceSource">
+            <span>Observation source</span>
+            <b>{result.case?.details?.observation_source||'stage-safe detector adapter'}</b>
+            <small>Uploaded video supplies the retained review frame; equipment counts currently come from the declared detector adapter/profile.</small>
+          </div>
+        </div>}
+        {result.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence" compact/>}
       </div>
 
       <AssistantPanel centreId={id}/>
     </div>
-
-    {result&&<div className="infraOutcomeStack">
-      <div className="infraOutcomeRow">
-        <OutcomeCard
-          tone={result.created?'danger':'good'}
-          title={result.created?'Infrastructure item not detected':'Infrastructure profile completed without a persistent exception'}
-          text={result.case?.summary||result.banner}
-        />
-        <div className="infraEvidenceSource">
-          <span>Observation source</span>
-          <b>{result.case?.details?.observation_source||'stage-safe detector adapter'}</b>
-          <small>Uploaded video supplies the retained review frame; equipment counts currently come from the declared detector adapter/profile.</small>
-        </div>
-      </div>
-      {result.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence"/>}
-    </div>}
   </div>;
 }
 
