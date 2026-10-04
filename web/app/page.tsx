@@ -405,6 +405,10 @@ export default function Page(){
           preview={attendancePreview}
           reported={attendanceReported}
           setReported={setAttendanceReported}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setAttendancePreview)}
           onSubmit={submitAttendance}
         />}
@@ -415,6 +419,10 @@ export default function Page(){
           preview={practicalPreview}
           auth={practicalAuth}
           setAuth={setPracticalAuth}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setPracticalPreview)}
           onSubmit={submitPractical}
         />}
@@ -424,6 +432,10 @@ export default function Page(){
           result={infraResult}
           busy={infraBusy}
           preview={infraPreview}
+          centreId={centreId}
+          setCentreId={setCentreId}
+          batchId={batchId}
+          setBatchId={setBatchId}
           onPreview={(e)=>previewFile(e,setInfraPreview)}
           onSubmit={submitInfrastructure}
         />}
