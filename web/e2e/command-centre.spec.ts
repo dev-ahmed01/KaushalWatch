@@ -43,6 +43,8 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
   // as unavailable rather than silently reporting zero occupancy.
   await primaryNav.getByRole('button', { name: /Attendance/ }).click();
   await expect(page.locator('input[name="reported_attendance"]')).toHaveValue('3');
+  await page.locator('input[name="centre_id"]').fill('DEMO-KA-205');
+  await page.locator('input[name="batch_id"]').fill('CTX-BATCH-01');
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.locator('input[name="reported_attendance"]').fill('12');
   await page.getByRole('button', { name: 'Run attendance verification' }).click();
@@ -56,6 +58,8 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   // Practical-work configuration upload is optional; bundled profiles are present.
   await primaryNav.getByRole('button', { name: /Practical work/ }).click();
+  await expect(page.locator('input[name="centre_id"]')).toHaveValue('DEMO-KA-205');
+  await expect(page.locator('input[name="batch_id"]')).toHaveValue('CTX-BATCH-01');
   const zoneInput = page.locator('input[name="zones_file"]');
   await expect(zoneInput).not.toHaveAttribute('required', '');
   await expect(page.getByText(/Work-zone JSON · optional/i)).toBeVisible();
@@ -63,6 +67,8 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   // Infrastructure remains the clearest live walkthrough and creates a review case.
   await primaryNav.getByRole('button', { name: /Infrastructure/ }).click();
+  await expect(page.locator('input[name="centre_id"]')).toHaveValue('DEMO-KA-205');
+  await expect(page.locator('input[name="batch_id"]')).toHaveValue('CTX-BATCH-01');
   await page.locator('select[name="demo_profile"]').selectOption('discrepancy');
   await page.locator('input[name="infra_file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Run infrastructure verification' }).click();
@@ -89,8 +95,12 @@ test('command centre handles detector fallback, case lifecycle and evidence inte
 
   const pendingBefore = await page.locator('.queueCount').first().textContent();
 
-  // Final decisions require an auditable officer rationale.
   const firstInfraCase = infraCases.first();
+  await firstInfraCase.getByRole('button', { name: 'Inspect evidence' }).click();
+  await expect(firstInfraCase.getByText('EVIDENCE SNAPSHOT')).toBeVisible();
+  await expect(firstInfraCase.getByRole('img', { name: /Evidence for CASE-/ })).toBeVisible();
+
+  // Final decisions require an auditable officer rationale.
   const confirmButton = firstInfraCase.getByRole('button', { name: 'Confirm exception' });
   await expect(confirmButton).toBeDisabled();
   await firstInfraCase.getByPlaceholder(/What did you verify/i).fill(
