@@ -39,7 +39,7 @@ export default function PracticalVerification(){
     body.append('camera_id','LAB-CAM-03');
     if(zonesFile) body.append('zones_json',await zonesFile.text());
     try{
-      const response=await fetch(\`\${API}/api/process-practical-activity\`,{method:'POST',body});
+      const response=await fetch(`${API}/api/process-practical-activity`,{method:'POST',body});
       const payload=await response.json();
       if(!response.ok) throw new Error(payload.detail||'Practical-work analysis failed');
       setResult(payload);
@@ -63,7 +63,7 @@ export default function PracticalVerification(){
         <div className="workZoneStrip">
           {(result?.work_cells||[{zone_id:'Work Zone A'},{zone_id:'Work Zone B'},{zone_id:'Work Zone C'}]).slice(0,3).map((cell:any)=><div className="zoneMini" key={cell.zone_id}>
             <span className={cell.activity_fraction>0.3?'zoneDot active':'zoneDot'}></span>
-            <div><b>{String(cell.zone_id).replaceAll('_',' ')}</b><small>{result?\`\${Math.round((cell.activity_fraction||0)*100)}% activity\`:'Awaiting analysis'}</small></div>
+            <div><b>{String(cell.zone_id).replaceAll('_',' ')}</b><small>{result?`${Math.round((cell.activity_fraction||0)*100)}% activity`:'Awaiting analysis'}</small></div>
           </div>)}
         </div>
       </form>
@@ -74,9 +74,9 @@ export default function PracticalVerification(){
           <div><span>Authorized Activities</span><strong>{result?.decision==='authorized_practical_activity'?result.active_work_cells:0}</strong></div>
           <div><span>Unauthorized Activities</span><strong>{result?.decision==='unauthorized_practical_activity'?result.active_work_cells:0}</strong></div>
           <div><span>Active Work Zones</span><b>{result?.active_work_cells??'—'}</b></div>
-          <div><span>First Activity</span><b>{result?.first_practical_activity_time_sec==null?'—':\`\${result.first_practical_activity_time_sec.toFixed(1)}s\`}</b></div>
+          <div><span>First Activity</span><b>{result?.first_practical_activity_time_sec==null?'—':`${result.first_practical_activity_time_sec.toFixed(1)}s`}</b></div>
           <div><span>Peak Stable Workers</span><b>{result?.peak_stable_workers??'—'}</b></div>
-          <div><span>Trusted Imagery</span><b>{result?\`\${Math.round((result.trusted_frame_ratio||0)*100)}%\`:'—'}</b></div>
+          <div><span>Trusted Imagery</span><b>{result?`${Math.round((result.trusted_frame_ratio||0)*100)}%`:'—'}</b></div>
         </div>
         {result&&<OutcomeCard
           tone={result.case?'warn':'good'}
