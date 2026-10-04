@@ -18,6 +18,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const navItems = [
   {label:'Overview',href:'#overview',icon:'overview'},
   {label:'Attendance',href:'#attendance',icon:'attendance'},
+  {label:'Practical work',href:'#practical-work',icon:'activity'},
   {label:'Infrastructure',href:'#infrastructure',icon:'infrastructure'},
   {label:'Cases',href:'#cases',icon:'cases'},
   {label:'Evidence',href:'#evidence-policy',icon:'evidence'},
@@ -28,8 +29,10 @@ export default function Page() {
   const [infra,setInfra]=useState<InfraItem[]>([]);
   const [result,setResult]=useState<any>(null);
   const [infraResult,setInfraResult]=useState<any>(null);
+  const [practicalResult,setPracticalResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [infraBusy,setInfraBusy]=useState(false);
+  const [practicalBusy,setPracticalBusy]=useState(false);
   const [error,setError]=useState('');
 
   const refresh = async () => {
@@ -51,6 +54,36 @@ export default function Page() {
       const body=await r.json(); if(!r.ok) throw new Error(body.detail||'Video processing failed');
       setResult(body); await refresh();
     } catch(err:any){setError(err.message||String(err));} finally {setBusy(false);}
+  }
+
+  async function submitPractical(e:FormEvent<HTMLFormElement>){
+    e.preventDefault(); setPracticalBusy(true); setError(''); setPracticalResult(null);
+    try{
+      const incoming=new FormData(e.currentTarget);
+      const video=incoming.get('practical_file');
+      const zonesFile=incoming.get('zones_file');
+      if(!(video instanceof File)){throw new Error('Choose a practical-work CCTV video');}
+      if(!(zonesFile instanceof File)){throw new Error('Choose a work-zone JSON file');}
+
+      const body=new FormData();
+      body.append('file',video);
+      body.append('zones_json',await zonesFile.text());
+
+      for(const key of ['authorization','zone_profile','centre_id','batch_id','camera_id']){
+        const value=incoming.get(key);
+        if(value!==null) body.append(key,String(value));
+      }
+
+      const r=await fetch(`${API}/api/process-practical-activity`,{method:'POST',body});
+      const payload=await r.json();
+      if(!r.ok) throw new Error(payload.detail||'Practical-work analysis failed');
+      setPracticalResult(payload);
+      await refresh();
+    }catch(err:any){
+      setError(err.message||String(err));
+    }finally{
+      setPracticalBusy(false);
+    }
   }
 
   async function submitInfrastructure(e:FormEvent<HTMLFormElement>){
@@ -185,6 +218,83 @@ export default function Page() {
                 <Result label="Visual occupancy" value={result.estimated_occupancy}/>
                 <Result label="Mismatch" value={`${result.discrepancy_pct}%`}/>
                 <Result label="Case" value={result.case?'Created':'No persistent case'}/>
+              </div>}
+            </section>
+
+            <section className="panel" id="practical-work">
+              <div className="panelHead">
+                <div>
+                  <div className="titleLine"><span className="panelIcon"><Icon name="activity" /></span><h2>Practical-work verification</h2></div>
+                  <p>Confirm stable anonymous worker presence and sustained worker-centric motion inside configured work cells.</p>
+                </div>
+                <span className="tag live"><span className="statusPulse"></span>YOLO + TRACKING</span>
+              </div>
+
+              <form className="operationForm" onSubmit={submitPractical}>
+                <label className="fileField">
+                  <span>Practical-work CCTV video</span>
+                  <input name="practical_file" type="file" accept="video/*,.avi,.mp4" required />
+                </label>
+
+                <label className="fileField">
+                  <span>Work-zone configuration (.json)</span>
+                  <input name="zones_file" type="file" accept=".json,application/json" required />
+                </label>
+
+                <div className="three">
+                  <label>Authorization
+                    <select name="authorization" defaultValue="unknown">
+                      <option value="valid">Valid</option>
+                      <option value="absent">Not found</option>
+                      <option value="unknown">Unknown / review</option>
+                    </select>
+                  </label>
+                  <label>Zone profile
+                    <input name="zone_profile" placeholder="optional, e.g. authorized" />
+                  </label>
+                  <label>Camera ID
+                    <input name="camera_id" defaultValue="LAB-CAM-03" />
+                  </label>
+                </div>
+
+                <div className="two">
+                  <label>Centre ID<input name="centre_id" defaultValue="DEMO-KA-104" /></label>
+                  <label>Batch ID<input name="batch_id" defaultValue="ELEC-DEMO-01" /></label>
+                </div>
+
+                <div className="formFooter">
+                  <p><Icon name="privacy" />No face recognition · authorization is external state</p>
+                  <button disabled={practicalBusy}>{practicalBusy?'Analysing practical work…':'Analyse practical work'}<span>→</span></button>
+                </div>
+              </form>
+
+              {practicalResult&&<div className="practicalResultWrap">
+                <div className="result">
+                  <Result label="Stable workers" value={practicalResult.peak_stable_workers}/>
+                  <Result label="Active work cells" value={practicalResult.active_work_cells}/>
+                  <Result label="Activity" value={`${Math.round((practicalResult.practical_activity_fraction||0)*100)}%`}/>
+                  <Result label="Camera coverage" value={`${Math.round((practicalResult.trusted_frame_ratio||0)*100)}%`}/>
+                </div>
+                <div className={`decisionBanner ${String(practicalResult.decision||'').includes('unauthorized')?'danger':String(practicalResult.decision||'').includes('authorized_')?'success':'review'}`}>
+                  <div>
+                    <span>Decision</span>
+                    <strong>{String(practicalResult.decision||'').replaceAll('_',' ')}</strong>
+                  </div>
+                  <div>
+                    <span>Authorization</span>
+                    <strong>{String(practicalResult.authorization||'unknown').replaceAll('_',' ')}</strong>
+                  </div>
+                  <div>
+                    <span>Evidence</span>
+                    <strong>{practicalResult.case?.evidence?.length?'Exception captured':'Edge-only / none'}</strong>
+                  </div>
+                </div>
+                {!!practicalResult.work_cells?.length&&<div className="workCellGrid">
+                  {practicalResult.work_cells.map((cell:any)=><div className="workCellCard" key={cell.zone_id}>
+                    <div><strong>{cell.zone_id.replaceAll('_',' ')}</strong><span>{Math.round(cell.registered_worker_presence_fraction*100)}% stable presence</span></div>
+                    <b>{Math.round(cell.activity_fraction*100)}% active</b>
+                  </div>)}
+                </div>}
               </div>}
             </section>
 
@@ -324,6 +434,7 @@ function Icon({name}:{name:string}){
   const common={width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round' as const,strokeLinejoin:'round' as const,'aria-hidden':true};
   if(name==='overview') return <svg {...common}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
   if(name==='attendance'||name==='human') return <svg {...common}><circle cx="12" cy="8" r="3"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg>;
+  if(name==='activity') return <svg {...common}><path d="M4 17V7M8 20V4M12 16V8M16 19V5M20 14v-4"/><path d="M3 12h18"/></svg>;
   if(name==='infrastructure') return <svg {...common}><path d="M4 20V7l8-4 8 4v13"/><path d="M8 20v-5h8v5M8 9h.01M12 9h.01M16 9h.01"/></svg>;
   if(name==='cases'||name==='alert') return <svg {...common}><path d="M12 3 2.8 19h18.4L12 3Z"/><path d="M12 9v4M12 17h.01"/></svg>;
   if(name==='evidence'||name==='package') return <svg {...common}><path d="M4 7.5 12 3l8 4.5V17l-8 4-8-4V7.5Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></svg>;
