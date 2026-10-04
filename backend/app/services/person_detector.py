@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import os
 from pathlib import Path
 from typing import Protocol
 
 import cv2
 import numpy as np
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -18,12 +21,32 @@ class Detection:
     confidence: float
 
 
+@dataclass(frozen=True)
+class DetectorInfo:
+    backend: str
+    mode: str
+    authoritative: bool
+    message: str
+
+
 class Detector(Protocol):
+    info: DetectorInfo
+
     def detect(self, frame: np.ndarray) -> list[Detection]: ...
 
 
 class HogPersonDetector:
-    """Zero-download fallback used by core CI, not the final SIH benchmark detector."""
+    """Zero-download fallback used by CI and degraded local runs."""
+
+    info = DetectorInfo(
+        backend="hog",
+        mode="fallback",
+        authoritative=False,
+        message=(
+            "HOG fallback active. Attendance conclusions are suspended until "
+            "the validated YOLO/OpenVINO detector is available."
+        ),
+    )
 
     def __init__(self) -> None:
         self.hog = cv2.HOGDescriptor()
@@ -48,6 +71,73 @@ class HogPersonDetector:
             )
             for (x, y, rw, rh), weight in zip(rects, weights)
         ]
+
+
+class YoloPersonDetector:
+    """Validated demo person detector used by the attendance benchmark stack."""
+
+    def __init__(
+        self,
+        model_name: str = "yolo11n.pt",
+        confidence: float = 0.35,
+        iou: float = 0.50,
+        imgsz: int = 640,
+    ) -> None:
+        try:
+            from ultralytics import YOLO
+        except ImportError as exc:
+            raise RuntimeError(
+                "YOLO detector selected but Ultralytics is unavailable. "
+                "Install backend/requirements-yolo-demo.txt."
+            ) from exc
+
+        self.model_name = model_name
+        self.confidence = float(confidence)
+        self.iou = float(iou)
+        self.imgsz = int(imgsz)
+        self.model = YOLO(model_name)
+        self.info = DetectorInfo(
+            backend="yolo11",
+            mode="primary",
+            authoritative=True,
+            message=(
+                f"YOLO person detector active ({model_name}, conf={self.confidence:.2f}, "
+                f"iou={self.iou:.2f}, imgsz={self.imgsz})."
+            ),
+        )
+
+    def detect(self, frame: np.ndarray) -> list[Detection]:
+        results = self.model.predict(
+            source=frame,
+            classes=[0],
+            conf=self.confidence,
+            iou=self.iou,
+            imgsz=self.imgsz,
+            verbose=False,
+        )
+        if not results:
+            return []
+
+        result = results[0]
+        if result.boxes is None or len(result.boxes) == 0:
+            return []
+
+        boxes = result.boxes.xyxy.cpu().numpy().tolist()
+        confidences = result.boxes.conf.cpu().numpy().tolist()
+
+        detections: list[Detection] = []
+        for box, confidence in zip(boxes, confidences):
+            x1, y1, x2, y2 = [int(round(v)) for v in box]
+            detections.append(
+                Detection(
+                    x1=x1,
+                    y1=y1,
+                    x2=x2,
+                    y2=y2,
+                    confidence=float(confidence),
+                )
+            )
+        return detections
 
 
 class OpenVinoPersonDetector:
@@ -83,6 +173,15 @@ class OpenVinoPersonDetector:
         if len(shape) != 4:
             raise RuntimeError(f"Unexpected detector input shape: {shape}")
         _, _, self.input_h, self.input_w = [int(x) for x in shape]
+        self.info = DetectorInfo(
+            backend="openvino",
+            mode="primary",
+            authoritative=True,
+            message=(
+                f"OpenVINO person detector active (device={device}, "
+                f"confidence={self.confidence:.2f})."
+            ),
+        )
 
     def detect(self, frame: np.ndarray) -> list[Detection]:
         h, w = frame.shape[:2]
@@ -107,21 +206,75 @@ class OpenVinoPersonDetector:
         return detections
 
 
-def build_person_detector() -> Detector:
-    backend = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "hog").strip().lower()
-    if backend == "hog":
-        return HogPersonDetector()
-    if backend == "openvino":
-        xml = Path(
-            os.getenv(
-                "KAUSHALWATCH_OPENVINO_MODEL_XML",
-                "../models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml",
-            )
+def _build_openvino() -> OpenVinoPersonDetector:
+    xml = Path(
+        os.getenv(
+            "KAUSHALWATCH_OPENVINO_MODEL_XML",
+            "../models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml",
         )
-        confidence = float(os.getenv("KAUSHALWATCH_PERSON_CONFIDENCE", "0.45"))
-        device = os.getenv("KAUSHALWATCH_OPENVINO_DEVICE", "CPU")
-        return OpenVinoPersonDetector(xml, device=device, confidence=confidence)
-    raise ValueError(f"Unknown KAUSHALWATCH_PERSON_DETECTOR backend: {backend}")
+    )
+    confidence = float(os.getenv("KAUSHALWATCH_PERSON_CONFIDENCE", "0.45"))
+    device = os.getenv("KAUSHALWATCH_OPENVINO_DEVICE", "CPU")
+    return OpenVinoPersonDetector(xml, device=device, confidence=confidence)
+
+
+def _build_yolo() -> YoloPersonDetector:
+    return YoloPersonDetector(
+        model_name=os.getenv("KAUSHALWATCH_YOLO_MODEL", "yolo11n.pt"),
+        confidence=float(os.getenv("KAUSHALWATCH_PERSON_CONFIDENCE", "0.35")),
+        iou=float(os.getenv("KAUSHALWATCH_PERSON_IOU", "0.50")),
+        imgsz=int(os.getenv("KAUSHALWATCH_PERSON_IMGSZ", "640")),
+    )
+
+
+def build_person_detector() -> Detector:
+    """Prefer the validated detector and expose any fallback explicitly."""
+
+    backend = os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "auto").strip().lower()
+
+    if backend == "yolo":
+        return _build_yolo()
+    if backend == "openvino":
+        return _build_openvino()
+    if backend == "hog":
+        LOGGER.warning("Explicit HOG fallback selected for person detection")
+        return HogPersonDetector()
+    if backend != "auto":
+        raise ValueError(f"Unknown KAUSHALWATCH_PERSON_DETECTOR backend: {backend}")
+
+    failures: list[str] = []
+
+    try:
+        detector = _build_yolo()
+        LOGGER.info("Attendance detector selected: %s", detector.info.message)
+        return detector
+    except Exception as exc:  # pragma: no cover - optional runtime
+        failures.append(f"YOLO unavailable: {exc}")
+        LOGGER.warning("YOLO person detector unavailable", exc_info=True)
+
+    openvino_xml = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
+    if openvino_xml:
+        try:
+            detector = _build_openvino()
+            LOGGER.info("Attendance detector selected: %s", detector.info.message)
+            return detector
+        except Exception as exc:  # pragma: no cover - optional runtime
+            failures.append(f"OpenVINO unavailable: {exc}")
+            LOGGER.warning("OpenVINO person detector unavailable", exc_info=True)
+
+    detector = HogPersonDetector()
+    detail = "; ".join(failures) if failures else "Primary detector not configured"
+    detector.info = DetectorInfo(
+        backend="hog",
+        mode="fallback",
+        authoritative=False,
+        message=(
+            "Detector unavailable / fallback mode. "
+            f"{detail}. Attendance conclusions are suspended."
+        ),
+    )
+    LOGGER.error(detector.info.message)
+    return detector
 
 
 # Backward-compatible alias for existing imports.
