@@ -203,7 +203,7 @@ export default function AnalysisRun(){
             <div><span>Monitoring windows</span><b>{windows}</b></div>
             <div><span>Connectivity</span><b>{centre?.connectivity_mode?.replaceAll('_',' ')||'normal'}</b></div>
           </div>
-          <div className="runtimeNotice warn">Automatic policy is stored, but a real unattended trigger requires a connected live/edge camera source. KaushalWatch does not pretend an analysis ran when no video source exists.</div>
+          <div className="runtimeNotice warn">Automatic policy is stored centrally. The connected edge scheduler currently runs attendance once per configured window and syncs compact telemetry. Practical work and infrastructure remain part of the full-analysis workflow until their edge adapters are connected.</div>
         </section>
 
         <section className="panel runScheduleCard">
