@@ -1,0 +1,294 @@
+/* KaushalWatch reference-fidelity pass
+   Loaded after premium.css. This layer keeps the existing component structure
+   and backend wiring intact while bringing the implemented UI closer to the
+   approved mockups: readable typography, calmer spacing, stronger hierarchy,
+   and a more government-enterprise command-centre feel. */
+
+:root{
+  --kw-readable-body:13px;
+  --kw-readable-meta:11px;
+  --kw-readable-label:12px;
+  --kw-readable-card:15px;
+}
+
+/* Shell: preserve the dark navy rail but make it feel less cramped. */
+.neoApp{grid-template-columns:228px minmax(0,1fr)}
+.neoSidebar{width:228px;padding:18px 12px 15px}
+.neoBrand{gap:11px;padding:5px 8px 21px}
+.neoBrand>div b{font-size:15px}
+.neoBrand>div small{font-size:10px;line-height:1.35}
+.neoBrandEye{width:36px;height:36px}
+
+.neoNav{gap:4px}
+.neoNavLink{
+  grid-template-columns:30px 1fr auto;
+  gap:8px;
+  min-height:43px;
+  padding:7px 9px;
+  border-radius:10px;
+  font-size:12px;
+  font-weight:700;
+}
+.neoNavIcon{width:27px;height:27px;font-size:12px}
+.neoNavLink em{font-size:10px;min-width:20px;height:20px}
+.neoNavGroupTitle{font-size:10px;padding:0 10px 8px}
+.neoPrivacy b{font-size:11px}
+.neoPrivacy small{font-size:10px;line-height:1.35}
+
+/* Top bar follows the clean search + officer identity treatment in the refs. */
+.neoTopbar{
+  height:68px;
+  grid-template-columns:auto minmax(300px,600px) auto;
+  gap:20px;
+  padding:0 26px;
+}
+.neoBreadcrumb span,.neoBreadcrumb i{font-size:11px}
+.neoBreadcrumb b{font-size:12px}
+.neoSearch{height:38px;padding:0 11px}
+.neoSearch input{font-size:12px}
+.neoSearch kbd{font-size:10px}
+.neoLive{font-size:11px;padding:6px 9px}
+.neoOfficer>span{width:34px;height:34px;font-size:10px}
+.neoOfficer b{font-size:11px}
+.neoOfficer small{font-size:10px}
+.neoViewport{min-height:calc(100vh - 68px);padding:26px 28px 48px}
+
+/* Page hierarchy: no tiny 7-10px copy in primary UX. */
+.pageHeader{margin-bottom:20px}
+.pageEyebrow,.sectionKicker{
+  font-size:10px;
+  letter-spacing:.11em;
+}
+.pageHeader h1{font-size:30px;margin:6px 0 5px}
+.pageHeader p{
+  font-size:14px;
+  line-height:1.5;
+  color:#677a91;
+}
+.pageHeaderActions{gap:8px}
+.primaryBtn,.secondaryBtn,.runNowBtn,.periodBtn{
+  min-height:38px;
+  padding:0 14px;
+  border-radius:9px;
+  font-size:12px;
+  font-weight:800;
+}
+.headerSelect{min-height:38px;font-size:12px;padding-left:12px}
+
+/* Cards, metrics, statuses. */
+.panel,.metricCard,.analysisResultsPanel,.tierCard,.caseDetailPanel,.caseListPanel,.neoAssistant,.centrePulseCard{
+  border-radius:14px;
+}
+.panelHead{min-height:58px;padding:0 16px}
+.panelHead h2{font-size:16px}
+.panelHead>a{font-size:12px}
+.metricGrid{gap:11px;margin-bottom:15px}
+.metricCard{padding:15px;min-height:108px}
+.metricIcon{width:36px;height:36px;font-size:14px}
+.metricCard small{font-size:12px}
+.metricCard strong{font-size:27px;margin-top:4px}
+.metricCard p{font-size:11px;line-height:1.4;margin-top:4px}
+.statusChip{font-size:11px;padding:5px 8px;gap:6px}
+.statusChip i{width:6px;height:6px}
+
+/* Workflow stepper stays compact but is readable from presentation distance. */
+.neoWorkflow{padding:11px 14px;margin-bottom:16px}
+.neoWorkflowNode>a{gap:10px;padding:5px 3px}
+.neoWorkflowCircle{width:31px;height:31px;font-size:11px}
+.neoWorkflowNode b{font-size:12px}
+.neoWorkflowNode small{font-size:10px;line-height:1.35;margin-top:3px}
+
+/* Persistent AI assistant: visually important, not an afterthought. */
+.neoAssistant{top:86px;min-height:500px;max-height:calc(100vh - 108px)}
+.neoAssistantLauncher{height:52px;font-size:12px}
+.neoAssistantLauncher span{width:29px;height:29px}
+.neoAssistantHead{gap:9px;padding:12px}
+.neoAiOrb{width:36px;height:36px}
+.neoAssistantHead b{font-size:13px}
+.neoAssistantHead small{font-size:10px;line-height:1.3}
+.neoGrounded{font-size:10px;padding:5px 7px}
+.neoAssistantContext{padding:11px 12px}
+.neoAssistantContext span{font-size:10px}
+.neoAssistantContext b{font-size:12px}
+.neoAssistantContext small{font-size:10px;line-height:1.45}
+.neoAssistantQuick{gap:6px;padding:10px 11px}
+.neoAssistantQuick button{min-height:36px;padding:0 9px}
+.neoAssistantQuick button b{font-size:11px;line-height:1.3}
+.neoAssistantBody{padding:12px}
+.neoAiWelcome b{font-size:12px}
+.neoAiWelcome p{font-size:11px;line-height:1.5}
+.neoChat{font-size:12px;line-height:1.5;padding:10px 11px}
+.neoGrounding{font-size:10px;line-height:1.4;padding:8px}
+.neoAiPrimary,.neoAiSecondary{font-size:10px;padding:7px 9px}
+.neoAssistantError{font-size:11px}
+.neoAssistantComposer{padding:10px}
+.neoAssistantComposer input{font-size:12px;padding:9px 10px}
+
+/* Network overview and data tables mirror the reference's clear scan pattern. */
+.networkFilterTabs{gap:6px;padding:10px 12px}
+.networkFilterTabs button{
+  min-height:33px;
+  padding:0 10px;
+  font-size:11px;
+}
+.dataTable th{
+  font-size:10px;
+  padding:10px 11px;
+  letter-spacing:.045em;
+}
+.dataTable td{
+  font-size:12px;
+  padding:11px;
+  line-height:1.4;
+}
+.tableLink{font-size:12px}
+.filterBar input,.filterBar select{font-size:12px}
+.filterBar>span{font-size:11px}
+
+/* Centre overview: larger cards and text like the approved overview mockup. */
+.centreOverviewGrid{grid-template-columns:minmax(0,1fr) minmax(310px,340px);gap:15px}
+.centreOverviewMain,.centreOverviewSide{gap:13px}
+.centreTopCards{gap:11px}
+.centreProfileCard{padding:13px;grid-template-columns:138px 1fr;gap:13px}
+.centrePhotoEmpty{min-height:150px}
+.centrePhotoEmpty>span{font-size:32px}
+.centrePhotoEmpty b{font-size:12px;margin-top:7px}
+.centrePhotoEmpty small{font-size:10px}
+.centreStatusRow>span{font-size:10px}
+.centreProfileCopy h2{font-size:20px}
+.centreProfileCopy>p{font-size:12px}
+.centreFacts{gap:6px;margin-top:12px}
+.centreFacts span{font-size:10px;padding:5px 7px}
+.scheduleCompact{padding:5px 14px 9px}
+.scheduleCompact>div{padding:9px 0}
+.scheduleCompact span,.scheduleCompact b{font-size:11px}
+.scheduleAction{margin:0 14px 14px;padding:9px 10px;font-size:11px}
+.latestResultBody{padding:14px}
+.latestResultBody>b{font-size:13px}
+.latestResultBody>p{font-size:11px;line-height:1.5}
+.latestResultBody>small{font-size:10px}
+.verificationBoardGrid{gap:8px;padding:12px}
+.verifyTile{min-height:112px;padding:10px;gap:8px}
+.verifyTile>span{width:27px;height:27px;font-size:10px}
+.verifyTile b{font-size:11px}
+.verifyTile small{font-size:10px;line-height:1.4}
+.verifyTile em{font-size:10px}
+.recentAnalysisList{padding:5px 14px 11px}
+.recentAnalysisRow{padding:10px 0}
+.recentAnalysisRow b{font-size:11px}
+.recentAnalysisRow p{font-size:10px;line-height:1.45}
+.recentAnalysisRow small{font-size:10px}
+.centreSummaryCard{padding:15px}
+.centreSummaryTitle small{font-size:10px}
+.centreSummaryTitle b{font-size:14px}
+.centreSummaryCard>p{font-size:12px;line-height:1.55}
+.centreSummaryStats span{font-size:9px}
+.centreSummaryStats b{font-size:11px}
+.centreSummaryReason>span{font-size:10px}
+.centreSummaryReason p{font-size:11px}
+.centreSummaryReason small{font-size:10px;line-height:1.4}
+.summaryReviewBtn{font-size:11px;padding:9px}
+
+/* Analysis launcher and verification setup: technical controls remain secondary. */
+.analysisLaunchHero{padding:17px}
+.analysisLaunchHero h2{font-size:18px}
+.analysisLaunchHero p{font-size:12px;line-height:1.5}
+.analysisLaunchStep{min-height:98px;padding:11px}
+.analysisLaunchStep>span{width:33px;height:33px;font-size:11px}
+.analysisLaunchStep b{font-size:12px}
+.analysisLaunchStep small{font-size:10px;line-height:1.4}
+.analysisLaunchStep em{font-size:10px}
+.analysisModeNote{padding:10px}
+.analysisModeNote b{font-size:11px}
+.analysisModeNote p{font-size:10px}
+.runScheduleBody span,.runScheduleBody b{font-size:11px}
+.setupLabel,.attendanceCountControl>span,.infraSetupCard span{font-size:10px}
+.segmentedChoice button{min-height:34px;font-size:11px}
+.advancedCompact summary{font-size:10px;padding:9px 10px}
+.advancedCompact label>span{font-size:10px}
+.advancedCompact input,.advancedCompact select{font-size:11px;padding:8px}
+.attendanceCountControl strong{font-size:14px}
+.infraSetupCard{padding:10px}
+.infraSetupCard select{font-size:11px}
+.infraSetupCard p{font-size:10px;line-height:1.45}
+
+/* Video + result panels: make result text legible without increasing clutter. */
+.videoToolbar{height:40px;font-size:11px}
+.videoReplace{font-size:10px;padding:9px 11px}
+.videoReplace button{font-size:10px;padding:6px 8px}
+.resultPanelHead{min-height:56px}
+.resultPanelHead h2{font-size:15px}
+.resultNumberGrid{gap:8px}
+.resultNumberGrid>div{min-height:72px;padding:10px}
+.resultNumberGrid span{font-size:10px}
+.resultNumberGrid strong{font-size:23px}
+.resultNumberGrid b{font-size:11px}
+.resultEmpty b{font-size:12px}
+.resultEmpty p{font-size:11px;line-height:1.45}
+
+/* Review/evidence remains calm and audit-focused. */
+.caseListItem b{font-size:12px}
+.caseListItem p,.caseListItem small{font-size:10px;line-height:1.4}
+.casePillarBanner b{font-size:10px}
+.casePillarBanner span{font-size:11px}
+.integritySignal strong{font-size:11px}
+.integritySignal p{font-size:10px}
+.noEvidence{font-size:11px}
+.evidenceFacts span{font-size:10px}
+.evidenceFacts b{font-size:11px}
+.reviewSteps b{font-size:10px}
+.reviewSteps span{font-size:10px}
+.reviewNote{font-size:11px;padding:10px}
+.auditTrail h3{font-size:12px}
+.auditTrailRow b{font-size:10px}
+.auditTrailRow small{font-size:9px}
+.auditTrailRow p{font-size:10px;line-height:1.4}
+
+/* Reports, analytics and settings. */
+.reportFilterRow span{font-size:10px}
+.reportMasthead span{font-size:10px}
+.reportMasthead h2{font-size:22px}
+.reportMasthead p{font-size:11px}
+.reportExecutive p,.reportSection>p{font-size:12px;line-height:1.55}
+.reportSection h3{font-size:13px}
+.reportRow span,.reportRow b,.reportRow p{font-size:10px}
+.settingRows label>span,.switchRow b{font-size:11px}
+.switchRow small,.inlineSetting small{font-size:10px}
+.connectivityChoices b{font-size:11px}
+.connectivityChoices small{font-size:10px;line-height:1.4}
+.bandwidthNote,.trustRule{font-size:11px;line-height:1.5}
+.trustCard h2{font-size:17px}
+
+/* Presentation-width safeguard. Keep readable type even on typical 1366px laptops. */
+@media(max-width:1280px){
+  .neoApp{grid-template-columns:210px minmax(0,1fr)}
+  .neoSidebar{width:210px}
+  .neoNavLink{font-size:11px}
+  .neoTopbar{padding:0 18px}
+  .pageHeader p{font-size:13px}
+  .dataTable td{font-size:11px}
+  .centreOverviewGrid{grid-template-columns:minmax(0,1fr) minmax(285px,315px)}
+}
+
+@media(max-width:920px){
+  .neoSidebar{width:auto}
+  .neoViewport{padding:19px 14px 34px}
+  .neoNavLink{font-size:11px}
+  .neoAssistant{max-height:none}
+  .centreOverviewGrid{grid-template-columns:1fr}
+}
+
+@media(max-width:600px){
+  .pageHeader h1{font-size:27px}
+  .pageHeader p{font-size:13px}
+  .primaryBtn,.secondaryBtn,.runNowBtn,.periodBtn{font-size:11px}
+  .metricCard small{font-size:11px}
+  .metricCard p{font-size:10px}
+  .dataTable td{font-size:11px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .neoNavLink,.primaryBtn,.secondaryBtn,.metricCard,.analysisLaunchStep,.neoAssistantQuick button{
+    transition:none!important;
+  }
+}
