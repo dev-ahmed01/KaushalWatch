@@ -282,3 +282,9 @@ button,input,select,textarea{font:inherit}
 .historyPeriods{display:flex;gap:5px;align-items:center}
 .historyPeriods button{min-height:34px;border:1px solid #dbe4ee;background:#fff;color:#62738a;border-radius:8px;padding:0 9px;font-size:7px;font-weight:850}
 .historyPeriods button.active{background:#eef4ff;border-color:#cbd9ff;color:#245fcf}
+
+/* cycle 3 — running analysis state */
+.processingBanner{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;border:1px solid #cad9ff;background:linear-gradient(90deg,#f4f7ff,#fbfcff);border-radius:11px;padding:9px 11px;margin:-4px 0 12px;color:#315fb7;animation:kwPage .25s ease both}
+.processingSpinner{width:22px;height:22px;border-radius:50%;border:3px solid #d7e3ff;border-top-color:#2d6bf0;animation:kwSpin .8s linear infinite}
+.processingBanner strong,.processingBanner small{display:block}.processingBanner strong{font-size:8px;color:#315da9}.processingBanner small{font-size:7px;color:#70829a;margin-top:2px}.processingBanner em{font-style:normal;font-size:7px;font-weight:850;color:#245fcf;background:#e8efff;border-radius:999px;padding:5px 7px}
+@keyframes kwSpin{to{transform:rotate(360deg)}}
