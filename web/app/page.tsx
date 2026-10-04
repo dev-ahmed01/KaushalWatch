@@ -6,7 +6,8 @@ import { getCentres } from './lib/api';
 import type { Centre } from './lib/types';
 import { Metric, PageHeader, Skeleton, Status } from './components/Ui';
 
-const statusTone=(status:string)=>status==='compliant'?'good':status==='high_priority'?'danger':'warn';
+const statusTone=(status:string)=>status==='compliant'?'good':status==='high_priority'?'danger':status==='incomplete'?'neutral':'warn';
+const pillarTone=(status:string)=>['compliant','nominal','clear'].includes(status)?'good':status==='blocked'?'danger':status==='pending'?'neutral':'warn';
 
 export default function NetworkOverview(){
   const [centres,setCentres]=useState<Centre[]>([]);
@@ -24,7 +25,7 @@ export default function NetworkOverview(){
   const filtered=useMemo(()=>{
     if(filter==='review') return centres.filter(c=>c.status!=='compliant');
     if(filter==='camera') return centres.filter(c=>c.camera_status!=='nominal');
-    if(filter==='incomplete') return centres.filter(c=>['blocked','unknown','pending'].some(token=>String(c.infrastructure_status).includes(token)));
+    if(filter==='incomplete') return centres.filter(c=>c.status==='incomplete'||[c.attendance_status,c.practical_status,c.infrastructure_status].some(state=>['blocked','pending'].includes(String(state))));
     return centres;
   },[centres,filter]);
 
@@ -78,18 +79,18 @@ export default function NetworkOverview(){
         <button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>All Centres <span>{centres.length}</span></button>
         <button className={filter==='review'?'active':''} onClick={()=>setFilter('review')}>Requires Review <span>{centres.filter(c=>c.status!=='compliant').length}</span></button>
         <button className={filter==='camera'?'active':''} onClick={()=>setFilter('camera')}>Camera Issues <span>{centres.filter(c=>c.camera_status!=='nominal').length}</span></button>
-        <button className={filter==='incomplete'?'active':''} onClick={()=>setFilter('incomplete')}>Verification Incomplete</button>
+        <button className={filter==='incomplete'?'active':''} onClick={()=>setFilter('incomplete')}>Verification Incomplete <span>{centres.filter(c=>c.status==='incomplete').length}</span></button>
       </div>
       <div className="panelHead"><div><span className="sectionKicker">Centre directory</span><h2>Operational status</h2></div><Link href="/centres">View directory →</Link></div>
       <div className="dataTableWrap">
         <table className="dataTable">
           <thead><tr><th>Centre</th><th>Location</th><th>Batch</th><th>Attendance</th><th>Practical</th><th>Infrastructure</th><th>Exceptions</th><th>Status</th></tr></thead>
-          <tbody>{centres.map(c=><tr key={c.centre_id}>
+          <tbody>{filtered.map(c=><tr key={c.centre_id}>
             <td><Link className="tableLink" href={`/centres/${c.centre_id}`}>{c.name}</Link></td>
             <td>{c.district}</td><td>{c.batch_id}</td>
-            <td><Status tone={c.attendance_status==='compliant'?'good':'warn'}>{c.attendance_status}</Status></td>
-            <td><Status tone={c.practical_status==='compliant'?'good':'warn'}>{c.practical_status}</Status></td>
-            <td><Status tone={c.infrastructure_status==='compliant'?'good':'warn'}>{c.infrastructure_status}</Status></td>
+            <td><Status tone={pillarTone(c.attendance_status) as any}>{c.attendance_status}</Status></td>
+            <td><Status tone={pillarTone(c.practical_status) as any}>{c.practical_status}</Status></td>
+            <td><Status tone={pillarTone(c.infrastructure_status) as any}>{c.infrastructure_status}</Status></td>
             <td>{c.pending_cases}</td>
             <td><Status tone={statusTone(c.status) as any}>{c.status.replace('_',' ')}</Status></td>
           </tr>)}</tbody>
