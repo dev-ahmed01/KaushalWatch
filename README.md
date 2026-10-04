@@ -129,6 +129,15 @@ This is a target-clip calibration result, not a new general benchmark. The EPFL 
 numbers remain unchanged, and held-out CCTV validation is still required before making any
 broader accuracy claim.
 
+To start the backend with the frozen target-clip demo profile after preparing OpenVINO:
+
+```bash
+python scripts/start_demo_backend.py
+```
+
+That launcher forces the selected OpenVINO confidence/tiled settings and fails closed if the
+authoritative OpenVINO runtime is unavailable.
+
 
 ## Low-bandwidth / offline mode
 
