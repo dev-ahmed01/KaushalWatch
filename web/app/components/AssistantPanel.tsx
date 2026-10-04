@@ -34,54 +34,58 @@ export default function AssistantPanel({centreId}:{centreId:string}){
     }
   }
 
-  if(collapsed) return <aside className="assistantPanel collapsed">
-    <button className="assistantExpand" type="button" onClick={()=>setCollapsed(false)} aria-label="Open KaushalWatch assistant">
-      <span>✦</span><b>AI</b>
+  if(collapsed) return <aside className="neoAssistant collapsed">
+    <button type="button" className="neoAssistantLauncher" onClick={()=>setCollapsed(false)}>
+      <span>✦</span><b>Ask AI</b>
     </button>
   </aside>;
 
-  return <aside className="assistantPanel">
-    <div className="assistantHeader">
-      <div className="assistantSpark">✦</div>
-      <div className="assistantTitle"><strong>Ask KaushalWatch</strong><small>Evidence-grounded compliance assistant</small></div>
-      <span className="assistantOnline"><i></i>Grounded</span>
-      <button className="assistantCollapse" type="button" onClick={()=>setCollapsed(true)} aria-label="Collapse assistant">×</button>
+  return <aside className="neoAssistant">
+    <div className="neoAssistantHead">
+      <span className="neoAiOrb">✦</span>
+      <div><b>Ask KaushalWatch</b><small>Evidence-grounded assistant</small></div>
+      <span className="neoGrounded"><i></i>Grounded</span>
+      <button type="button" className="neoAssistantClose" onClick={()=>setCollapsed(true)} aria-label="Collapse assistant">×</button>
     </div>
 
-    <div className="assistantContext">
+    <div className="neoAssistantContext">
       <span>Current centre</span>
-      <strong>{centreId}</strong>
-      <small>Answers use recorded analyses, cases and policy state only.</small>
+      <b>{centreId}</b>
+      <small>Simple answers from analyses, cases and policy state.</small>
     </div>
 
-    <div className="assistantQuick">
-      {QUICK.map(item=><button type="button" key={item} onClick={()=>ask(item)}><span>{item}</span><b>›</b></button>)}
+    <div className="neoAssistantQuick">
+      {QUICK.map(item=><button key={item} type="button" onClick={()=>ask(item)}>
+        <span>◌</span><b>{item}</b><i>›</i>
+      </button>)}
     </div>
 
-    <div className="assistantConversation">
-      {!reply&&!busy&&!error&&<div className="assistantWelcome">
+    <div className="neoAssistantBody">
+      {!reply&&!busy&&!error&&<div className="neoAiWelcome">
         <span>AI</span>
-        <div><strong>Ask in simple language.</strong><p>I can explain what passed, what failed, why something was escalated, or turn the history into a report.</p></div>
-      </div>}
-      {question&&<div className="chatBubble user">{question}</div>}
-      {busy&&<div className="chatBubble ai typing"><i></i><i></i><i></i></div>}
-      {error&&<div className="assistantError">{error}</div>}
-      {reply&&!busy&&<div className="assistantAnswer">
-        <div className="chatBubble ai">{reply.answer}</div>
-        <div className="groundingNote"><span>✓</span>Grounded in {reply.grounded_in.history_rows} analysis records · {reply.grounded_in.pending_cases} pending cases</div>
-        <div className="assistantSuggestions">
-          {(reply.suggested_actions||[]).slice(0,3).map(item=><button key={item} type="button" onClick={()=>ask(item)}>{item}</button>)}
+        <div>
+          <b>Ask in plain language.</b>
+          <p>I can explain what passed, what needs attention, why a centre was escalated, or turn recent activity into a report.</p>
         </div>
-        <div className="assistantAnswerActions">
-          <Link href={`/reports?centre=${encodeURIComponent(centreId)}&period=${encodeURIComponent(reply.period||'7d')}`} className="assistantAction">Create report</Link>
-          <Link href={`/centres/${centreId}/history`} className="assistantAction ghost">Open history</Link>
+      </div>}
+
+      {question&&<div className="neoChat user">{question}</div>}
+      {busy&&<div className="neoChat ai loading"><i></i><i></i><i></i></div>}
+      {error&&<div className="neoAssistantError">{error}</div>}
+
+      {reply&&!busy&&<div className="neoAssistantAnswer">
+        <div className="neoChat ai">{reply.answer}</div>
+        <div className="neoGrounding"><span>✓</span>Grounded in {reply.grounded_in.history_rows} analysis record(s) and {reply.grounded_in.pending_cases} pending case(s).</div>
+        <div className="neoAssistantActions">
+          <Link href={'/reports?centre='+encodeURIComponent(centreId)+'&period='+encodeURIComponent(reply.period||'7d')} className="neoAiPrimary">Create report</Link>
+          <Link href={'/centres/'+centreId+'/history'} className="neoAiSecondary">Open history</Link>
         </div>
       </div>}
     </div>
 
-    <form className="assistantComposer" onSubmit={event=>{event.preventDefault();ask(question);}}>
-      <input value={question} onChange={event=>setQuestion(event.target.value)} placeholder="Ask about this analysis or centre…" />
-      <button type="submit" disabled={busy} aria-label="Ask assistant">↑</button>
+    <form className="neoAssistantComposer" onSubmit={event=>{event.preventDefault();ask(question);}}>
+      <input value={question} onChange={event=>setQuestion(event.target.value)} placeholder="Ask about this centre…"/>
+      <button disabled={busy} type="submit" aria-label="Ask KaushalWatch">↑</button>
     </form>
   </aside>;
 }
