@@ -64,9 +64,12 @@ def test_manifest_compare():
     assert rows[1]["state"] == "OFFICER_VERIFICATION_REQUIRED"
 
 
-def test_default_detector_factory(monkeypatch):
-    monkeypatch.delenv("KAUSHALWATCH_PERSON_DETECTOR", raising=False)
-    assert isinstance(build_person_detector(), HogPersonDetector)
+def test_explicit_hog_detector_factory(monkeypatch):
+    monkeypatch.setenv("KAUSHALWATCH_PERSON_DETECTOR", "hog")
+    detector = build_person_detector()
+    assert isinstance(detector, HogPersonDetector)
+    assert detector.info.mode == "fallback"
+    assert detector.info.authoritative is False
 
 
 def test_infrastructure_case_builder():
