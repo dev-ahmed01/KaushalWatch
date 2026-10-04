@@ -52,7 +52,7 @@ export default function AttendanceVerification(){
       eyebrow="Selected Centre / Attendance"
       title="Attendance Verification"
       subtitle="Estimate stable physical presence and compare it with the centre’s reported attendance — without facial identification."
-      actions={<><button className="secondaryBtn" type="button">Demo Clip⌄</button><button className="secondaryBtn" type="button">⚙ Advanced Settings</button><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
+      actions={<><a className="secondaryBtn" href={`/centres/${id}/history`}>Recent Analysis</a><button form="attendance-form" className="primaryBtn" disabled={busy}>{busy?'Analysing…':'Analyse Attendance'}</button></>}
     />
     <WorkflowStepper centreId={id} states={{attendance:busy?'running':result?(result.decision==='compliant'?'complete':'attention'):'pending'}}/>
     {error&&<div className="inlineError">{error}</div>}
