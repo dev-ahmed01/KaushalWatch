@@ -68,3 +68,28 @@ A case-opportunity row should represent a moment/window where the system had eno
 ## Claim boundary
 
 These numbers describe only the annotated demonstration dataset. They do not establish national PMKVY performance and must never be presented that way.
+
+
+## Dynamic-occupancy attendance clips
+
+Do not score a clip with changing visible occupancy by assigning one constant manual count to the entire video. Create a timestamped CSV:
+
+```csv
+second,true_count
+0.0,6
+1.0,6
+2.0,5
+```
+
+Then run:
+
+```bash
+python scripts/evaluate_dynamic_attendance.py \
+  --video path/to/held-out.mp4 \
+  --manual-csv data/annotations/held-out-attendance.csv \
+  --out evaluation/output/held-out-attendance.json
+```
+
+The evaluator compares each manual timestamp with the nearest sampled observation and reports raw, registered and smoothed-count MAE, bias, maximum error and exact-count rate. It requires an authoritative detector and fails closed on detector failures.
+
+This is separate from the compliance decision. Attendance compliance still compares stable camera occupancy with an external reported-attendance record; the timestamped evaluator exists only to measure count fidelity correctly when the scene occupancy itself changes.
