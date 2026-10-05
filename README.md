@@ -164,15 +164,14 @@ python scripts/calibrate_attendance_detector.py \
   --true-count 5
 ```
 
-The generic runtime keeps tiled inference **off by default**, while the SIH demo profile now
-enables it after calibration on the manually counted five-worker industrial fixed-camera
-clip. The selected candidate is OpenVINO confidence 0.45 with overlapping tiled inference:
-stable occupancy 5/5, registered-count MAE 0.36 after warm-up, and no attendance exception
-when reported attendance equals the manual count. See `docs/attendance-calibration.md`.
+The generic runtime keeps tiled inference **off by default**. The frozen SIH demo profile uses
+OpenVINO confidence 0.45 with overlapping tiled inference, confirmed-track occupancy and a
+3-sample median. It returns 5/5 with 0% discrepancy on the controlled calibration clip and,
+on a separate dynamic held-out clip, reduced smoothed-count MAE from 1.5556 to 0.6667 while
+improving exact-count rate from 22.22% to 55.56%. See `docs/attendance-calibration.md`.
 
-This is a target-clip calibration result, not a new general benchmark. The EPFL benchmark
-numbers remain unchanged, and held-out CCTV validation is still required before making any
-broader accuracy claim.
+These are demo-profile results on two fixed-camera clips, not a new general benchmark. The
+EPFL benchmark remains the detector precision/recall benchmark.
 
 To start the backend with the frozen target-clip demo profile after preparing OpenVINO:
 

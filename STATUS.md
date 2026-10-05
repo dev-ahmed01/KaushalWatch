@@ -12,7 +12,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - `python scripts/prepare_demo_vision.py --install` provides a one-command preparation/check for the OpenVINO runtime and checksum-verified model pair.
 - Anonymous short-lived positional tracking integrated into the attendance runtime.
 - Attendance returns time-synchronized anonymous candidate/confirmed/registered track boxes for the local review overlay; these session-local labels are not identities and non-authoritative fallback overlays remain diagnostic only.
-- OpenVINO includes an overlapping 2×2 tiled inference mode plus an exact-clip calibration sweep for crowded/occluded fixed-camera scenes. On the manually counted five-worker industrial clip, the selected SIH demo profile is confidence 0.45 + tiled inference: stable occupancy 5/5, registered-count MAE 0.36 after warm-up, raw-count MAE 0.7143, zero detector failures, and a compliant decision when reported attendance equals the manual count. A live API rerun confirmed attendance 5/5 with 0% discrepancy and no case, while Practical Work remained authoritative with 5 peak stable workers, 2 active cells and no case. Held-out validation is still pending.
+- OpenVINO includes an overlapping 2×2 tiled inference mode plus an exact-clip calibration sweep for crowded/occluded fixed-camera scenes. The final SIH attendance demo profile is now frozen at confidence 0.45 + tiled inference + confirmed-track occupancy + 3-sample median. On the manually counted five-worker calibration clip it returns 5/5, 0% discrepancy, `compliant`, no case, 100% trusted samples and zero detector failures. On the separate dynamic held-out clip, smoothed-count MAE improved from 1.5556 to 0.6667 and exact-count rate from 22.22% to 55.56% without changing detector confidence or the 15% compliance threshold.
 - Occupancy smoothing, reported-vs-observed discrepancy logic and temporal persistence.
 - Camera-trust checks for darkness, blur, frozen feed and basic scene shift.
 - Camera-integrity cases suspend attendance conclusions when the feed is not trustworthy.
@@ -64,7 +64,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
 - Example final-evaluation rows are synthetic templates, not SIH accuracy results.
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
-- Held-out dynamic attendance evaluation exposed a temporal undercount in the stricter registered-track occupancy layer: raw-count MAE 1.1667, registered-count MAE 1.3333, and smoothed-count MAE 1.5556 on 12 manual timestamps. Confirmed-track counts were materially closer after warm-up, so the demo profile now has a responsive confirmed-track occupancy candidate behind explicit configuration; it must be revalidated on both calibration and held-out clips before being treated as frozen.
+- Held-out dynamic attendance remains a small, scene-specific evaluation: with the frozen confirmed-track + 3-sample median profile, smoothed-count MAE is 0.6667, median absolute error 0, max absolute error 3, mean bias -0.4444, and exact-count rate 55.56% across the nine post-warm-up annotated timestamps. These values are not a general CCTV benchmark.
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
 - Apparent operability is visual activity evidence only, never mechanical/electrical health.
 - Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
@@ -80,4 +80,4 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 4. Run `evaluation/evaluate_final_demo.py` and report only the measured results.
 5. Run the bandwidth measurement utility on the exact clip/events and report only the measured reduction.
 6. If a current applicable source with explicit per-item quantities is obtained, attach it item-by-item; otherwise keep the demo quantities visibly simulated.
-7. Validate the selected attendance tiled profile on at least one held-out fixed-camera clip, then freeze the presentation/demo configuration and perform the final browser rehearsal.
+7. Attendance profile is frozen. Continue with final equipment/operability annotation, final evaluator, bandwidth measurement and the final browser rehearsal.
