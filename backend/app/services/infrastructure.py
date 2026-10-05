@@ -33,11 +33,30 @@ def aggregate_cached_observations(rows: list[dict]) -> dict[str, dict]:
     return out
 
 
+def resolve_confidence_threshold(
+    manifest: dict,
+    explicit_threshold: float | None = None,
+) -> float:
+    if explicit_threshold is not None:
+        threshold = float(explicit_threshold)
+    else:
+        detector_cfg = manifest.get("camera_detection") or {}
+        threshold = float(detector_cfg.get("confidence_threshold", 0.55))
+
+    if not 0 < threshold <= 1:
+        raise ValueError("confidence threshold must be in (0, 1]")
+    return threshold
+
+
 def compare_manifest(
     manifest: dict,
     observed: dict[str, dict],
-    confidence_threshold: float = 0.55,
+    confidence_threshold: float | None = None,
 ) -> list[dict]:
+    confidence_threshold = resolve_confidence_threshold(
+        manifest,
+        confidence_threshold,
+    )
     results: list[dict] = []
 
     for item in manifest.get("items", []):
@@ -55,6 +74,7 @@ def compare_manifest(
                 "presence_method": item.get("presence_method"),
                 "state": "OFFICER_VERIFICATION_REQUIRED",
                 "confidence": None,
+                "confidence_threshold": round(confidence_threshold, 3),
                 "samples": 0,
                 "deficit_ratio": None,
                 "required_persistence_ratio": None,
@@ -108,6 +128,7 @@ def compare_manifest(
             "presence_method": item.get("presence_method"),
             "state": state,
             "confidence": round(confidence, 3),
+            "confidence_threshold": round(confidence_threshold, 3),
             "samples": len(confident_counts),
             "deficit_ratio": round(deficit_ratio, 3) if deficit_ratio is not None else None,
             "required_persistence_ratio": persistence_required,
