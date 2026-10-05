@@ -1,0 +1,63 @@
+name: grounding-dod-review
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/grounding-dod-review.yml"
+
+jobs:
+  review-exact-public-clip:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install GroundingDINO dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r backend/requirements-grounding.txt
+
+      - name: Download and verify exact source clip
+        run: |
+          curl -L --fail --retry 3 \
+            "https://d34w7g4gy10iej.cloudfront.net/video/2504/DOD_110930728/DOD_110930728.mp4" \
+            -o /tmp/DOD_110930728.mp4
+          echo "2ec8a58939656ffad0f38176835c22eb331bb96e  /tmp/DOD_110930728.mp4" | sha1sum -c -
+
+      - name: Precompute wide-shot equipment review
+        run: |
+          python scripts/precompute_grounding_dino.py \
+            --video /tmp/DOD_110930728.mp4 \
+            --seconds "0,2,4,6,8,10,12" \
+            --threshold 0.35 \
+            --out /tmp/dod-electrical-infrastructure.json \
+            --review-dir /tmp/dod-electrical-infrastructure-review
+
+      - name: Show detector summary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path("/tmp/dod-electrical-infrastructure.json")
+          rows = json.loads(p.read_text())
+          for row in rows:
+              print(row["second"], [
+                  (d["label"], d["count"], round(d["confidence"], 3))
+                  for d in row["detections"]
+              ])
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dod-grounding-review
+          path: |
+            /tmp/dod-electrical-infrastructure.json
+            /tmp/dod-electrical-infrastructure.json.meta.json
+            /tmp/dod-electrical-infrastructure-review
+          if-no-files-found: error
+          retention-days: 3
