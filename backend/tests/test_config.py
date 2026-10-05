@@ -14,7 +14,7 @@ def test_default_demo_assets_resolve_from_repo_root(monkeypatch):
         PROJECT_ROOT / "configs/job_roles/construction_electrician.demo.json"
     ).resolve()
     assert equipment_cache_path() == (
-        PROJECT_ROOT / "demo/cached_detections/construction_electrician.example.json"
+        PROJECT_ROOT / "demo/cached_detections/dod_110930728.reviewed.json"
     ).resolve()
 
 
