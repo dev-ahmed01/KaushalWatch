@@ -918,6 +918,8 @@ def process_infrastructure_video(
     roi_y1: int | None = Form(None),
     roi_x2: int | None = Form(None),
     roi_y2: int | None = Form(None),
+    operability_start_sec: float | None = Form(None),
+    operability_end_sec: float | None = Form(None),
 ):
     """Stage-safe infrastructure pipeline using the demo manifest + cached detections.
 
@@ -946,6 +948,23 @@ def process_infrastructure_video(
         raise HTTPException(status_code=400, detail="Provide all ROI coordinates or none")
     roi = tuple(int(v) for v in roi_values) if all(v is not None for v in roi_values) else None
 
+    window_values = (operability_start_sec, operability_end_sec)
+    if any(v is not None for v in window_values) and not all(v is not None for v in window_values):
+        raise HTTPException(
+            status_code=400,
+            detail="Provide both operability_start_sec and operability_end_sec or neither",
+        )
+    operability_window = (
+        tuple(float(v) for v in window_values)
+        if all(v is not None for v in window_values)
+        else None
+    )
+    if operability_window is not None and roi is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Operability window requires all ROI coordinates",
+        )
+
     tmp_path = _materialize_video_upload(file)
 
     try:
@@ -958,6 +977,7 @@ def process_infrastructure_video(
             camera_id=camera_id,
             operability_item_id=operability_item_id if roi else None,
             operability_roi=roi,
+            operability_window=operability_window,
         )
         if not case:
             HISTORY.append(
