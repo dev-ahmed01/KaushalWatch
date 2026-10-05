@@ -7,6 +7,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
 from app.services.person_detector import DetectorInfo
 
@@ -54,6 +55,46 @@ def _write_cut_video(path: Path) -> None:
             frame[20:100, 0:100] = 120
         writer.write(frame)
     writer.release()
+
+
+def test_manifest_can_set_reviewed_detector_confidence_threshold():
+    rows = [
+        {
+            "second": 0,
+            "detections": [
+                {"label": "workbench", "count": 1, "confidence": 0.46},
+            ],
+        },
+        {
+            "second": 2,
+            "detections": [
+                {"label": "workbench", "count": 1, "confidence": 0.47},
+            ],
+        },
+    ]
+    observed = aggregate_cached_observations(rows)
+    item = {
+        "id": "workbench",
+        "label": "Work Bench",
+        "required": 4,
+        "verification_tier": "camera_verifiable",
+        "temporal_required_ratio": 0.8,
+    }
+
+    default_result = compare_manifest({"items": [item]}, observed)[0]
+    assert default_result["state"] == "UNCERTAIN"
+    assert default_result["confidence_threshold"] == 0.55
+
+    reviewed_result = compare_manifest(
+        {
+            "camera_detection": {"confidence_threshold": 0.45},
+            "items": [item],
+        },
+        observed,
+    )[0]
+    assert reviewed_result["state"] == "DISCREPANCY"
+    assert reviewed_result["confidence_threshold"] == 0.45
+    assert reviewed_result["deficit_ratio"] == 1.0
 
 
 def test_pipeline_persists_case_evidence_and_operability(tmp_path):
