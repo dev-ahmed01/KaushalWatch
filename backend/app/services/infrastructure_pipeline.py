@@ -203,6 +203,16 @@ class InfrastructureCompliancePipeline:
         case.evidence.append(evidence)
         case.details["camera_id"] = camera_id
         case.details["observation_source"] = observation_source
+        if observation_source == "groundingdino_human_reviewed":
+            case.details["verification_basis"] = (
+                "GroundingDINO zero-shot proposals + explicit human review + "
+                "temporal manifest comparison"
+            )
+            case.details["equipment_observation_status"] = "human_reviewed"
+            case.details["quantity_claim_boundary"] = (
+                "Observed visual counts are reviewed; required manifest quantities "
+                "remain simulated unless separately sourced."
+            )
         case.details["evidence_second"] = evidence_second
         if operability is not None:
             case.details["apparent_operability"] = operability
