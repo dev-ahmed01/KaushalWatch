@@ -179,6 +179,10 @@ def main() -> None:
         },
         "metrics": {
             "raw_count_all_annotations": metrics(comparisons, "raw_count"),
+            "confirmed_count_after_warmup": metrics(
+                stable_comparisons,
+                "confirmed_count",
+            ),
             "registered_count_after_warmup": metrics(
                 stable_comparisons,
                 "registered_count",
@@ -190,6 +194,9 @@ def main() -> None:
         },
         "metric_windows": {
             "raw_count": "all timestamped annotations",
+            "confirmed_count": (
+                f"annotations at or after {args.registration_warmup_seconds:.2f}s"
+            ),
             "registered_count": (
                 f"annotations at or after {args.registration_warmup_seconds:.2f}s"
             ),
