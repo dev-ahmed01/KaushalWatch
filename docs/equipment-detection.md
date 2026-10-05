@@ -62,3 +62,8 @@ The smoke returned six prompt-grounded detections at threshold 0.30, including w
 `--seconds auto` is the default. It derives in-bounds sample timestamps from the actual video duration, so a 7-second demo clip is never accidentally queried at 10 or 20 seconds. Explicit timestamps are still supported, but the tool now fails clearly when a requested timestamp is outside the video.
 
 The generated cache keeps the existing detector-adapter schema, so it can be reviewed and promoted without changing the live infrastructure pipeline.
+
+
+### Windows tokenizer compatibility
+
+Some current Windows installations of the Transformers/tokenizers stack reject GroundingDINO's documented nested text-label shape with a `TextEncodeInput` `TypeError`. The precompute and smoke scripts now retry that specific failure with an equivalent period-separated text string. Other `TypeError` exceptions still propagate normally, so unrelated processor problems are not hidden.
