@@ -34,6 +34,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
+- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.
 
 - Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, configuration-safe failure states, and a chained microphone-to-transcription-to-agent-to-MP3 browser flow. Provider calls are contract-tested with mocks; a live OpenAI call requires an operator-supplied `OPENAI_API_KEY`.
 
