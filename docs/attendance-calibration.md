@@ -113,3 +113,62 @@ Inspection of the same observations showed the confirmed-track layer reacting ma
 The generic profile remains `registered` with a five-sample median. The SIH demo launcher now selects `confirmed` with a three-sample median for revalidation.
 
 This is **not yet a new frozen result**. Both the five-worker calibration clip and the dynamic held-out clip must be rerun after this temporal-layer change before its metrics are accepted.
+
+
+## Final frozen attendance demo profile
+
+The responsive temporal candidate was revalidated after Cycle 10 and is now the frozen SIH attendance demo profile.
+
+```text
+KAUSHALWATCH_PERSON_DETECTOR=openvino
+KAUSHALWATCH_PERSON_CONFIDENCE=0.45
+KAUSHALWATCH_OPENVINO_TILED=1
+KAUSHALWATCH_OPENVINO_TILE_OVERLAP=0.18
+KAUSHALWATCH_OPENVINO_TILE_NMS_IOU=0.45
+KAUSHALWATCH_ATTENDANCE_COUNT_SOURCE=confirmed
+KAUSHALWATCH_OCCUPANCY_SMOOTHER_WINDOW=3
+```
+
+### Calibration clip regression
+
+On the manually verified five-worker constant-occupancy clip:
+
+- reported attendance: **5**
+- estimated occupancy: **5**
+- discrepancy: **0.0%**
+- decision: **compliant**
+- mismatch persistence: **0.16**
+- trusted sample ratio: **1.0**
+- detector failures: **0**
+- occupancy count source: **confirmed**
+- occupancy smoother window: **3**
+- compliance case: **none**
+
+The confirmed-track stream briefly reached six in the middle of the clip, but the temporal decision layer did not create a false exception because the persistent final occupancy remained five and the mismatch persistence stayed well below the 0.60 case threshold.
+
+### Dynamic held-out clip
+
+On the separate manually timestamped dynamic clip:
+
+| Metric | Old registered + 5 median | Frozen confirmed + 3 median |
+| --- | ---: | ---: |
+| Smoothed-count MAE | 1.5556 | **0.6667** |
+| Median absolute error | 1.0 | **0.0** |
+| Max absolute error | 4 | **3** |
+| Mean bias | -1.5556 | **-0.4444** |
+| Exact-count rate | 22.22% | **55.56%** |
+
+This is a **57.1% reduction in smoothed-count MAE** on the held-out dynamic sequence.
+
+The OpenVINO confidence, tiled inference settings and 15% compliance discrepancy threshold were unchanged. The improvement came from removing unnecessary temporal lag after startup while retaining:
+
+- 1-second track confirmation,
+- global 2-second attendance warm-up,
+- camera-trust gating,
+- 60% mismatch-persistence requirement,
+- human-review case workflow,
+- privacy-preserving evidence retention.
+
+### Claim boundary
+
+The frozen profile is suitable for the SIH demo based on one controlled calibration clip and one separate held-out dynamic clip. These two clips do not establish broad CCTV accuracy. The EPFL benchmark remains the only detector precision/recall benchmark currently claimed.
