@@ -1,15 +1,25 @@
 from __future__ import annotations
+import asyncio
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import os
 import json
+import logging
 import tempfile
 import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
-from app.models import ReviewRequest, EdgeSyncRequest, ComplianceCase
+from app.models import (
+    AssistantChatRequest,
+    AssistantChatResponse,
+    AssistantSpeechRequest,
+    AssistantTranscriptionResponse,
+    ReviewRequest,
+    EdgeSyncRequest,
+    ComplianceCase,
+)
 from app.services.case_store import CaseStore
 from app.services.infrastructure import aggregate_cached_observations, compare_manifest
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
@@ -24,6 +34,12 @@ from app.services.analysis_history import AnalysisHistoryStore
 from app.services.compliance_assistant import answer_question
 from app.services.centre_settings import CentreSettingsStore
 from app.services.report_pdf import build_report_pdf
+from app.services.runtime_readiness import build_runtime_readiness
+from app.services.assistant_service import AssistantService, AssistantUnavailableError
+from app.services.assistant_tools import AssistantDataContext, KaushalToolset
+from app.services.conversation_store import InMemoryConversationStore
+
+logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -35,6 +51,29 @@ DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.jso
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
 HISTORY = AnalysisHistoryStore(DATA / "analysis_history.json")
 CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
+ASSISTANT_SERVICE: AssistantService | None = None
+VOICE_SERVICE = None
+CONVERSATIONS = InMemoryConversationStore()
+
+ASSISTANT_UNAVAILABLE_MESSAGE = (
+    "Kaushal Assistant is temporarily unavailable. "
+    "Monitoring and analysis continue to work normally."
+)
+ASSISTANT_CONFIG_MESSAGE = (
+    "Kaushal Assistant requires AI configuration. "
+    "Monitoring and analysis continue to work normally."
+)
+MAX_ASSISTANT_AUDIO_BYTES = 25 * 1024 * 1024
+MAX_ASSISTANT_SPEECH_CHARS = 4000
+ASSISTANT_AUDIO_TYPES = {
+    ".webm": {"audio/webm", "video/webm"},
+    ".wav": {"audio/wav", "audio/x-wav"},
+    ".mp3": {"audio/mpeg", "audio/mp3"},
+    ".mp4": {"audio/mp4", "video/mp4"},
+    ".mpeg": {"audio/mpeg", "video/mpeg"},
+    ".mpga": {"audio/mpeg"},
+    ".m4a": {"audio/mp4", "audio/x-m4a"},
+}
 
 
 def _network_settings() -> dict[str, dict]:
@@ -59,6 +98,58 @@ def _centre_with_settings(centre_id: str):
         settings=CENTRE_SETTINGS.get(centre_id),
         history=HISTORY.list(centre_id=centre_id, limit=200),
     )
+
+
+def _ai_enabled() -> bool:
+    return os.getenv("KAUSHAL_AI_ENABLED", "true").strip().lower() not in {
+        "0", "false", "no", "off"
+    }
+
+
+def _ai_configured() -> bool:
+    return bool((os.getenv("OPENAI_API_KEY") or "").strip())
+
+
+def _assistant_timeout_seconds() -> float:
+    try:
+        value = float(os.getenv("KAUSHAL_AI_TIMEOUT_SECONDS", "60"))
+    except ValueError:
+        return 60.0
+    return min(max(value, 0.001), 300.0)
+
+
+def get_assistant_service() -> AssistantService:
+    global ASSISTANT_SERVICE
+    if ASSISTANT_SERVICE is not None:
+        return ASSISTANT_SERVICE
+    if not _ai_enabled() or not _ai_configured():
+        raise RuntimeError(ASSISTANT_CONFIG_MESSAGE)
+
+    from app.services.openai_assistant import OpenAIAssistantProvider
+
+    context = AssistantDataContext(
+        history=HISTORY,
+        cases=STORE,
+        centre_lookup=_centre_with_settings,
+        readiness_provider=runtime_readiness,
+    )
+    ASSISTANT_SERVICE = AssistantService(
+        provider=OpenAIAssistantProvider(toolset=KaushalToolset(context)),
+        conversations=CONVERSATIONS,
+    )
+    return ASSISTANT_SERVICE
+
+
+def get_voice_service():
+    global VOICE_SERVICE
+    if VOICE_SERVICE is not None:
+        return VOICE_SERVICE
+    if not _ai_enabled() or not _ai_configured():
+        raise RuntimeError(ASSISTANT_CONFIG_MESSAGE)
+    from app.services.voice_service import VoiceService
+
+    VOICE_SERVICE = VoiceService(timeout_seconds=_assistant_timeout_seconds())
+    return VOICE_SERVICE
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
 _cors_origins = [
@@ -133,70 +224,13 @@ def health():
 @app.get("/api/runtime-readiness")
 def runtime_readiness():
     detector = PIPELINE.detector.info
-
-    zones_ready = DEFAULT_WORK_ZONES.exists()
     practical_detector = PRACTICAL_PIPELINE.detector.info
-    practical_ready = zones_ready and bool(practical_detector.authoritative)
-
-    try:
-        load_demo_manifest_and_cache()
-        infrastructure_ready = True
-        infrastructure_message = (
-            "Stage-safe infrastructure manifest and cached detector telemetry are available."
-        )
-    except (FileNotFoundError, ValueError) as exc:
-        infrastructure_ready = False
-        infrastructure_message = f"Infrastructure demo assets unavailable: {exc}"
-
-    if practical_ready:
-        practical_message = (
-            f"{practical_detector.backend} detector and bundled work-zone profiles are available."
-        )
-    elif not zones_ready:
-        practical_message = "Practical-work runtime unavailable: bundled work-zone profiles are missing."
-    else:
-        practical_message = (
-            "Practical-work analysis can process the video, but final conclusions are "
-            f"withheld because the active detector is non-authoritative: {practical_detector.message}"
-        )
-
-    return {
-        "vision_setup": {
-            "selected_demo_detector": "openvino",
-            "command": "python scripts/prepare_demo_vision.py --install",
-            "note": (
-                "Run the setup command in the same Python environment used to start "
-                "the API. Auto mode will then prefer the benchmarked local OpenVINO model."
-            ),
-        },
-        "attendance": {
-            "ready": bool(detector.authoritative),
-            "backend": detector.backend,
-            "mode": detector.mode,
-            "message": detector.message,
-        },
-        "practical_work": {
-            "ready": practical_ready,
-            "backend": practical_detector.backend,
-            "mode": practical_detector.mode,
-            "authoritative": bool(practical_detector.authoritative),
-            "processing_available": zones_ready,
-            "default_zone_profiles": ["default", "authorized", "unauthorized"],
-            "message": practical_message,
-        },
-        "infrastructure": {
-            "ready": infrastructure_ready,
-            "mode": "stage_safe_cached_adapter",
-            "message": infrastructure_message,
-        },
-        "evidence": {
-            "ready": EVIDENCE.exists(),
-            "privacy_note": (
-                "Person regions are blurred where a primary person detector is available; "
-                "human review remains required."
-            ),
-        },
-    }
+    return build_runtime_readiness(
+        attendance_detector=detector,
+        practical_detector=practical_detector,
+        zones_path=DEFAULT_WORK_ZONES,
+        evidence_path=EVIDENCE,
+    )
 
 
 @app.get("/api/practical-work-zones")
@@ -305,6 +339,123 @@ def assistant_query(payload: dict = Body(...)):
         history=history,
         period=period,
     )
+
+
+@app.get("/api/assistant/status")
+def assistant_status():
+    enabled = _ai_enabled()
+    configured = _ai_configured()
+    return {
+        "enabled": enabled,
+        "configured": configured,
+        "available": enabled and configured,
+    }
+
+
+@app.post("/api/assistant/chat", response_model=AssistantChatResponse)
+async def assistant_chat(request: AssistantChatRequest):
+    if not _centre_with_settings(request.centre_id):
+        raise HTTPException(status_code=404, detail="Centre not found")
+    try:
+        service = get_assistant_service()
+        return await asyncio.wait_for(
+            service.chat(
+                message=request.message,
+                session_id=request.session_id,
+                centre_id=request.centre_id,
+            ),
+            timeout=_assistant_timeout_seconds(),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except AssistantUnavailableError as exc:
+        raise HTTPException(status_code=503, detail=ASSISTANT_UNAVAILABLE_MESSAGE) from exc
+    except RuntimeError as exc:
+        if str(exc) == ASSISTANT_CONFIG_MESSAGE:
+            raise HTTPException(status_code=503, detail=ASSISTANT_CONFIG_MESSAGE) from exc
+        raise HTTPException(status_code=503, detail=ASSISTANT_UNAVAILABLE_MESSAGE) from exc
+    except TimeoutError as exc:
+        logger.warning("assistant chat timed out")
+        raise HTTPException(status_code=503, detail=ASSISTANT_UNAVAILABLE_MESSAGE) from exc
+
+
+@app.post("/api/assistant/transcribe", response_model=AssistantTranscriptionResponse)
+async def assistant_transcribe(audio: UploadFile = File(...)):
+    filename = audio.filename or "recording.webm"
+    suffix = Path(filename).suffix.lower()
+    content_type = (audio.content_type or "").split(";", 1)[0].strip().lower()
+    if suffix not in ASSISTANT_AUDIO_TYPES or content_type not in ASSISTANT_AUDIO_TYPES[suffix]:
+        raise HTTPException(status_code=415, detail="Unsupported or mismatched audio format")
+
+    chunks = []
+    total = 0
+    while True:
+        chunk = await audio.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_ASSISTANT_AUDIO_BYTES:
+            raise HTTPException(status_code=413, detail="Audio exceeds the 25 MB upload limit")
+        chunks.append(chunk)
+    if total == 0:
+        raise HTTPException(status_code=400, detail="Uploaded audio is empty")
+
+    try:
+        service = get_voice_service()
+        text = await asyncio.wait_for(
+            service.transcribe(
+                filename=filename,
+                content_type=content_type,
+                data=b"".join(chunks),
+            ),
+            timeout=_assistant_timeout_seconds(),
+        )
+        return AssistantTranscriptionResponse(text=text)
+    except RuntimeError as exc:
+        if str(exc) == ASSISTANT_CONFIG_MESSAGE:
+            raise HTTPException(status_code=503, detail=ASSISTANT_CONFIG_MESSAGE) from exc
+        raise HTTPException(
+            status_code=503, detail="Speech transcription is temporarily unavailable."
+        ) from exc
+    except Exception as exc:
+        logger.exception("assistant transcription failed")
+        raise HTTPException(
+            status_code=503, detail="Speech transcription is temporarily unavailable."
+        ) from exc
+
+
+@app.post("/api/assistant/speech")
+async def assistant_speech(request: AssistantSpeechRequest):
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="text must not be empty")
+    if len(text) > MAX_ASSISTANT_SPEECH_CHARS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"text must be at most {MAX_ASSISTANT_SPEECH_CHARS} characters",
+        )
+    try:
+        service = get_voice_service()
+        content = await asyncio.wait_for(
+            service.speech(text),
+            timeout=_assistant_timeout_seconds(),
+        )
+        return Response(
+            content=content,
+            media_type="audio/mpeg",
+            headers={"Cache-Control": "no-store"},
+        )
+    except RuntimeError as exc:
+        if str(exc) == ASSISTANT_CONFIG_MESSAGE:
+            raise HTTPException(status_code=503, detail=ASSISTANT_CONFIG_MESSAGE) from exc
+        raise HTTPException(
+            status_code=503, detail="Speech generation is temporarily unavailable."
+        ) from exc
+    except Exception as exc:
+        logger.exception("assistant speech generation failed")
+        raise HTTPException(
+            status_code=503, detail="Speech generation is temporarily unavailable."
+        ) from exc
 
 
 def _report_window(

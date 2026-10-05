@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CaseStatus(str, Enum):
@@ -148,3 +148,46 @@ class ReviewRequest(BaseModel):
 
 class EdgeSyncRequest(BaseModel):
     events: list[dict[str, Any]]
+
+
+class AssistantSourcePayload(BaseModel):
+    kind: str
+    id: str
+    label: str
+    href: str
+    timestamp: str | None = None
+
+
+class AssistantToolCallPayload(BaseModel):
+    name: str
+    status: str
+    duration_ms: int = Field(ge=0)
+
+
+class AssistantChatRequest(BaseModel):
+    message: str = Field(max_length=4000)
+    session_id: str | None = None
+    centre_id: str = "DEMO-KA-104"
+
+    @field_validator("message")
+    @classmethod
+    def message_must_not_be_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("message must not be empty")
+        return value
+
+
+class AssistantChatResponse(BaseModel):
+    message: str
+    session_id: str
+    sources: list[AssistantSourcePayload] = Field(default_factory=list)
+    tool_calls: list[AssistantToolCallPayload] = Field(default_factory=list)
+
+
+class AssistantSpeechRequest(BaseModel):
+    text: str
+
+
+class AssistantTranscriptionResponse(BaseModel):
+    text: str

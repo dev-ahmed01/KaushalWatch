@@ -60,8 +60,36 @@ export type CaseRecord = {
 };
 
 export type AssistantReply = {
-  answer:string;
-  period:string;
-  grounded_in:{history_rows:number;pending_cases:number;centre_id:string};
-  suggested_actions:string[];
+  message:string;
+  session_id:string;
+  sources:AssistantSource[];
+  tool_calls:AssistantToolCall[];
+};
+
+export type AssistantSource = {
+  kind:'analysis'|'case'|'evidence'|'readiness'|'centre'|string;
+  id:string;
+  label:string;
+  href:string;
+  timestamp:string|null;
+};
+
+export type AssistantToolCall = {
+  name:string;
+  status:'success'|'error'|string;
+  duration_ms:number;
+};
+
+export type AssistantStatus = {
+  enabled:boolean;
+  configured:boolean;
+  available:boolean;
+};
+
+export type AssistantMessage = {
+  id:string;
+  role:'user'|'assistant';
+  text:string;
+  sources?:AssistantSource[];
+  voiceOrigin?:boolean;
 };

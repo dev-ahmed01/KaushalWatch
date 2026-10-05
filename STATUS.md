@@ -35,6 +35,8 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
 
+- Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, configuration-safe failure states, and a chained microphone-to-transcription-to-agent-to-MP3 browser flow. Provider calls are contract-tested with mocks; a live OpenAI call requires an operator-supplied `OPENAI_API_KEY`.
+
 ## Verified benchmark
 EPFL Laboratory six-person sequence, Camera 0 only, 113 labelled frames, IoU 0.50:
 
@@ -68,6 +70,8 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
 - The repository now contains the authoritative OpenVINO preparation path, but a deployed/demo backend is only authoritative after that runtime/model preparation has actually been run in the same environment that starts the API.
 - AEBAS/SIDH integrations remain simulated because the prototype does not have production government credentials.
+
+- Kaushal Assistant conversation memory is process-local for V1; API restarts or multiple workers do not share sessions. Named-worker answers are unavailable because the privacy-preserving vision pipeline does not retain worker identity.
 
 ## Remaining final-demo milestones
 1. Record/prepare the controlled fixed-camera training-centre demo described in `docs/final-demo-runbook.md`.

@@ -35,6 +35,9 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 - Next.js monitoring command centre — **production build and browser E2E verified in GitHub Actions**.
 - Offline edge runtime — **locally processes video, queues sanitized compliance telemetry, and syncs JSON events without raw-video upload; dashboard visibility is browser-E2E verified**.
 
+Kaushal Assistant is also implemented as a single tool-grounded agent with multi-turn text chat
+and end-to-end browser voice interaction. Its API and browser contracts are automated-test verified.
+
 ## Core demo path
 
 ```text
@@ -74,6 +77,48 @@ npm run dev
 ```
 
 The UI expects the API at `http://localhost:8000` by default.
+
+## Kaushal Assistant
+
+Kaushal Assistant uses one OpenAI Agents SDK agent. Operational answers are grounded through
+deterministic tools that read the existing analysis history, case/evidence store, centre state,
+escalation policy and runtime-readiness service directly. It does not call this FastAPI application
+through HTTP from inside the backend and does not synthesize missing KaushalWatch records.
+
+Copy the example environment and add a backend-only OpenAI API key:
+
+```powershell
+Copy-Item .env.example .env
+# Edit .env and set OPENAI_API_KEY. Do not use a NEXT_PUBLIC_ variable for this secret.
+cd backend
+python -m uvicorn app.main:app --env-file ..\.env --reload --port 8000
+```
+
+In another terminal:
+
+```powershell
+cd web
+npm install
+npm run dev
+```
+
+Open `http://localhost:3000/centres/DEMO-KA-104`. Typed questions stay silent by default and
+provide a speaker control. Voice questions use the browser microphone, upload the recording for
+transcription, send that transcript through the same agent, generate an AI voice response and play
+it in the browser. Microphone access works on localhost or another secure browser origin.
+
+If `OPENAI_API_KEY` is missing or `KAUSHAL_AI_ENABLED=false`, the panel shows that setup is
+required while the monitoring, analysis and review features continue normally. Conversation memory
+is intentionally bounded and process-local for V1, so sessions reset when the API restarts and are
+not shared between multiple API workers. `KAUSHAL_AI_TIMEOUT_SECONDS` bounds each provider request
+and defaults to 60 seconds.
+
+Assistant endpoints:
+
+- `GET /api/assistant/status` reports enabled/configured availability without exposing secrets.
+- `POST /api/assistant/chat` runs grounded text chat and returns session, source and tool metadata.
+- `POST /api/assistant/transcribe` accepts a supported multipart audio upload and returns text.
+- `POST /api/assistant/speech` converts assistant text to MP3 audio.
 
 ## Evaluation
 

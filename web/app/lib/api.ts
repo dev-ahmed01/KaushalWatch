@@ -1,4 +1,4 @@
-import type { AssistantReply, Centre } from './types';
+import type { AssistantReply, AssistantStatus, Centre } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -27,12 +27,49 @@ export async function getHistory(centreId:string,limit=100){
   return parse<{rows:any[]}>(await fetch(`${API}/api/analysis-history?centre_id=${encodeURIComponent(centreId)}&limit=${limit}`,{cache:'no-store'}));
 }
 
-export async function askAssistant(centreId:string,question:string,period='7d'){
-  return parse<AssistantReply>(await fetch(`${API}/api/assistant/query`,{
+export async function askAssistant(centreId:string,message:string,sessionId?:string,signal?:AbortSignal){
+  return parse<AssistantReply>(await fetch(`${API}/api/assistant/chat`,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({centre_id:centreId,question,period}),
+    body:JSON.stringify({centre_id:centreId,message,...(sessionId?{session_id:sessionId}:{})}),
+    signal,
   }));
+}
+
+export async function getAssistantStatus(){
+  return parse<AssistantStatus>(await fetch(`${API}/api/assistant/status`,{cache:'no-store'}));
+}
+
+export async function transcribeAssistantAudio(audio:Blob,signal?:AbortSignal){
+  const form=new FormData();
+  const mediaType=audio.type.split(';',1)[0].toLowerCase();
+  const extension=mediaType.includes('wav')
+    ? 'wav'
+    : mediaType.includes('mpeg')
+      ? 'mp3'
+      : mediaType.includes('mp4')
+        ? 'mp4'
+        : 'webm';
+  form.append('audio',audio,`recording.${extension}`);
+  return parse<{text:string}>(await fetch(`${API}/api/assistant/transcribe`,{
+    method:'POST',
+    body:form,
+    signal,
+  }));
+}
+
+export async function synthesizeAssistantSpeech(text:string,signal?:AbortSignal){
+  const response=await fetch(`${API}/api/assistant/speech`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text}),
+    signal,
+  });
+  if(!response.ok){
+    const payload=await response.json().catch(()=>null);
+    throw new Error(payload?.detail||'Speech generation failed');
+  }
+  return response.blob();
 }
 
 export async function getSettings(centreId:string){
