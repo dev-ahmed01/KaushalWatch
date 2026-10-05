@@ -19,6 +19,7 @@ export default function InfrastructureVerification(){
   const [preview,setPreview]=useState('');
   const [profile,setProfile]=useState('compliant');
   const [manifest,setManifest]=useState<any[]>([]);
+  const [equipmentProfile,setEquipmentProfile]=useState<any>({});
   const [result,setResult]=useState<any>(null);
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState('');
@@ -31,7 +32,10 @@ export default function InfrastructureVerification(){
   useEffect(()=>{
     fetch(`${API}/api/demo/infrastructure?profile=${encodeURIComponent(profile)}`)
       .then(r=>r.json())
-      .then(p=>setManifest(p.items||[]))
+      .then(p=>{
+        setManifest(p.items||[]);
+        setEquipmentProfile(p.equipment_profile||{});
+      })
       .catch(()=>{});
   },[profile]);
 
@@ -62,6 +66,8 @@ export default function InfrastructureVerification(){
 
   const items=result?.items||manifest;
   const tier=(name:string)=>items.filter((i:any)=>i.verification_tier===name);
+  const activeProfile=result?.equipment_profile||equipmentProfile;
+  const operability=result?.case?.details?.apparent_operability;
 
   return <div className="pageScene fadeIn">
     <PageHeader
@@ -84,11 +90,13 @@ export default function InfrastructureVerification(){
           <div>
             <span>Demo evidence profile</span>
             <select value={profile} onChange={e=>setProfile(e.target.value)}>
-              <option value="compliant">Compliant demo telemetry</option>
-              <option value="discrepancy">Discrepancy demo telemetry</option>
+              <option value="compliant">Compliant control profile</option>
+              <option value="discrepancy">Reviewed DOD infrastructure profile</option>
             </select>
           </div>
-          <p>The selected profile controls the stage-safe detector telemetry shown before analysis, so the preview never contradicts the profile you are about to run. The uploaded video supplies the review frame and optional visual-motion evidence.</p>
+          <p>{profile==='discrepancy'
+            ? 'GroundingDINO proposals were human-reviewed on DOD_110930728.mp4. Wide shots provide equipment evidence; only 14–33 s is used for the training-panel activity proxy.'
+            : 'This control profile uses explicit synthetic compliant telemetry so the walkthrough can demonstrate a no-exception outcome without claiming measured equipment inference.'}</p>
         </div>
       </form>
 
@@ -108,8 +116,23 @@ export default function InfrastructureVerification(){
           <div className="infraEvidenceSource">
             <span>Observation source</span>
             <b>{result.case?.details?.observation_source||'stage-safe detector adapter'}</b>
-            <small>Uploaded video supplies the retained review frame; equipment counts currently come from the declared detector adapter/profile.</small>
+            <small>{result.profile_source_match===true
+              ? 'Exact reviewed source clip verified by SHA-1 before applying the frozen equipment profile.'
+              : 'Uploaded video supplies the retained review frame; equipment counts come from the declared profile.'}</small>
           </div>
+          {operability&&<div className="infraEvidenceSource">
+            <span>Apparent panel activity</span>
+            <b>{String(operability.state).replaceAll('_',' ')}</b>
+            <small>
+              ROI motion score {operability.activity_score} · {operability.analysis_window?.start_sec ?? 0}–{operability.analysis_window?.end_sec ?? 'end'} s.
+              Visual interaction evidence only; not electrical or mechanical health.
+            </small>
+          </div>}
+          {profile==='discrepancy'&&activeProfile?.source_video&&<div className="infraEvidenceSource">
+            <span>Reviewed source</span>
+            <b>{activeProfile.source_video.filename}</b>
+            <small>GroundingDINO zero-shot proposals + human review. Required manifest quantities remain simulated.</small>
+          </div>}
         </div>}
         {result?.created&&result.case?.evidence?.length>0&&<EvidenceGallery evidence={result.case.evidence} title="Infrastructure evidence" compact/>}
       </div>
