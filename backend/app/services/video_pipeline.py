@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 import logging
+import os
 from pathlib import Path
 import uuid
 
@@ -46,6 +47,8 @@ class VideoCompliancePipeline:
         track_confirmation_seconds: float = 1.0,
         attendance_registration_seconds: float = 2.0,
         track_grace_seconds: float = 0.8,
+        occupancy_count_source: str | None = None,
+        occupancy_smoother_window: int | None = None,
     ) -> ProcessSummary:
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
@@ -60,9 +63,26 @@ class VideoCompliancePipeline:
             video_path,
         )
 
+        count_source = (
+            occupancy_count_source
+            or os.getenv("KAUSHALWATCH_ATTENDANCE_COUNT_SOURCE", "registered")
+        ).strip().lower()
+        if count_source not in {"registered", "confirmed"}:
+            raise ValueError(
+                "occupancy_count_source must be 'registered' or 'confirmed'"
+            )
+
+        smoother_window = (
+            int(occupancy_smoother_window)
+            if occupancy_smoother_window is not None
+            else int(os.getenv("KAUSHALWATCH_OCCUPANCY_SMOOTHER_WINDOW", "5"))
+        )
+        if smoother_window < 1:
+            raise ValueError("occupancy_smoother_window must be >= 1")
+
         fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
         step = max(1, int(round(fps * sample_every_seconds)))
-        smoother = OccupancySmoother(window=5)
+        smoother = OccupancySmoother(window=smoother_window)
         tracker = AnonymousCentroidTracker(max_distance=140.0, max_missed=2)
 
         effective_grace_seconds = max(
@@ -209,14 +229,19 @@ class VideoCompliancePipeline:
                         next_overlay_second += overlay_interval_seconds
 
                 warmup_complete = sec >= attendance_registration_seconds
-                # Do not seed the decision smoother with intentional pre-registration
-                # zeros. Otherwise a stable track can become registered correctly at
-                # 2s while the median window still reports a false mismatch from the
-                # maturity period.
-                smooth = (
-                    smoother.update(registered_count)
-                    if warmup_complete
+                decision_count = (
+                    confirmed_count
+                    if count_source == "confirmed"
                     else registered_count
+                )
+                # Keep the global two-second attendance warm-up even when the
+                # responsive confirmed-track source is selected. This prevents startup
+                # candidates from entering the compliance decision while allowing
+                # already-confirmed workers to react faster to later scene changes.
+                smooth = (
+                    smoother.update(decision_count)
+                    if warmup_complete
+                    else decision_count
                 )
                 d_pct = discrepancy_pct(reported_attendance, smooth)
 
@@ -358,6 +383,8 @@ class VideoCompliancePipeline:
                     "visual_occupancy": evidence_count,
                     "privacy_transform": "person_regions_blurred_before_central_retention",
                     "track_registration_seconds": attendance_registration_seconds,
+                    "occupancy_count_source": count_source,
+                    "occupancy_smoother_window": smoother_window,
                     "detector_backend": detector_info.backend,
                 },
             )
@@ -382,6 +409,8 @@ class VideoCompliancePipeline:
                     "track_confirmation_seconds": track_confirmation_seconds,
                     "attendance_registration_seconds": attendance_registration_seconds,
                     "track_grace_seconds": effective_grace_seconds,
+                    "occupancy_count_source": count_source,
+                    "occupancy_smoother_window": smoother_window,
                     "detector_backend": detector_info.backend,
                     "individual_identification": False,
                 },
@@ -428,5 +457,7 @@ class VideoCompliancePipeline:
             detector_message=detector_message,
             frames_sampled=frames_sampled,
             detector_failures=detector_failures,
+            occupancy_count_source=count_source,
+            occupancy_smoother_window=smoother_window,
             case=case,
         )
