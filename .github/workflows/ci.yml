@@ -74,6 +74,10 @@ jobs:
             --video /tmp/kaushalwatch-e2e.avi > /tmp/kaushalwatch-readiness.json
           test -s /tmp/kaushalwatch-readiness.json
       - name: Smoke-test one-command demo rehearsal
+        env:
+          # The rehearsal smoke video is synthetic, so pair it with the synthetic
+          # equipment cache rather than the SHA-256-bound reviewed DOD profile.
+          KAUSHALWATCH_EQUIPMENT_CACHE: demo/cached_detections/construction_electrician.example.json
         run: |
           python scripts/run_final_demo_rehearsal.py \
             --video /tmp/kaushalwatch-e2e.avi \
