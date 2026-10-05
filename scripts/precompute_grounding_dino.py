@@ -109,6 +109,40 @@ def read_frame(video: cv2.VideoCapture, second: float):
     return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
 
+def grounding_processor_inputs(processor, image, text, device):
+    """Encode GroundingDINO text across Transformers/tokenizers compatibility variants.
+
+    Current Transformers docs allow nested label lists, but some Windows/tokenizers
+    combinations reject that shape with TextEncodeInput TypeError. Prefer the documented
+    nested shape and fall back to a period-separated string only for that specific error.
+    """
+
+    if isinstance(text, str):
+        documented_text = [[text]]
+        fallback_text = text
+    else:
+        labels = [str(value).strip() for value in text if str(value).strip()]
+        documented_text = [labels]
+        fallback_text = ". ".join(value.rstrip(".") for value in labels)
+        if fallback_text and not fallback_text.endswith("."):
+            fallback_text += "."
+
+    try:
+        return processor(
+            images=image,
+            text=documented_text,
+            return_tensors="pt",
+        ).to(device)
+    except TypeError as exc:
+        if "TextEncodeInput" not in str(exc):
+            raise
+        return processor(
+            images=image,
+            text=fallback_text,
+            return_tensors="pt",
+        ).to(device)
+
+
 def detect_prompt(
     processor,
     model,
@@ -118,8 +152,7 @@ def detect_prompt(
     prompt: str,
     threshold: float,
 ):
-    text_labels = [[prompt]]
-    inputs = processor(images=image, text=text_labels, return_tensors="pt").to(device)
+    inputs = grounding_processor_inputs(processor, image, prompt, device)
     with torch_module.no_grad():
         outputs = model(**inputs)
 
