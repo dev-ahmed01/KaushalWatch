@@ -23,7 +23,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Construction Electrician-LV (CON/Q0603) demo compliance manifest with current CSDCI V5 role/item-type provenance and quantities explicitly marked simulated.
 - Infrastructure expected-vs-observed comparison with **Temporal Proof** using per-item persistence ratios.
 - Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
-- Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states.
+- Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states, including optional scenario/API time windows so camera cuts can be excluded from the motion score without trimming the source evidence video.
 - Durable edge telemetry queue, executable offline edge agent, idempotent sync endpoint, dashboard sync visibility and bandwidth measurement utility.
 - Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.
 - Strict final-demo readiness validation for readable video metadata, ROI bounds, required scenario events, non-example final assets, OpenVINO selection/model assets, and manifest/cache alignment that excludes officer-only items.
