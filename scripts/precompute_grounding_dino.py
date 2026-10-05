@@ -143,6 +143,47 @@ def grounding_processor_inputs(processor, image, text, device):
         ).to(device)
 
 
+def box_iou(box_a: list[float], box_b: list[float]) -> float:
+    ax1, ay1, ax2, ay2 = (float(v) for v in box_a)
+    bx1, by1, bx2, by2 = (float(v) for v in box_b)
+    inter_w = max(0.0, min(ax2, bx2) - max(ax1, bx1))
+    inter_h = max(0.0, min(ay2, by2) - max(ay1, by1))
+    intersection = inter_w * inter_h
+    if intersection <= 0:
+        return 0.0
+    area_a = max(0.0, ax2 - ax1) * max(0.0, ay2 - ay1)
+    area_b = max(0.0, bx2 - bx1) * max(0.0, by2 - by1)
+    union = area_a + area_b - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def dedupe_overlapping_boxes(
+    boxes: list[list[float]],
+    scores: list[float],
+    *,
+    iou_threshold: float = 0.85,
+) -> tuple[list[list[float]], list[float]]:
+    """Suppress near-identical boxes returned for synonymous prompt phrases.
+
+    This is deliberately class-local: it prevents one physical object from being
+    double-counted for the same manifest item without suppressing boxes belonging
+    to other equipment classes.
+    """
+
+    if len(boxes) != len(scores):
+        raise ValueError("boxes and scores must have equal length")
+    if not 0 < iou_threshold <= 1:
+        raise ValueError("iou_threshold must be in (0, 1]")
+
+    ordered = sorted(range(len(scores)), key=lambda index: scores[index], reverse=True)
+    kept: list[int] = []
+    for index in ordered:
+        if all(box_iou(boxes[index], boxes[other]) < iou_threshold for other in kept):
+            kept.append(index)
+
+    return [boxes[index] for index in kept], [scores[index] for index in kept]
+
+
 def detect_prompt(
     processor,
     model,
@@ -151,6 +192,7 @@ def detect_prompt(
     image,
     prompt: str,
     threshold: float,
+    dedupe_iou: float = 0.85,
 ):
     inputs = grounding_processor_inputs(processor, image, prompt, device)
     with torch_module.no_grad():
@@ -164,13 +206,19 @@ def detect_prompt(
         target_sizes=[(image.height, image.width)],
     )[0]
 
-    scores = [float(x) for x in result["scores"].detach().cpu().tolist()]
-    boxes = [
+    raw_scores = [float(x) for x in result["scores"].detach().cpu().tolist()]
+    raw_boxes = [
         [round(float(value), 2) for value in box]
         for box in result["boxes"].detach().cpu().tolist()
     ]
+    boxes, scores = dedupe_overlapping_boxes(
+        raw_boxes,
+        raw_scores,
+        iou_threshold=dedupe_iou,
+    )
     return {
         "count": len(boxes),
+        "raw_count": len(raw_boxes),
         "confidence": round(sum(scores) / len(scores), 4) if scores else 0.0,
         "boxes": boxes,
         "scores": [round(value, 4) for value in scores],
@@ -222,6 +270,12 @@ def main() -> None:
         help="Number of evenly spaced frames when --seconds auto is used.",
     )
     parser.add_argument("--threshold", type=float, default=0.35)
+    parser.add_argument(
+        "--dedupe-iou",
+        type=float,
+        default=0.85,
+        help="Suppress same-item boxes with IoU at or above this value (default: 0.85).",
+    )
     parser.add_argument("--model-id", default=MODEL_ID)
     parser.add_argument("--device", default=None, help="cuda, cpu, mps; auto-selects when omitted")
     parser.add_argument(
@@ -238,6 +292,8 @@ def main() -> None:
 
     if not 0 < args.threshold < 1:
         raise SystemExit("--threshold must be between 0 and 1")
+    if not 0 < args.dedupe_iou <= 1:
+        raise SystemExit("--dedupe-iou must be in (0, 1]")
 
     # Heavy optional dependencies stay outside the core KaushalWatch runtime.
     try:
@@ -293,6 +349,7 @@ def main() -> None:
                     image,
                     prompt,
                     args.threshold,
+                    args.dedupe_iou,
                 )
                 detections.append(
                     {
@@ -327,6 +384,7 @@ def main() -> None:
                 "model_id": args.model_id,
                 "device": device,
                 "threshold": args.threshold,
+                "dedupe_iou": args.dedupe_iou,
                 "prompts": prompts,
                 "video_metadata": metadata,
                 "sample_seconds": seconds,
