@@ -64,7 +64,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
 - Example final-evaluation rows are synthetic templates, not SIH accuracy results.
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
-- Exact held-out attendance count accuracy on dynamic-occupancy footage has not yet been scored against timestamped manual annotations; a dedicated timestamped evaluator is now available so dynamic footage is not incorrectly reduced to one constant ground-truth count.
+- Held-out dynamic attendance evaluation exposed a temporal undercount in the stricter registered-track occupancy layer: raw-count MAE 1.1667, registered-count MAE 1.3333, and smoothed-count MAE 1.5556 on 12 manual timestamps. Confirmed-track counts were materially closer after warm-up, so the demo profile now has a responsive confirmed-track occupancy candidate behind explicit configuration; it must be revalidated on both calibration and held-out clips before being treated as frozen.
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
 - Apparent operability is visual activity evidence only, never mechanical/electrical health.
 - Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.

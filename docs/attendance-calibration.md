@@ -95,3 +95,21 @@ Practical-work endpoint result on the same clip:
 The raw detector still produced transient counts outside the true count, but the temporal registration/smoothing path rejected those flashes and converged to the correct stable occupancy. This is the intended behavior of the attendance pipeline.
 
 Held-out validation on a different original fixed-camera clip is still required before making broader claims.
+
+
+## Responsive temporal occupancy candidate
+
+The first timestamped held-out evaluation on the separate dynamic-occupancy clip showed that the frozen detector itself was not the only source of error. On 12 manually annotated timestamps:
+
+- raw detector count MAE: **1.1667**, mean bias **+0.6667**
+- registered-track count MAE after warm-up: **1.3333**, mean bias **-1.3333**
+- smoothed registered count MAE after warm-up: **1.5556**, mean bias **-1.5556**
+
+Inspection of the same observations showed the confirmed-track layer reacting materially faster than the stricter two-second per-track registration layer. The architecture therefore now supports two explicit occupancy sources:
+
+- `registered` — conservative generic default, 2-second per-track maturity before it can influence occupancy
+- `confirmed` — responsive demo candidate, 1-second per-track confirmation, while retaining the existing global 2-second attendance warm-up and temporal mismatch-persistence gate
+
+The generic profile remains `registered` with a five-sample median. The SIH demo launcher now selects `confirmed` with a three-sample median for revalidation.
+
+This is **not yet a new frozen result**. Both the five-worker calibration clip and the dynamic held-out clip must be rerun after this temporal-layer change before its metrics are accepted.
