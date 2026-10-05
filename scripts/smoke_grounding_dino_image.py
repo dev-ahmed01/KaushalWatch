@@ -18,6 +18,28 @@ DEFAULT_IMAGE_URL = (
 MODEL_ID = "IDEA-Research/grounding-dino-tiny"
 
 
+def grounding_processor_inputs(processor, image, labels, device):
+    documented_text = [labels]
+    fallback_text = ". ".join(label.rstrip(".") for label in labels)
+    if fallback_text and not fallback_text.endswith("."):
+        fallback_text += "."
+
+    try:
+        return processor(
+            images=image,
+            text=documented_text,
+            return_tensors="pt",
+        ).to(device)
+    except TypeError as exc:
+        if "TextEncodeInput" not in str(exc):
+            raise
+        return processor(
+            images=image,
+            text=fallback_text,
+            return_tensors="pt",
+        ).to(device)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--image-url", default=DEFAULT_IMAGE_URL)
@@ -50,7 +72,7 @@ def main() -> None:
     model = AutoModelForZeroShotObjectDetection.from_pretrained(MODEL_ID).to(device)
     model.eval()
 
-    inputs = processor(images=image, text=[labels], return_tensors="pt").to(device)
+    inputs = grounding_processor_inputs(processor, image, labels, device)
     with torch.no_grad():
         outputs = model(**inputs)
 
