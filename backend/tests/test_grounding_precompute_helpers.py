@@ -9,6 +9,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.precompute_grounding_dino import (
     auto_sample_seconds,
+    grounding_processor_inputs,
     load_prompts,
     parse_sample_seconds,
 )
@@ -59,3 +60,61 @@ def test_load_prompts_accepts_manifest_item_mapping(tmp_path):
 
     assert prompts["workbench"] == "industrial work table"
     assert prompts["training_panel"] == "electrical control panel"
+
+
+class _FakeBatch(dict):
+    def __init__(self, text):
+        super().__init__()
+        self.text = text
+        self.device = None
+
+    def to(self, device):
+        self.device = device
+        return self
+
+
+class _NestedTextRejectingProcessor:
+    def __init__(self):
+        self.seen = []
+
+    def __call__(self, *, images, text, return_tensors):
+        self.seen.append(text)
+        if isinstance(text, list) and text and isinstance(text[0], list):
+            raise TypeError(
+                "TextEncodeInput must be Union[TextInputSequence, "
+                "Tuple[InputSequence, InputSequence]]"
+            )
+        return _FakeBatch(text)
+
+
+def test_grounding_processor_inputs_falls_back_to_flat_text_on_tokenizer_shape_error():
+    processor = _NestedTextRejectingProcessor()
+
+    batch = grounding_processor_inputs(
+        processor,
+        image=object(),
+        text="workbench. industrial work bench",
+        device="cpu",
+    )
+
+    assert processor.seen == [
+        [["workbench. industrial work bench"]],
+        "workbench. industrial work bench",
+    ]
+    assert batch.text == "workbench. industrial work bench"
+    assert batch.device == "cpu"
+
+
+class _UnrelatedTypeErrorProcessor:
+    def __call__(self, *, images, text, return_tensors):
+        raise TypeError("different processor error")
+
+
+def test_grounding_processor_inputs_does_not_hide_unrelated_type_error():
+    with pytest.raises(TypeError, match="different processor error"):
+        grounding_processor_inputs(
+            _UnrelatedTypeErrorProcessor(),
+            image=object(),
+            text="workbench",
+            device="cpu",
+        )
