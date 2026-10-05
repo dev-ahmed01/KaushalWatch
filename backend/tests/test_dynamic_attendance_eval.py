@@ -5,7 +5,12 @@ from types import SimpleNamespace
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from scripts.evaluate_dynamic_attendance import metrics, nearest_observation, read_manual_counts
+from scripts.evaluate_dynamic_attendance import (
+    metrics,
+    nearest_observation,
+    read_manual_counts,
+    stable_rows,
+)
 
 
 def test_read_manual_counts(tmp_path):
@@ -46,3 +51,19 @@ def test_metrics_reports_mae_bias_and_exact_rate():
     assert result["max_abs_error"] == 1
     assert result["mean_bias"] == 0.0
     assert result["exact_count_rate"] == 0.3333
+
+
+def test_stable_rows_excludes_registration_warmup():
+    rows = [
+        {"sample_second": 0.0, "true_count": 7},
+        {"sample_second": 1.99, "true_count": 7},
+        {"sample_second": 2.19, "true_count": 7},
+        {"sample_second": 3.0, "true_count": 6},
+    ]
+
+    result = stable_rows(rows, 2.0)
+
+    assert result == [
+        {"sample_second": 2.19, "true_count": 7},
+        {"sample_second": 3.0, "true_count": 6},
+    ]
