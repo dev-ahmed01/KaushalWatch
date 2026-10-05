@@ -12,7 +12,11 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.config import demo_scenario_path
-from app.services.demo_assets import load_demo_manifest_and_cache
+from app.services.demo_assets import (
+    load_demo_manifest_and_cache,
+    load_demo_equipment_metadata,
+    require_equipment_profile_source,
+)
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
 from app.services.offline_queue import bandwidth_measurement
 from app.services.video_pipeline import VideoCompliancePipeline
@@ -60,6 +64,8 @@ def main() -> None:
         raise SystemExit(f"Scenario not found: {scenario_path}")
     scenario = json.loads(scenario_path.read_text())
     manifest, detection_rows = load_demo_manifest_and_cache()
+    equipment_profile = load_demo_equipment_metadata()
+    source_match = require_equipment_profile_source(video, equipment_profile)
 
     centre_id = scenario["centre_id"]
     batch_id = scenario["batch_id"]
@@ -79,6 +85,18 @@ def main() -> None:
         operability_window = (
             float(window_cfg["start_sec"]),
             float(window_cfg["end_sec"]),
+        )
+
+    profile_operability = equipment_profile.get("operability") or {}
+    profile_roi = profile_operability.get("roi") or {}
+    profile_window = profile_operability.get("window") or {}
+    if all(k in profile_roi for k in ("x1", "y1", "x2", "y2")):
+        roi = tuple(int(profile_roi[k]) for k in ("x1", "y1", "x2", "y2"))
+        item_id = profile_operability.get("item_id") or item_id
+    if all(k in profile_window for k in ("start_sec", "end_sec")):
+        operability_window = (
+            float(profile_window["start_sec"]),
+            float(profile_window["end_sec"]),
         )
 
     with tempfile.TemporaryDirectory(prefix="kaushalwatch-rehearsal-") as temp:
@@ -120,6 +138,7 @@ def main() -> None:
         report = {
             "scenario_id": scenario.get("scenario_id"),
             "video": str(video),
+            "equipment_profile_source_match": source_match,
             "detector_backend": os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "hog"),
             "attendance": attendance.model_dump(mode="json"),
             "infrastructure_case": (

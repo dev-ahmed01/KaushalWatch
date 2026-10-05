@@ -1,0 +1,48 @@
+{
+  "status": "HUMAN-REVIEWED STAGE-SAFE EQUIPMENT CACHE",
+  "source_video": {
+    "filename": "DOD_110930728.mp4",
+    "public_url": "https://d34w7g4gy10iej.cloudfront.net/video/2504/DOD_110930728/DOD_110930728.mp4",
+    "sha1": "2ec8a58939656ffad0f38176835c22eb331bb96e",
+    "fps": 29.97002997002997,
+    "frame_count": 997,
+    "width": 1920,
+    "height": 1080,
+    "duration_seconds": 33.26656666666667,
+    "sha256": "ba6ccded59533d0dbd0d21c8073d07e6dda7e7034ed85b10d0997e10ba7feb91"
+  },
+  "model_id": "IDEA-Research/grounding-dino-tiny",
+  "model_threshold": 0.35,
+  "dedupe_iou": 0.85,
+  "sample_seconds": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12
+  ],
+  "review": {
+    "workbench": "accepted: one visible workbench/work surface across reviewed wide shots",
+    "training_panel": "accepted: one electrical training panel/board across reviewed wide shots",
+    "chair": "confirmed absent in the reviewed wide-shot interval",
+    "drill_machine": "confirmed absent; the 10.0 s GroundingDINO proposal was rejected as a false positive covering the bench",
+    "claim_boundary": "Human review promotes visual presence/absence counts only. It does not establish official sanctioned quantities or mechanical/electrical health."
+  },
+  "operability": {
+    "item_id": "training_panel",
+    "roi": {
+      "x1": 650,
+      "y1": 250,
+      "x2": 1500,
+      "y2": 900
+    },
+    "window": {
+      "start_sec": 14,
+      "end_sec": 33
+    },
+    "method": "roi_motion_proxy",
+    "interpretation": "Sustained visible interaction with the training panel; apparent visual activity only, not electrical/mechanical health."
+  }
+}

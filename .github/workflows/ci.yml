@@ -74,12 +74,20 @@ jobs:
             --video /tmp/kaushalwatch-e2e.avi > /tmp/kaushalwatch-readiness.json
           test -s /tmp/kaushalwatch-readiness.json
       - name: Smoke-test one-command demo rehearsal
+        env:
+          # The rehearsal smoke video is synthetic, so pair it with the synthetic
+          # equipment cache rather than the SHA-256-bound reviewed DOD profile.
+          KAUSHALWATCH_EQUIPMENT_CACHE: demo/cached_detections/construction_electrician.example.json
         run: |
           python scripts/run_final_demo_rehearsal.py \
             --video /tmp/kaushalwatch-e2e.avi \
             --out /tmp/kaushalwatch-rehearsal.json
           test -s /tmp/kaushalwatch-rehearsal.json
       - name: Start API
+        env:
+          # Browser E2E uses a tiny synthetic video; keep that test on the synthetic
+          # discrepancy cache instead of weakening the SHA-1-bound reviewed DOD profile.
+          KAUSHALWATCH_EQUIPMENT_CACHE: demo/cached_detections/construction_electrician.example.json
         run: |
           uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 > /tmp/kaushalwatch-api.log 2>&1 &
           for i in {1..30}; do

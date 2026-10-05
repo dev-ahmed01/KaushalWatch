@@ -9,22 +9,38 @@ def load_manifest(path: Path) -> dict:
 
 
 def aggregate_cached_observations(rows: list[dict]) -> dict[str, dict]:
-    per_item: dict[str, list[tuple[int, float]]] = defaultdict(list)
+    per_item: dict[str, list[dict]] = defaultdict(list)
     for row in rows:
         for det in row.get("detections", []):
-            per_item[det["label"]].append(
-                (int(det.get("count", 0)), float(det.get("confidence", 0.0)))
+            raw_confidence = float(det.get("confidence", 0.0))
+            verification_confidence = float(
+                det.get("verification_confidence", raw_confidence)
             )
+            per_item[det["label"]].append({
+                "count": int(det.get("count", 0)),
+                "verification_confidence": verification_confidence,
+                "model_confidence": raw_confidence,
+                "human_reviewed": "verification_confidence" in det,
+                "review_status": det.get("review_status"),
+            })
 
     out: dict[str, dict] = {}
     for label, values in per_item.items():
-        counts = [v[0] for v in values]
-        confidences = [v[1] for v in values]
+        counts = [int(v["count"]) for v in values]
+        confidences = [float(v["verification_confidence"]) for v in values]
+        model_confidences = [float(v["model_confidence"]) for v in values]
         ordered = sorted(counts)
         out[label] = {
             "observed_count": ordered[len(ordered) // 2],
+            # Decision confidence can come from an explicit human-review promotion
+            # layer while preserving the raw model score separately.
             "mean_confidence": sum(confidences) / len(confidences),
+            "mean_model_confidence": sum(model_confidences) / len(model_confidences),
             "samples": len(values),
+            "reviewed_samples": sum(bool(v["human_reviewed"]) for v in values),
+            "review_statuses": [
+                v["review_status"] for v in values if v.get("review_status")
+            ],
             # Kept for temporal consensus. These are tiny demo/edge telemetry arrays,
             # not raw video or identity data.
             "sample_counts": counts,
@@ -108,6 +124,12 @@ def compare_manifest(
             "presence_method": item.get("presence_method"),
             "state": state,
             "confidence": round(confidence, 3),
+            "model_confidence": (
+                round(float(obs.get("mean_model_confidence")), 3)
+                if obs.get("mean_model_confidence") is not None
+                else None
+            ),
+            "reviewed_samples": int(obs.get("reviewed_samples", 0)),
             "samples": len(confident_counts),
             "deficit_ratio": round(deficit_ratio, 3) if deficit_ratio is not None else None,
             "required_persistence_ratio": persistence_required,

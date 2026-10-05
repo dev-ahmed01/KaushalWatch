@@ -27,7 +27,7 @@ def demo_manifest_path() -> Path:
 def equipment_cache_path() -> Path:
     return project_path(
         "KAUSHALWATCH_EQUIPMENT_CACHE",
-        "demo/cached_detections/construction_electrician.example.json",
+        "demo/cached_detections/dod_110930728.reviewed.json",
     )
 
 

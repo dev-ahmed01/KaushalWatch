@@ -34,7 +34,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
-- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.
+- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.\n- The DOD_110930728 electrical-training clip has now been run through GroundingDINO on seven wide-shot timestamps and human-reviewed: one workbench and one training panel were accepted, chairs/drill were confirmed absent, and the 10 s drill proposal was rejected as a false positive. The reviewed cache preserves raw model confidence separately from review confidence and is SHA-256-bound to the exact source clip (with the published SHA-1 retained as provenance).
 
 - Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, and configuration-safe failure states. The agent uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint; voice uses Groq Whisper Large V3 Turbo and Orpheus with WAV playback. Provider calls are contract-tested with mocks; live free-provider verification still requires operator-supplied `GEMINI_API_KEY` and `GROQ_API_KEY`.
 
@@ -61,7 +61,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Browser E2E verifies a synchronized edge event appears in the dashboard.
 
 ## Intentionally NOT claimed as complete
-- Final equipment quality has **not** been measured on the exact controlled training-centre demo video.
+- Formal equipment precision/recall has **not** yet been measured. The DOD_110930728 infrastructure clip has been human-reviewed for stage use, but that review is not a substitute for a labelled equipment benchmark.
 - Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
 - Example final-evaluation rows are synthetic templates, not SIH accuracy results.
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
@@ -75,10 +75,9 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Kaushal Assistant conversation memory is process-local for V1; API restarts or multiple workers do not share sessions. Named-worker answers are unavailable because the privacy-preserving vision pipeline does not retain worker identity.
 
 ## Remaining final-demo milestones
-1. Record/prepare the controlled fixed-camera training-centre demo described in `docs/final-demo-runbook.md`.
-2. Run GroundingDINO offline on that exact clip, visually review the detections, and freeze the stage-safe cache.
-3. Annotate the exact clip for attendance, equipment and apparent operability.
-4. Run `evaluation/evaluate_final_demo.py` and report only the measured results.
-5. Run the bandwidth measurement utility on the exact clip/events and report only the measured reduction.
-6. If a current applicable source with explicit per-item quantities is obtained, attach it item-by-item; otherwise keep the demo quantities visibly simulated.
-7. Attendance profile is frozen. Continue with final equipment/operability annotation, final evaluator, bandwidth measurement and the final browser rehearsal.
+1. Keep the frozen attendance/practical clips and the reviewed DOD infrastructure clip mapped to their exact demo steps.
+2. Annotate the exact stage clips for attendance, equipment and apparent operability.
+3. Run `evaluation/evaluate_final_demo.py` and report only the measured results.
+4. Run the bandwidth measurement utility on the exact clip/events and report only the measured reduction.
+5. If a current applicable source with explicit per-item quantities is obtained, attach it item-by-item; otherwise keep the demo quantities visibly simulated.
+6. Run the final browser rehearsal with the exact stage assets and preserve the claim boundaries above.

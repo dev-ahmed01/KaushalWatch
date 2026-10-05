@@ -66,6 +66,59 @@ def test_manifest_compare():
     assert rows[1]["state"] == "OFFICER_VERIFICATION_REQUIRED"
 
 
+def test_reviewed_absence_can_be_promoted_without_overwriting_model_score():
+    rows = [
+        {
+            "second": 0,
+            "detections": [
+                {
+                    "label": "drill_machine",
+                    "count": 0,
+                    "confidence": 0.3741,
+                    "verification_confidence": 1.0,
+                    "review_status": "rejected_false_positive",
+                }
+            ],
+        },
+        {
+            "second": 2,
+            "detections": [
+                {
+                    "label": "drill_machine",
+                    "count": 0,
+                    "confidence": 0.0,
+                    "verification_confidence": 1.0,
+                    "review_status": "confirmed_absent",
+                }
+            ],
+        },
+    ]
+    observed = aggregate_cached_observations(rows)
+    drill = observed["drill_machine"]
+    assert drill["observed_count"] == 0
+    assert drill["mean_confidence"] == 1.0
+    assert drill["mean_model_confidence"] == pytest.approx(0.18705)
+    assert drill["reviewed_samples"] == 2
+
+    manifest = {
+        "items": [
+            {
+                "id": "drill_machine",
+                "label": "Drill Machine",
+                "required": 1,
+                "verification_tier": "camera_partially_verifiable",
+                "temporal_required_ratio": 0.6,
+            }
+        ]
+    }
+    result = compare_manifest(manifest, observed)[0]
+    assert result["state"] == "DISCREPANCY"
+    assert result["observed"] == 0
+    assert result["confidence"] == 1.0
+    assert result["model_confidence"] == pytest.approx(0.187, abs=0.001)
+    assert result["reviewed_samples"] == 2
+
+
 def test_explicit_yolo_detector_alias_is_accepted(monkeypatch):
     class StubYoloDetector:
         info = None
