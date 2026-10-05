@@ -28,7 +28,7 @@ Persistent exceptions become evidence-backed compliance cases for human review.
 - Human review status workflow — **implemented**.
 - Apparent-operability ROI motion proxy — **implemented as a visual activity proxy only; not a mechanical diagnosis**.
 - Cached equipment-detection adapter — **implemented as the stage-safe fallback**.
-- GroundingDINO offline precompute path — **isolated smoke inference verified; final-video equipment accuracy still pending**.
+- GroundingDINO offline precompute path — **inference verified and the DOD_110930728 infrastructure clip has a human-reviewed stage-safe cache; formal equipment precision/recall is still pending**.
 - Executable Construction Electrician - LV (CON/Q0603) demo manifest — **implemented; job-role identity sourced, quantities explicitly simulated**.
 - Final-demo evaluation scripts — **implemented and CI-smoke-tested; example inputs remain synthetic until replaced with annotations of the exact final clip**.
 - Privacy-preserving design note — **written and reflected in code; retained attendance/infrastructure evidence anonymizes detected person regions**.
