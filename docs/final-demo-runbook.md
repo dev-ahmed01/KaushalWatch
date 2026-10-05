@@ -7,6 +7,7 @@ Use `demo/scenarios/final-demo.example.json` as the checklist, then copy it loca
 - Camera remains stationary throughout normal observations.
 - Frame the people area and selected large equipment together where practical.
 - Record the final ROI coordinates for the drill/activity proxy.
+- If the source clip contains a hard scene cut, keep that cut outside the operability interval and record the stable interval as `operability_window`; equipment-presence sampling may still use the wider clip.
 
 ## Ground truth before recording
 Write down:
@@ -18,6 +19,17 @@ Write down:
 - every compliance-case opportunity that should or should not create a case.
 
 Never derive "ground truth" from the AI output after the fact.
+
+For clips where only part of the video is stable enough for the ROI-motion proxy, add:
+
+```json
+"operability_window": {
+  "start_sec": 14.0,
+  "end_sec": 33.0
+}
+```
+
+The infrastructure pipeline will then use the full reviewed detector cache for equipment presence while restricting apparent-operability motion scoring to that stable interval.
 
 ## Required sequences
 1. Normal trustworthy camera view.

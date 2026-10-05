@@ -73,6 +73,14 @@ def main() -> None:
         roi = tuple(int(roi_cfg[k]) for k in ("x1", "y1", "x2", "y2"))
         item_id = roi_cfg.get("item_id")
 
+    window_cfg = scenario.get("operability_window") or {}
+    operability_window = None
+    if all(k in window_cfg for k in ("start_sec", "end_sec")):
+        operability_window = (
+            float(window_cfg["start_sec"]),
+            float(window_cfg["end_sec"]),
+        )
+
     with tempfile.TemporaryDirectory(prefix="kaushalwatch-rehearsal-") as temp:
         temp_root = Path(temp)
         evidence_dir = temp_root / "evidence"
@@ -101,6 +109,7 @@ def main() -> None:
             camera_id=camera_id,
             operability_item_id=item_id if roi else None,
             operability_roi=roi,
+            operability_window=operability_window if roi else None,
         )
 
         events = [case_event(attendance.case), case_event(infrastructure)]

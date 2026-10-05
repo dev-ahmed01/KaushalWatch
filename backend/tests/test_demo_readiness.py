@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.check_demo_readiness import (
     check_operability_roi,
+    check_operability_window,
     final_mode_checks,
     inspect_video,
     required_cache_labels,
@@ -49,6 +50,24 @@ def test_operability_roi_must_fit_video():
     assert "exceeds video dimensions" in note
 
 
+def test_operability_window_must_fit_video_duration():
+    scenario = {
+        "operability_window": {"start_sec": 14.0, "end_sec": 33.0}
+    }
+    ok, note = check_operability_window(scenario, duration_seconds=32.5)
+    assert ok is False
+    assert "exceeds video duration" in note
+
+
+def test_operability_window_accepts_stable_subclip():
+    scenario = {
+        "operability_window": {"start_sec": 14.0, "end_sec": 33.0}
+    }
+    ok, note = check_operability_window(scenario, duration_seconds=33.27)
+    assert ok is True
+    assert "14.000-33.000s" in note
+
+
 def test_final_mode_rejects_example_assets_and_fallback_detector(tmp_path):
     scenario = {
         "status": "EXAMPLE SCENARIO",
@@ -59,6 +78,11 @@ def test_final_mode_rejects_example_assets_and_fallback_detector(tmp_path):
             "x2": 10,
             "y2": 10,
             "note": "Replace these coordinates after framing the final camera.",
+        },
+        "operability_window": {
+            "start_sec": 0,
+            "end_sec": 10,
+            "note": "Replace these timestamps after reviewing the final clip.",
         },
     }
     checks = final_mode_checks(
@@ -74,6 +98,7 @@ def test_final_mode_rejects_example_assets_and_fallback_detector(tmp_path):
     assert by_name["final_detector_openvino"] is False
     assert by_name["final_scenario_event_coverage"] is False
     assert by_name["final_operability_roi_frozen"] is False
+    assert by_name["final_operability_window_frozen"] is False
 
 
 def test_final_mode_accepts_frozen_scenario(tmp_path):
@@ -94,6 +119,11 @@ def test_final_mode_accepts_frozen_scenario(tmp_path):
             "x2": 100,
             "y2": 80,
             "note": "Frozen after final camera framing.",
+        },
+        "operability_window": {
+            "start_sec": 14.0,
+            "end_sec": 33.0,
+            "note": "Frozen after reviewing the final clip.",
         },
     }
     checks = final_mode_checks(
