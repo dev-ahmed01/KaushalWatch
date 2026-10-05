@@ -35,7 +35,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
 
-- Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, configuration-safe failure states, and a chained microphone-to-transcription-to-agent-to-MP3 browser flow. Provider calls are contract-tested with mocks; a live OpenAI call requires an operator-supplied `OPENAI_API_KEY`.
+- Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, and configuration-safe failure states. The agent uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint; voice uses Groq Whisper Large V3 Turbo and Orpheus with WAV playback. Provider calls are contract-tested with mocks; live free-provider verification still requires operator-supplied `GEMINI_API_KEY` and `GROQ_API_KEY`.
 
 ## Verified benchmark
 EPFL Laboratory six-person sequence, Camera 0 only, 113 labelled frames, IoU 0.50:
