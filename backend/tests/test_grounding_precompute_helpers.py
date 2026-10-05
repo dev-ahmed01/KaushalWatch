@@ -9,6 +9,8 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.precompute_grounding_dino import (
     auto_sample_seconds,
+    box_iou,
+    dedupe_overlapping_boxes,
     grounding_processor_inputs,
     load_prompts,
     parse_sample_seconds,
@@ -42,6 +44,30 @@ def test_parse_sample_seconds_auto_uses_requested_count():
 
     assert len(seconds) == 4
     assert seconds[-1] < 11.279
+
+
+def test_box_iou_reports_near_duplicate_overlap():
+    iou = box_iou(
+        [791.39, 555.08, 1162.25, 690.10],
+        [791.99, 556.35, 1161.06, 689.01],
+    )
+    assert iou > 0.95
+
+
+def test_dedupe_overlapping_boxes_keeps_best_score_for_synonym_duplicate():
+    boxes, scores = dedupe_overlapping_boxes(
+        [
+            [791.39, 555.08, 1162.25, 690.10],
+            [791.99, 556.35, 1161.06, 689.01],
+            [100.0, 100.0, 200.0, 200.0],
+        ],
+        [0.5762, 0.3624, 0.41],
+        iou_threshold=0.85,
+    )
+
+    assert len(boxes) == 2
+    assert scores == [0.5762, 0.41]
+    assert boxes[0] == [791.39, 555.08, 1162.25, 690.10]
 
 
 def test_load_prompts_accepts_manifest_item_mapping(tmp_path):
