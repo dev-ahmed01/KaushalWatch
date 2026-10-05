@@ -1,0 +1,72 @@
+[
+  {
+    "second": 0.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4668,"boxes":[[372.48,600.43,1592.09,1074.55]],"scores":[0.4668],"model_count":1,"model_confidence":0.4668,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.4699,"boxes":[[788.84,570.88,1146.5,704.93]],"scores":[0.4699],"model_count":1,"model_confidence":0.4699,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 2.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4377,"boxes":[[381.45,580.52,1622.36,1074.84]],"scores":[0.4377],"model_count":1,"model_confidence":0.4377,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":2,"confidence":0.5762,"boxes":[[791.39,555.08,1162.25,690.1]],"scores":[0.5762],"model_count":1,"model_confidence":0.5762,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 4.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4612,"boxes":[[389.95,568.81,1624.11,1074.87]],"scores":[0.4612],"model_count":1,"model_confidence":0.4612,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.4544,"boxes":[[798.28,558.07,1178.16,705.79]],"scores":[0.4544],"model_count":1,"model_confidence":0.4544,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 6.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4768,"boxes":[[391.84,570.1,1636.42,1074.28]],"scores":[0.4768],"model_count":1,"model_confidence":0.4768,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.5588,"boxes":[[798.86,554.81,1177.03,693.28]],"scores":[0.5588],"model_count":1,"model_confidence":0.5588,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 8.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4322,"boxes":[[408.56,569.62,1625.73,1074.26]],"scores":[0.4322],"model_count":1,"model_confidence":0.4322,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.524,"boxes":[[798.82,556.1,1176.07,698.05]],"scores":[0.524],"model_count":1,"model_confidence":0.524,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 10.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4696,"boxes":[[399.96,563.83,1634.65,1074.76]],"scores":[0.4696],"model_count":1,"model_confidence":0.4696,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.3876,"boxes":[[812.69,560.21,1182.05,683.29]],"scores":[0.3876],"model_count":1,"model_confidence":0.3876,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":1,"confidence":0.3741,"boxes":[[399.55,552.14,1399.59,1076.41]],"scores":[0.3741],"model_count":1,"model_confidence":0.3741,"review_status":"rejected_false_positive","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  },
+  {
+    "second": 12.0,
+    "detections": [
+      {"label":"workbench","prompt":"workbench. work table. industrial work bench","count":1,"raw_count":1,"confidence":0.4528,"boxes":[[416.61,592.68,1619.08,1074.67]],"scores":[0.4528],"model_count":1,"model_confidence":0.4528,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"chair","prompt":"chair. stool. seat","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0},
+      {"label":"training_panel","prompt":"electrical control panel. electrical switchboard. training panel","count":1,"raw_count":1,"confidence":0.509,"boxes":[[818.97,583.51,1194.46,723.84]],"scores":[0.509],"model_count":1,"model_confidence":0.509,"review_status":"accepted","verification_confidence":1.0},
+      {"label":"drill_machine","prompt":"drill machine. drilling machine. power drill","count":0,"raw_count":0,"confidence":0.0,"boxes":[],"scores":[],"model_count":0,"model_confidence":0.0,"review_status":"confirmed_absent","verification_confidence":1.0}
+    ],
+    "source":"groundingdino_human_reviewed"
+  }
+]
