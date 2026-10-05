@@ -90,6 +90,6 @@ python scripts/evaluate_dynamic_attendance.py \
   --out evaluation/output/held-out-attendance.json
 ```
 
-The evaluator compares each manual timestamp with the nearest sampled observation and reports raw, registered and smoothed-count MAE, bias, maximum error and exact-count rate. It requires an authoritative detector and fails closed on detector failures.
+The evaluator compares each manual timestamp with the nearest sampled observation and reports raw, registered and smoothed-count MAE, bias, maximum error and exact-count rate. Raw-count metrics use all annotated timestamps. Registered/smoothed metrics exclude the intentional attendance track-registration warm-up (2 seconds by default), so the evaluator does not score designed pre-registration zeros as counting errors. It requires an authoritative detector and fails closed on detector failures.
 
 This is separate from the compliance decision. Attendance compliance still compares stable camera occupancy with an external reported-attendance record; the timestamped evaluator exists only to measure count fidelity correctly when the scene occupancy itself changes.

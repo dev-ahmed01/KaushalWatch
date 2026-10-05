@@ -36,7 +36,17 @@ def nearest_observation(observations, second: float):
     return min(observations, key=lambda obs: abs(float(obs.second) - second))
 
 
+def stable_rows(rows: list[dict], warmup_seconds: float) -> list[dict]:
+    return [
+        row
+        for row in rows
+        if float(row["sample_second"]) + 1e-9 >= float(warmup_seconds)
+    ]
+
+
 def metrics(rows: list[dict], field: str) -> dict:
+    if not rows:
+        raise ValueError(f"No rows available for metric: {field}")
     errors = [abs(row[field] - row["true_count"]) for row in rows]
     signed = [row[field] - row["true_count"] for row in rows]
     exact = sum(row[field] == row["true_count"] for row in rows)
@@ -68,6 +78,15 @@ def main() -> None:
         type=float,
         default=0.12,
         help="Maximum allowed distance between a manual timestamp and pipeline sample.",
+    )
+    parser.add_argument(
+        "--registration-warmup-seconds",
+        type=float,
+        default=2.0,
+        help=(
+            "Exclude pre-registration timestamps from registered/smoothed metrics. "
+            "Raw detector metrics still use every annotation."
+        ),
     )
     parser.add_argument(
         "--out",
@@ -134,10 +153,23 @@ def main() -> None:
             }
         )
 
+    stable_comparisons = stable_rows(
+        comparisons,
+        args.registration_warmup_seconds,
+    )
+    if not stable_comparisons:
+        raise SystemExit(
+            "No timestamped annotations remain after the registration warm-up. "
+            "Add annotations at or after "
+            f"{args.registration_warmup_seconds:.2f}s."
+        )
+
     payload = {
         "video": str(video),
         "manual_csv": str(manual_path),
         "annotations": len(comparisons),
+        "stable_annotations": len(stable_comparisons),
+        "registration_warmup_seconds": args.registration_warmup_seconds,
         "detector": {
             "backend": result.detector_backend,
             "mode": result.detector_mode,
@@ -146,16 +178,32 @@ def main() -> None:
             "failures": result.detector_failures,
         },
         "metrics": {
-            "raw_count": metrics(comparisons, "raw_count"),
-            "registered_count": metrics(comparisons, "registered_count"),
-            "smoothed_count": metrics(comparisons, "smoothed_count"),
+            "raw_count_all_annotations": metrics(comparisons, "raw_count"),
+            "registered_count_after_warmup": metrics(
+                stable_comparisons,
+                "registered_count",
+            ),
+            "smoothed_count_after_warmup": metrics(
+                stable_comparisons,
+                "smoothed_count",
+            ),
+        },
+        "metric_windows": {
+            "raw_count": "all timestamped annotations",
+            "registered_count": (
+                f"annotations at or after {args.registration_warmup_seconds:.2f}s"
+            ),
+            "smoothed_count": (
+                f"annotations at or after {args.registration_warmup_seconds:.2f}s"
+            ),
         },
         "comparisons": comparisons,
         "claim_boundary": (
             "Metrics apply only to the supplied manually annotated timestamps. "
             "The compliance decision itself compares camera occupancy with an external "
             "reported-attendance record and should not be scored by pretending a dynamic "
-            "clip has one constant ground-truth count."
+            "clip has one constant ground-truth count. Registered/smoothed "
+            "metrics exclude the intentional track-registration warm-up."
         ),
     }
 

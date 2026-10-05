@@ -10,6 +10,7 @@ node_modules/
 data/cases.json
 data/evidence/
 data/evidence_index.json
+data/analysis_history.json
 data/edge_events.json
 data/raw/
 data/videos/
