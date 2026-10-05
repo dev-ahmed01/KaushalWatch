@@ -40,6 +40,16 @@ class InfrastructureCompliancePipeline:
         operability_window: tuple[float, float] | None = None,
     ) -> ComplianceCase | None:
         observed = aggregate_cached_observations(detection_rows)
+        declared_sources = sorted({
+            str(row.get("source")).strip()
+            for row in detection_rows
+            if str(row.get("source", "")).strip()
+        })
+        observation_source = (
+            declared_sources[0]
+            if len(declared_sources) == 1
+            else "detector_adapter"
+        )
         results = compare_manifest(manifest, observed)
         case = build_infrastructure_case(
             centre_id=centre_id,
@@ -185,14 +195,14 @@ class InfrastructureCompliancePipeline:
                 "case_type": "infrastructure_compliance",
                 "job_role": manifest.get("job_role"),
                 "evidence_second": evidence_second,
-                "observation_source": "cached_or_live_detector_adapter",
+                "observation_source": observation_source,
                 "privacy_transform": privacy_transform,
             },
         )
 
         case.evidence.append(evidence)
         case.details["camera_id"] = camera_id
-        case.details["observation_source"] = "detector_adapter"
+        case.details["observation_source"] = observation_source
         case.details["evidence_second"] = evidence_second
         if operability is not None:
             case.details["apparent_operability"] = operability
