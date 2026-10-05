@@ -38,6 +38,31 @@ class FallbackThreePersonDetector(ScriptedThreePersonDetector):
     )
 
 
+class ScriptedLateArrivalDetector:
+    info = DetectorInfo(
+        backend="scripted-test",
+        mode="primary",
+        authoritative=True,
+        message="Deterministic late-arrival regression detector",
+    )
+
+    def __init__(self):
+        self.calls = 0
+
+    def detect(self, frame):
+        self.calls += 1
+        detections = [
+            Detection(70, 80, 130, 250, 0.95),
+            Detection(250, 70, 315, 250, 0.93),
+            Detection(430, 85, 500, 255, 0.91),
+        ]
+        # With the default 0.2s sampling interval, the fourth worker appears
+        # at roughly 2s. It should become confirmed before it becomes registered.
+        if self.calls >= 11:
+            detections.append(Detection(540, 80, 605, 255, 0.94))
+        return detections
+
+
 def _write_trustworthy_video(path: Path, frames: int = 120, fps: int = 10) -> None:
     writer = cv2.VideoWriter(
         str(path),
@@ -133,6 +158,58 @@ def test_fallback_detector_never_presents_zero_or_nonzero_as_attendance_truth(tm
     # Diagnostic overlays remain available for operator context, but never
     # become attendance truth while the detector is non-authoritative.
     assert any(sample.boxes for sample in result.overlay_samples)
+
+
+def test_confirmed_count_source_responds_before_registered_source(tmp_path):
+    video = tmp_path / "late-arrival.avi"
+    _write_trustworthy_video(video)
+
+    confirmed_pipeline = VideoCompliancePipeline(
+        tmp_path / "evidence-confirmed",
+        tmp_path / "index-confirmed.json",
+        detector=ScriptedLateArrivalDetector(),
+    )
+    confirmed = confirmed_pipeline.run(
+        video_path=video,
+        reported_attendance=4,
+        centre_id="TEST-CENTRE",
+        batch_id="TEST-BATCH",
+        sample_every_seconds=0.2,
+        occupancy_count_source="confirmed",
+        occupancy_smoother_window=1,
+    )
+
+    registered_pipeline = VideoCompliancePipeline(
+        tmp_path / "evidence-registered",
+        tmp_path / "index-registered.json",
+        detector=ScriptedLateArrivalDetector(),
+    )
+    registered = registered_pipeline.run(
+        video_path=video,
+        reported_attendance=4,
+        centre_id="TEST-CENTRE",
+        batch_id="TEST-BATCH",
+        sample_every_seconds=0.2,
+        occupancy_count_source="registered",
+        occupancy_smoother_window=1,
+    )
+
+    first_confirmed_four = next(
+        row.second
+        for row in confirmed.observations
+        if row.second >= 2.0 and row.smoothed_count == 4
+    )
+    first_registered_four = next(
+        row.second
+        for row in registered.observations
+        if row.second >= 2.0 and row.smoothed_count == 4
+    )
+
+    assert confirmed.occupancy_count_source == "confirmed"
+    assert confirmed.occupancy_smoother_window == 1
+    assert registered.occupancy_count_source == "registered"
+    assert first_confirmed_four < first_registered_four
+    assert first_registered_four - first_confirmed_four >= 0.8
 
 
 @pytest.mark.real_video
