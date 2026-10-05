@@ -383,7 +383,9 @@ def test_voice_service_uses_current_models_and_in_memory_audio():
     )
     assert speech == b"wav-bytes"
     assert client.audio.speech.calls[0]["model"] == "canopylabs/orpheus-v1-english"
-    assert client.audio.speech.calls[0]["voice"] == "hannah"\n    assert client.audio.speech.calls[0]["response_format"] == "wav"\n    assert "instructions" not in client.audio.speech.calls[0]
+    assert client.audio.speech.calls[0]["voice"] == "hannah"
+    assert client.audio.speech.calls[0]["response_format"] == "wav"
+    assert "instructions" not in client.audio.speech.calls[0]
 
 
 
