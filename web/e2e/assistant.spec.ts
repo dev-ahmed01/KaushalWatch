@@ -525,7 +525,7 @@ test('missing Groq configuration leaves typed Gemini chat available', async ({ p
     status: 200,
     contentType: 'application/json',
     body: JSON.stringify({
-      message: 'Typed chat remains available.',
+      message: 'Gemini chat returned a grounded response.',
       session_id: 'gemini-only-session',
       sources: [],
       tool_calls: [],
@@ -545,6 +545,6 @@ test('missing Groq configuration leaves typed Gemini chat available', async ({ p
 
   await page.getByPlaceholder('Ask Kaushal anything...').fill('What happened today?');
   await page.getByRole('button', { name: 'Send message' }).click();
-  await expect(page.getByText('Typed chat remains available.')).toBeVisible();
+  await expect(page.getByText('Gemini chat returned a grounded response.')).toBeVisible();
 });
 
