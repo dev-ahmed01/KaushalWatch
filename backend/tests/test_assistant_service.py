@@ -274,10 +274,11 @@ class FakeRunner:
 
 
 def test_openai_provider_configures_one_grounded_agent_and_all_tools():
-    provider = OpenAIAssistantProvider(toolset=FakeToolset(), runner=FakeRunner())
+    provider = OpenAIAssistantProvider(toolset=FakeToolset(), runner=FakeRunner(), client=object())
 
     assert provider.agent.name == "Kaushal Assistant"
-    assert provider.agent.model == "gpt-5-mini"
+    assert provider.model_name == "gemini-3.8-flash"
+    assert provider.agent.model.model == "gemini-3.8-flash"
     assert {tool.name for tool in provider.agent.tools} == {
         "get_centre_overview",
         "get_runtime_readiness",
@@ -293,9 +294,40 @@ def test_openai_provider_configures_one_grounded_agent_and_all_tools():
     assert provider.agent.handoffs == []
 
 
+def test_gemini_provider_builds_openai_compatible_client(monkeypatch):
+    import app.services.openai_assistant as assistant_module
+
+    captured = {}
+
+    class FakeClient:
+        pass
+
+    def build_client(**kwargs):
+        captured.update(kwargs)
+        return FakeClient()
+
+    monkeypatch.setattr(assistant_module, "AsyncOpenAI", build_client)
+    monkeypatch.setenv("GEMINI_API_KEY", "gemini-test-key")
+    monkeypatch.setenv("KAUSHAL_AI_TIMEOUT_SECONDS", "7.5")
+
+    provider = assistant_module.OpenAIAssistantProvider(
+        toolset=FakeToolset(),
+        runner=FakeRunner(),
+    )
+
+    assert provider.client.__class__ is FakeClient
+    assert captured == {
+        "api_key": "gemini-test-key",
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "timeout": 7.5,
+        "max_retries": 0,
+        "default_headers": {"x-goog-api-client": "kaushalwatch-oai/1.0"},
+    }
+
+
 def test_openai_provider_passes_history_and_collects_run_provenance():
     runner = FakeRunner()
-    provider = OpenAIAssistantProvider(toolset=FakeToolset(), runner=runner)
+    provider = OpenAIAssistantProvider(toolset=FakeToolset(), runner=runner, client=object())
 
     result = asyncio.run(
         provider.run(

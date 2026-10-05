@@ -126,7 +126,7 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
     getAssistantStatus()
       .then(status => { if (active) setAssistantStatus(status); })
       .catch(() => {
-        if (active) setAssistantStatus({ enabled: true, configured: true, available: false });
+        if (active) setAssistantStatus({ enabled: true, configured: true, available: false, voice_configured: false, voice_available: false });
       });
     return () => { active = false; };
   }, []);
@@ -256,7 +256,7 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
   }
 
   async function startRecording() {
-    if (busy || assistantStatus?.available !== true || voicePhase !== 'idle' || startingRecordingRef.current || mediaRecorderRef.current) return;
+    if (busy || assistantStatus?.voice_available !== true || voicePhase !== 'idle' || startingRecordingRef.current || mediaRecorderRef.current) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
       setError('Voice recording is not supported by this browser. Typed chat is still available.');
       return;
@@ -358,6 +358,7 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
 
   const processing = voicePhase === 'transcribing' || voicePhase === 'asking' || voicePhase === 'speaking';
   const voiceInputBlocked = voicePhase === 'recording' || voicePhase === 'transcribing' || voicePhase === 'asking';
+  const voiceAvailable = assistantStatus?.voice_available === true;
   const statusLabel = assistantStatus?.available
     ? 'Ready'
     : assistantStatus === null
@@ -413,7 +414,7 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
             : <button
                 type="button"
                 onClick={() => void playResponse(message.id, message.text)}
-                disabled={speechLoadingId === message.id}
+                disabled={speechLoadingId === message.id || !voiceAvailable}
                 aria-label={autoplayBlockedId === message.id ? 'Play response' : audioUrlsRef.current.has(message.id) ? 'Replay response' : 'Play response'}
               >{speechLoadingId === message.id ? 'Preparing audio…' : autoplayBlockedId === message.id ? '🔊 Play response' : audioUrlsRef.current.has(message.id) ? '↻ Replay' : '🔊 Play response'}</button>}
           <small>AI-generated voice</small>
@@ -437,8 +438,11 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
       {error && <div className="neoAssistantError" role="alert">{error}</div>}
       {assistantStatus && !assistantStatus.available && <div className="neoAssistantConfig" role="status">
         {assistantStatus.enabled && !assistantStatus.configured
-          ? 'Kaushal Assistant requires an OpenAI API key on the backend. Monitoring and analysis continue normally.'
+          ? 'Kaushal Assistant requires a Gemini API key on the backend. Monitoring and analysis continue normally.'
           : 'Kaushal Assistant is unavailable. Monitoring and analysis continue normally.'}
+      </div>}
+      {assistantStatus?.available && !voiceAvailable && <div className="neoAssistantConfig" role="status">
+        Voice requires a Groq API key. Typed chat remains available.
       </div>}
     </div>
 
@@ -458,7 +462,7 @@ export default function AssistantPanel({ centreId }:{centreId:string}) {
       />
       <button
         className="neoMicButton"
-        disabled={busy || assistantStatus?.available !== true || processing || voicePhase === 'recording'}
+        disabled={busy || !voiceAvailable || processing || voicePhase === 'recording'}
         type="button"
         onClick={() => void startRecording()}
         aria-label="Start voice question"

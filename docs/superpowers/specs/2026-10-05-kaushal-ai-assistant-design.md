@@ -1,7 +1,7 @@
 # Kaushal AI Assistant Design
 
 **Date:** 2026-10-05  
-**Status:** Draft for written-spec review  
+**Status:** Implemented; live free-provider smoke test pending  
 **Scope:** One grounded KaushalWatch assistant with text chat and chained voice interaction
 
 ## Purpose
@@ -33,6 +33,7 @@ AssistantPanel
   -> POST /api/assistant/chat
   -> AssistantService
   -> OpenAI Agents SDK Runner
+  -> Gemini 3.8 Flash via Google's OpenAI-compatible endpoint
   -> deterministic KaushalWatch function tool
   -> existing store/service/data
   -> concise grounded answer + sanitized sources
@@ -42,15 +43,15 @@ Three focused backend units provide replaceable boundaries without an elaborate 
 
 1. `AssistantService` creates and runs the single agent, manages the conversation input, and returns an application response.
 2. `ConversationStore` retains a bounded number of recent user/assistant turns per opaque session ID. V1 uses an in-memory implementation with expiration and maximum-turn limits.
-3. `VoiceService` wraps OpenAI transcription and speech generation. Tests replace this external boundary with a fake; production never returns fabricated transcripts or audio.
+3. `VoiceService` wraps Groq Whisper transcription and Orpheus speech generation through Groq's OpenAI-compatible API. Tests replace this external boundary with a fake; production never returns fabricated transcripts or audio.
 
 The application injects existing stores, centre lookup, and a readiness provider into a per-run tool context. Tools do not import or call FastAPI routes and never make HTTP requests to the same backend.
 
 ## Model and Provider Configuration
 
-The default text model is `gpt-5-mini`, configurable with `KAUSHAL_AI_MODEL`. Recorded speech uses `gpt-transcribe`, configurable with `KAUSHAL_STT_MODEL`. Speech output uses `gpt-4o-mini-tts`, configurable with `KAUSHAL_TTS_MODEL`, and the `coral` voice by default, configurable with `KAUSHAL_TTS_VOICE`.
+The default text model is `gemini-3.8-flash`, configurable with `KAUSHAL_AI_MODEL`, and is called through Google's OpenAI-compatible endpoint. Recorded speech uses Groq `whisper-large-v3-turbo`, configurable with `KAUSHAL_STT_MODEL`. Speech output uses Groq `canopylabs/orpheus-v1-english`, configurable with `KAUSHAL_TTS_MODEL`, and the `hannah` voice by default, configurable with `KAUSHAL_TTS_VOICE`. Orpheus accepts at most 200 input characters, so the full answer stays on screen while speech uses a bounded excerpt.
 
-`OPENAI_API_KEY` remains backend-only. `KAUSHAL_AI_ENABLED` defaults to `true`. When the feature is disabled or no key is present, assistant endpoints return a specific service-unavailable response; all non-assistant routes continue normally. The browser receives neither the key nor provider credentials.
+`GEMINI_API_KEY` and `GROQ_API_KEY` remain backend-only. `KAUSHAL_AI_ENABLED` defaults to `true`. Gemini configuration controls typed chat; Groq configuration controls voice independently, so missing Groq credentials do not disable typed chat. When Gemini is disabled or unconfigured, assistant chat returns a specific service-unavailable response while all non-assistant routes continue normally. The browser receives neither key.
 
 ## Agent Instructions and Trust Rules
 
@@ -166,7 +167,7 @@ Accepts multipart `audio`. The endpoint validates non-empty content, a 25 MB max
 
 ### `POST /api/assistant/speech`
 
-Accepts `{ "text": "..." }`, applies a conservative text-length limit, and returns `audio/mpeg` bytes. The requested speaking style is calm, concise, and operational. Provider failures receive a stable 503 response.
+Accepts `{ "text": "..." }`, applies a conservative text-length limit, and returns non-cacheable `audio/wav` bytes. `VoiceService` sends a whitespace-normalized excerpt of at most 200 characters to Orpheus while the full text remains in the UI. Provider failures receive a stable 503 response.
 
 The frontend composes these three endpoints instead of using a separate voice agent.
 
@@ -224,7 +225,7 @@ Logs contain request/session correlation IDs, tool names and durations, agent co
 
 Implementation follows red-green-refactor cycles.
 
-Backend unit/integration tests use temporary real `AnalysisHistoryStore` and `CaseStore` instances. External OpenAI boundaries are replaced with contract-faithful fakes only in tests. Tests cover:
+Backend unit/integration tests use temporary real `AnalysisHistoryStore` and `CaseStore` instances. External Gemini/Groq provider boundaries are replaced with contract-faithful fakes only in tests. Tests cover:
 
 - operational tool retrieval from real temporary records;
 - explicit empty-data results and anonymous-worker limitations;
@@ -239,17 +240,17 @@ Backend unit/integration tests use temporary real `AnalysisHistoryStore` and `Ca
 
 Playwright tests intercept only the external assistant HTTP boundary and provide browser-faithful `getUserMedia`, `MediaRecorder`, and audio playback doubles. They verify typed submission, recording, stop, loading labels, transcript/response rendering, automatic speech request for voice input, autoplay fallback, replay/stop, track release, and unmount cleanup.
 
-Verification commands are the complete backend pytest suite, frontend TypeScript/build, existing Playwright suite, and new assistant browser tests. If a Python runtime and `OPENAI_API_KEY` are available, a manual live chained test asks:
+Verification commands are the complete backend pytest suite, frontend TypeScript/build, existing Playwright suite, and new assistant browser tests. If a Python runtime and the appropriate `GEMINI_API_KEY` / `GROQ_API_KEY` values are available, a manual live chained test asks:
 
 1. “What happened in the latest analysis?”
 2. “What were the main discrepancies?”
 3. “Which one should I investigate first?”
 
-Without a key, provider-dependent production behavior is not replaced by mocks; the live test is reported as unavailable while automated contract tests still exercise the complete application pipeline.
+Without the provider keys, provider-dependent production behavior is not replaced by mocks; the live test is reported as unavailable while automated contract tests still exercise the complete application pipeline.
 
 ## Dependency and Documentation Changes
 
-The backend adds the minimal supported OpenAI Agents SDK dependency, which includes the OpenAI Python client used for audio endpoints. No LangChain, CrewAI, AutoGen, Redis, database server, or frontend AI SDK is introduced.
+The backend keeps the minimal supported OpenAI Agents SDK dependency, which includes the OpenAI Python client used as the OpenAI-compatible transport for Gemini and Groq. No LangChain, CrewAI, AutoGen, Redis, database server, or frontend AI SDK is introduced.
 
 `backend/.env.example` documents the feature flag and model/voice variables without credentials. `README.md` documents setup, endpoint purpose, local run commands, manual text/voice checks, session-memory limitations, and the privacy/AI-voice disclosures. `.gitignore` continues excluding secrets and generated runtime/audio data; the implementation does not persist uploaded recordings or generated speech.
 

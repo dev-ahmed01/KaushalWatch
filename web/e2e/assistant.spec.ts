@@ -35,7 +35,7 @@ const centre = {
 
 async function openAssistant(
   page:Page,
-  assistantStatus = { enabled: true, configured: true, available: true },
+  assistantStatus = { enabled: true, configured: true, available: true, voice_configured: true, voice_available: true },
 ) {
   await page.route('**/api/assistant/status', route =>
     route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(assistantStatus) })
@@ -221,7 +221,7 @@ test('voice question records, transcribes, uses chat, speaks, and supports stop 
   });
   await page.route('**/api/assistant/speech', async route => {
     speechRequests.push(route.request().postDataJSON());
-    await route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'mock-mp3' });
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: 'mock-mp3' });
   });
 
   await openAssistant(page);
@@ -269,7 +269,7 @@ test('typed replies stay quiet until requested and microphone failures remain is
   }));
   await page.route('**/api/assistant/speech', route => {
     speechCalls += 1;
-    return route.fulfill({ status: 200, contentType: 'audio/mpeg', body: 'mock-mp3' });
+    return route.fulfill({ status: 200, contentType: 'audio/wav', body: 'mock-mp3' });
   });
 
   await openAssistant(page);
@@ -341,7 +341,7 @@ test('blocked voice autoplay exposes an explicit play control', async ({ page })
   }));
   await page.route('**/api/assistant/speech', route => route.fulfill({
     status: 200,
-    contentType: 'audio/mpeg',
+    contentType: 'audio/wav',
     body: 'mock-mp3',
   }));
 
@@ -431,7 +431,7 @@ test('latest speech request wins and reset cancels pending playback', async ({ p
   await page.route('**/api/assistant/speech', async route => {
     speechCalls += 1;
     await new Promise(resolve => setTimeout(resolve, speechCalls === 2 ? 50 : 700));
-    await route.fulfill({ status: 200, contentType: 'audio/mpeg', body: `mock-mp3-${speechCalls}` }).catch(() => undefined);
+    await route.fulfill({ status: 200, contentType: 'audio/wav', body: `mock-mp3-${speechCalls}` }).catch(() => undefined);
   });
   await openAssistant(page);
 
@@ -504,11 +504,47 @@ test('transcription and speech failures leave typed chat usable', async ({ page 
 
 test('missing AI configuration is visible without affecting the dashboard', async ({ page }) => {
   await installVoiceMocks(page);
-  await openAssistant(page, { enabled: true, configured: false, available: false });
+  await openAssistant(page, {
+    enabled: true,
+    configured: false,
+    available: false,
+    voice_configured: false,
+    voice_available: false,
+  });
 
   await expect(page.getByText('Setup required')).toBeVisible();
-  await expect(page.getByText(/requires an OpenAI API key/i)).toBeVisible();
+  await expect(page.getByText(/requires a Gemini API key/i)).toBeVisible();
   await expect(page.getByPlaceholder('Ask Kaushal anything...')).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Start voice question' })).toBeDisabled();
   await expect(page.getByRole('heading', { name: 'Bengaluru TC-04', level: 1 })).toBeVisible();
 });
+
+test('missing Groq configuration leaves typed Gemini chat available', async ({ page }) => {
+  await installVoiceMocks(page);
+  await page.route('**/api/assistant/chat', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      message: 'Gemini chat returned a grounded response.',
+      session_id: 'gemini-only-session',
+      sources: [],
+      tool_calls: [],
+    }),
+  }));
+  await openAssistant(page, {
+    enabled: true,
+    configured: true,
+    available: true,
+    voice_configured: false,
+    voice_available: false,
+  });
+
+  await expect(page.getByText(/Voice requires a Groq API key/i)).toBeVisible();
+  await expect(page.getByPlaceholder('Ask Kaushal anything...')).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Start voice question' })).toBeDisabled();
+
+  await page.getByPlaceholder('Ask Kaushal anything...').fill('What happened today?');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(page.getByText('Gemini chat returned a grounded response.')).toBeVisible();
+});
+

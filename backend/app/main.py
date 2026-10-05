@@ -63,6 +63,10 @@ ASSISTANT_CONFIG_MESSAGE = (
     "Kaushal Assistant requires AI configuration. "
     "Monitoring and analysis continue to work normally."
 )
+VOICE_CONFIG_MESSAGE = (
+    "Kaushal Assistant voice requires Groq configuration. "
+    "Typed chat and monitoring continue to work normally."
+)
 MAX_ASSISTANT_AUDIO_BYTES = 25 * 1024 * 1024
 MAX_ASSISTANT_SPEECH_CHARS = 4000
 ASSISTANT_AUDIO_TYPES = {
@@ -107,7 +111,11 @@ def _ai_enabled() -> bool:
 
 
 def _ai_configured() -> bool:
-    return bool((os.getenv("OPENAI_API_KEY") or "").strip())
+    return bool((os.getenv("GEMINI_API_KEY") or "").strip())
+
+
+def _voice_configured() -> bool:
+    return bool((os.getenv("GROQ_API_KEY") or "").strip())
 
 
 def _assistant_timeout_seconds() -> float:
@@ -144,8 +152,8 @@ def get_voice_service():
     global VOICE_SERVICE
     if VOICE_SERVICE is not None:
         return VOICE_SERVICE
-    if not _ai_enabled() or not _ai_configured():
-        raise RuntimeError(ASSISTANT_CONFIG_MESSAGE)
+    if not _ai_enabled() or not _voice_configured():
+        raise RuntimeError(VOICE_CONFIG_MESSAGE)
     from app.services.voice_service import VoiceService
 
     VOICE_SERVICE = VoiceService(timeout_seconds=_assistant_timeout_seconds())
@@ -345,10 +353,13 @@ def assistant_query(payload: dict = Body(...)):
 def assistant_status():
     enabled = _ai_enabled()
     configured = _ai_configured()
+    voice_configured = _voice_configured()
     return {
         "enabled": enabled,
         "configured": configured,
         "available": enabled and configured,
+        "voice_configured": voice_configured,
+        "voice_available": enabled and voice_configured,
     }
 
 
@@ -412,8 +423,8 @@ async def assistant_transcribe(audio: UploadFile = File(...)):
         )
         return AssistantTranscriptionResponse(text=text)
     except RuntimeError as exc:
-        if str(exc) == ASSISTANT_CONFIG_MESSAGE:
-            raise HTTPException(status_code=503, detail=ASSISTANT_CONFIG_MESSAGE) from exc
+        if str(exc) == VOICE_CONFIG_MESSAGE:
+            raise HTTPException(status_code=503, detail=VOICE_CONFIG_MESSAGE) from exc
         raise HTTPException(
             status_code=503, detail="Speech transcription is temporarily unavailable."
         ) from exc
@@ -442,12 +453,12 @@ async def assistant_speech(request: AssistantSpeechRequest):
         )
         return Response(
             content=content,
-            media_type="audio/mpeg",
+            media_type="audio/wav",
             headers={"Cache-Control": "no-store"},
         )
     except RuntimeError as exc:
-        if str(exc) == ASSISTANT_CONFIG_MESSAGE:
-            raise HTTPException(status_code=503, detail=ASSISTANT_CONFIG_MESSAGE) from exc
+        if str(exc) == VOICE_CONFIG_MESSAGE:
+            raise HTTPException(status_code=503, detail=VOICE_CONFIG_MESSAGE) from exc
         raise HTTPException(
             status_code=503, detail="Speech generation is temporarily unavailable."
         ) from exc

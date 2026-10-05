@@ -84,6 +84,8 @@ export type AssistantStatus = {
   enabled:boolean;
   configured:boolean;
   available:boolean;
+  voice_configured:boolean;
+  voice_available:boolean;
 };
 
 export type AssistantMessage = {
