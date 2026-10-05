@@ -99,6 +99,8 @@ class ProcessSummary(BaseModel):
     detector_message: str
     frames_sampled: int
     detector_failures: int = 0
+    occupancy_count_source: str = "registered"
+    occupancy_smoother_window: int = 5
     case: ComplianceCase | None = None
     note: str = "Prototype output; external scheme records are simulated unless explicitly sourced."
 
