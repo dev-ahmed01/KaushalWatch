@@ -110,7 +110,7 @@ export default function InfrastructureVerification(){
         {result&&<div className="infraInlineOutcome">
           <OutcomeCard
             tone={result.created?'danger':'good'}
-            title={result.created?'Infrastructure item not detected':'Infrastructure profile completed without a persistent exception'}
+            title={result.created?'Infrastructure exception detected':'Infrastructure profile completed without a persistent exception'}
             text={result.case?.summary||result.banner}
           />
           <div className="infraEvidenceSource">
