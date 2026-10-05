@@ -80,16 +80,24 @@ The UI expects the API at `http://localhost:8000` by default.
 
 ## Kaushal Assistant
 
-Kaushal Assistant uses one OpenAI Agents SDK agent. Operational answers are grounded through
-deterministic tools that read the existing analysis history, case/evidence store, centre state,
-escalation policy and runtime-readiness service directly. It does not call this FastAPI application
-through HTTP from inside the backend and does not synthesize missing KaushalWatch records.
+Kaushal Assistant keeps the existing single OpenAI Agents SDK agent and eight deterministic
+KaushalWatch tools, but its external providers are configured for hackathon-friendly free tiers:
 
-Copy the example environment and add a backend-only OpenAI API key:
+- **Gemini 3.8 Flash** handles the agent/tool loop through Google's OpenAI-compatible endpoint.
+- **Groq Whisper Large V3 Turbo** handles browser voice transcription.
+- **Groq Orpheus** handles spoken responses and returns WAV audio.
+
+Operational answers still come only from the existing analysis history, case/evidence store, centre
+state, escalation policy and runtime-readiness service. The assistant does not call this FastAPI
+application through HTTP from inside the backend and does not synthesize missing KaushalWatch
+records.
+
+Copy the example environment and add backend-only free-tier API keys:
 
 ```powershell
 Copy-Item .env.example .env
-# Edit .env and set OPENAI_API_KEY. Do not use a NEXT_PUBLIC_ variable for this secret.
+# Set GEMINI_API_KEY from Google AI Studio.
+# Set GROQ_API_KEY from Groq Console to enable microphone transcription and speech.
 cd backend
 python -m uvicorn app.main:app --env-file ..\.env --reload --port 8000
 ```
@@ -102,23 +110,28 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/centres/DEMO-KA-104`. Typed questions stay silent by default and
-provide a speaker control. Voice questions use the browser microphone, upload the recording for
-transcription, send that transcript through the same agent, generate an AI voice response and play
-it in the browser. Microphone access works on localhost or another secure browser origin.
+Open `http://localhost:3000/centres/DEMO-KA-104`. Typed chat requires only
+`GEMINI_API_KEY`. Voice requires `GROQ_API_KEY` as well; when Groq is not configured, typed
+chat remains available and only the microphone/speaker controls are disabled.
 
-If `OPENAI_API_KEY` is missing or `KAUSHAL_AI_ENABLED=false`, the panel shows that setup is
-required while the monitoring, analysis and review features continue normally. Conversation memory
-is intentionally bounded and process-local for V1, so sessions reset when the API restarts and are
-not shared between multiple API workers. `KAUSHAL_AI_TIMEOUT_SECONDS` bounds each provider request
-and defaults to 60 seconds.
+Voice questions use the browser microphone, upload the recording for Groq transcription, send that
+transcript through the same grounded agent, request a concise Orpheus spoken version, and play the
+returned WAV in the browser. Orpheus accepts at most 200 characters per request, so the full
+grounded answer remains visible on screen while speech uses a short excerpt. Microphone access
+works on localhost or another secure browser origin.
+
+If `GEMINI_API_KEY` is missing or `KAUSHAL_AI_ENABLED=false`, the panel shows that assistant
+setup is required while monitoring, analysis and review features continue normally. Conversation
+memory is intentionally bounded and process-local for V1, so sessions reset when the API restarts
+and are not shared between multiple API workers. `KAUSHAL_AI_TIMEOUT_SECONDS` bounds each
+provider request and defaults to 60 seconds.
 
 Assistant endpoints:
 
-- `GET /api/assistant/status` reports enabled/configured availability without exposing secrets.
+- `GET /api/assistant/status` reports text and voice configuration availability without exposing secrets.
 - `POST /api/assistant/chat` runs grounded text chat and returns session, source and tool metadata.
 - `POST /api/assistant/transcribe` accepts a supported multipart audio upload and returns text.
-- `POST /api/assistant/speech` converts assistant text to MP3 audio.
+- `POST /api/assistant/speech` converts assistant text to non-cacheable WAV audio.
 
 ## Evaluation
 
