@@ -34,6 +34,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
+- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.
 
 - Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, and configuration-safe failure states. The agent uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint; voice uses Groq Whisper Large V3 Turbo and Orpheus with WAV playback. Provider calls are contract-tested with mocks; live free-provider verification still requires operator-supplied `GEMINI_API_KEY` and `GROQ_API_KEY`.
 

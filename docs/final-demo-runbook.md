@@ -32,7 +32,7 @@ Record at least one **negative case opportunity** for the case types you want to
 
 ## After recording
 1. Save raw footage locally under `data/raw/` (gitignored).
-2. Precompute/review GroundingDINO equipment observations.
+2. Precompute GroundingDINO equipment observations with automatic in-bounds timestamps and inspect every generated review image before promoting the cache.
 3. Annotate attendance/equipment/operability ground truth.
 4. Annotate compliance-case opportunities in `data/annotations/final-demo-cases.csv` using `evaluation/final_demo_cases.example.csv` as the schema.
 5. Run `evaluation/evaluate_final_demo.py` with all four annotation files.
@@ -42,3 +42,8 @@ Record at least one **negative case opportunity** for the case types you want to
 
 ## Stage safety
 Before presentation, precompute the reviewed equipment cache for the exact video. Live equipment inference is optional; the evidence/case workflow must remain demoable using the cache.
+
+
+## Equipment clip suitability gate
+
+Before treating equipment metrics as final, confirm that the exact camera view genuinely contains the manifest classes you intend to score. Attendance/practical-work footage can still be useful even when it is not an appropriate Construction Electrician infrastructure scene. Do not turn unrelated industrial machinery into a "training panel" or "drill machine" merely to obtain a positive detection.
