@@ -37,6 +37,7 @@ class InfrastructureCompliancePipeline:
         operability_roi: tuple[int, int, int, int] | None = None,
         operability_threshold: float = 0.8,
         max_operability_frames: int = 30,
+        operability_window: tuple[float, float] | None = None,
     ) -> ComplianceCase | None:
         observed = aggregate_cached_observations(detection_rows)
         results = compare_manifest(manifest, observed)
@@ -75,16 +76,56 @@ class InfrastructureCompliancePipeline:
         operability = None
         if operability_item_id and operability_roi:
             frames = []
-            cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-            step = max(1, int(fps / 2))
-            i = 0
-            while len(frames) < max_operability_frames:
-                ok, frame = cap.read()
-                if not ok:
-                    break
-                if i % step == 0:
-                    frames.append(frame)
-                i += 1
+            analysis_window: dict[str, float | None] = {
+                "start_sec": 0.0,
+                "end_sec": round(duration_seconds, 3) if duration_seconds > 0 else None,
+            }
+
+            if operability_window is None:
+                # Preserve the existing whole-clip behavior when no explicit window
+                # is configured.
+                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                step = max(1, int(fps / 2))
+                i = 0
+                while len(frames) < max_operability_frames:
+                    ok, frame = cap.read()
+                    if not ok:
+                        break
+                    if i % step == 0:
+                        frames.append(frame)
+                    i += 1
+            else:
+                start_sec, end_sec = (float(v) for v in operability_window)
+                if start_sec < 0 or end_sec <= start_sec:
+                    raise ValueError(
+                        "operability_window must satisfy 0 <= start_sec < end_sec"
+                    )
+                if duration_seconds > 0 and end_sec > duration_seconds + 1e-6:
+                    raise ValueError(
+                        "operability_window end_sec "
+                        f"{end_sec:.3f} exceeds video duration {duration_seconds:.3f}"
+                    )
+
+                analysis_window = {
+                    "start_sec": round(start_sec, 3),
+                    "end_sec": round(end_sec, 3),
+                }
+                window_duration = end_sec - start_sec
+                sample_count = min(
+                    max_operability_frames,
+                    max(3, int(window_duration * 2.0) + 1),
+                )
+                for sample_index in range(sample_count):
+                    # Evenly cover the stable window rather than consuming only its
+                    # first max_operability_frames samples.
+                    second = start_sec + (
+                        window_duration * sample_index / sample_count
+                    )
+                    cap.set(cv2.CAP_PROP_POS_MSEC, second * 1000.0)
+                    ok, frame = cap.read()
+                    if ok:
+                        frames.append(frame)
+
             state, activity_score = apparent_motion_state(
                 frames,
                 operability_roi,
@@ -95,6 +136,8 @@ class InfrastructureCompliancePipeline:
                 "state": state,
                 "activity_score": round(activity_score, 4),
                 "method": "roi_motion_proxy",
+                "frames_sampled": len(frames),
+                "analysis_window": analysis_window,
                 "interpretation": (
                     "Visual activity proxy only; not a mechanical/electrical health diagnosis."
                 ),
