@@ -80,6 +80,10 @@ jobs:
             --out /tmp/kaushalwatch-rehearsal.json
           test -s /tmp/kaushalwatch-rehearsal.json
       - name: Start API
+        env:
+          # Browser E2E uses a tiny synthetic video; keep that test on the synthetic
+          # discrepancy cache instead of weakening the SHA-1-bound reviewed DOD profile.
+          KAUSHALWATCH_EQUIPMENT_CACHE: demo/cached_detections/construction_electrician.example.json
         run: |
           uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 > /tmp/kaushalwatch-api.log 2>&1 &
           for i in {1..30}; do
