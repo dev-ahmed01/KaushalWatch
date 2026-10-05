@@ -4,6 +4,8 @@
 
 **Goal:** Build one evidence-aware KaushalWatch assistant with multi-turn typed chat and a chained browser microphone-to-speaker workflow over real application data.
 
+> **Provider migration note (2026-10-05):** The implementation now keeps the same single OpenAI Agents SDK agent and deterministic KaushalWatch tools, but uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint for chat/tool calling and Groq Whisper + Orpheus for voice. The OpenAI-specific model/key steps below are retained as historical implementation-plan context; current runtime configuration is documented in the README and `.env.example`.
+
 **Architecture:** A single OpenAI Agents SDK agent calls read-only Python tools backed by the existing history, case, centre, evidence, and readiness services. A bounded in-memory conversation store preserves turns, while separate FastAPI transcription and speech endpoints use the same chat service and keep all credentials server-side.
 
 **Tech Stack:** Python 3.10+, FastAPI, Pydantic 2, OpenAI Agents SDK, OpenAI Python client, Next.js 16, React 19, TypeScript, MediaRecorder, pytest, Playwright.
