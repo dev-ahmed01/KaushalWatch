@@ -78,7 +78,7 @@ test('multipage KaushalWatch workflow covers network, analysis, review and repor
   await page.locator('.infraSetupCard select').selectOption('discrepancy');
   await page.locator('input[name="file"]').setInputFiles(path.resolve(videoPath));
   await page.getByRole('button', { name: 'Analyse Infrastructure' }).click();
-  await expect(page.getByText(/Infrastructure item not detected/i)).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByText(/Infrastructure exception detected/i)).toBeVisible({ timeout: 25_000 });
   await expect(page.locator('.evidenceGallery img').first()).toBeVisible();
   const infrastructureOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(infrastructureOverflow).toBeLessThanOrEqual(2);
