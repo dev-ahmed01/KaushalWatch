@@ -98,6 +98,34 @@ def check_operability_roi(
     return True, f"ROI {(x1, y1, x2, y2)} within {width}x{height}"
 
 
+def check_operability_window(
+    scenario: dict,
+    *,
+    duration_seconds: float | None,
+) -> tuple[bool, str]:
+    window = scenario.get("operability_window")
+    if not window:
+        return True, "not configured; operability will use the default whole-clip sampling"
+
+    required = ("start_sec", "end_sec")
+    if not all(key in window for key in required):
+        return False, "operability_window must define start_sec and end_sec"
+
+    try:
+        start_sec, end_sec = (float(window[key]) for key in required)
+    except (TypeError, ValueError):
+        return False, "operability_window values must be numeric"
+
+    if start_sec < 0 or end_sec <= start_sec:
+        return False, "operability_window must satisfy 0 <= start_sec < end_sec"
+    if duration_seconds is not None and end_sec > duration_seconds + 1e-6:
+        return False, (
+            f"operability_window end_sec {end_sec:.3f} exceeds "
+            f"video duration {duration_seconds:.3f}"
+        )
+    return True, f"operability window {start_sec:.3f}-{end_sec:.3f}s is within the video"
+
+
 def required_cache_labels(manifest: dict) -> set[str]:
     return {
         str(item.get("id"))
@@ -157,6 +185,15 @@ def final_mode_checks(
         "ok" if not placeholder_roi else "replace placeholder ROI coordinates/note after final camera framing",
     ))
 
+    window_cfg = scenario.get("operability_window") or {}
+    window_note = str(window_cfg.get("note", ""))
+    placeholder_window = bool(window_cfg) and "replace" in window_note.lower()
+    checks.append((
+        "final_operability_window_frozen",
+        not placeholder_window,
+        "ok" if not placeholder_window else "replace placeholder operability window after reviewing the final clip",
+    ))
+
     return checks
 
 
@@ -201,6 +238,11 @@ def main() -> None:
                 height=int(video_metadata.get("height", 0)),
             )
             checks.append(("operability_roi_within_video", roi_ok, roi_note))
+            window_ok, window_note = check_operability_window(
+                scenario,
+                duration_seconds=video_metadata.get("duration_seconds"),
+            )
+            checks.append(("operability_window_within_video", window_ok, window_note))
     else:
         checks.append((
             "demo_video_readable",
