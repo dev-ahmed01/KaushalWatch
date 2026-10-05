@@ -7,13 +7,25 @@ import os
 from time import perf_counter
 from typing import Callable, Literal
 
-from agents import Agent, ModelSettings, RunConfig, RunContextWrapper, Runner, function_tool
+from openai import AsyncOpenAI
+from agents import (
+    Agent,
+    ModelSettings,
+    OpenAIChatCompletionsModel,
+    RunConfig,
+    RunContextWrapper,
+    Runner,
+    function_tool,
+    set_tracing_disabled,
+)
 
 from app.services.assistant_service import AssistantProviderResult
 from app.services.assistant_tools import AssistantSource, KaushalToolset, ToolResult
 
 
 logger = logging.getLogger(__name__)
+GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+DEFAULT_ASSISTANT_MODEL = "gemini-3.8-flash"
 RelativePeriod = Literal[
     "today", "yesterday", "this_week", "last_week", "last_7_days", "last_30_days"
 ]
@@ -214,19 +226,47 @@ def get_case_evidence(
 
 
 class OpenAIAssistantProvider:
+    """Single-agent provider using Gemini through the OpenAI-compatible chat endpoint."""
+
     def __init__(
         self,
         *,
         toolset: KaushalToolset,
         runner=Runner,
         model: str | None = None,
+        client=None,
     ):
         self.toolset = toolset
         self.runner = runner
+        self.model_name = model or os.getenv("KAUSHAL_AI_MODEL", DEFAULT_ASSISTANT_MODEL)
+
+        if client is None:
+            api_key = (os.getenv("GEMINI_API_KEY") or "").strip()
+            if not api_key:
+                raise RuntimeError("GEMINI_API_KEY is required")
+            try:
+                timeout_seconds = float(os.getenv("KAUSHAL_AI_TIMEOUT_SECONDS", "60"))
+            except ValueError:
+                timeout_seconds = 60.0
+            client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=os.getenv("KAUSHAL_GEMINI_BASE_URL", GEMINI_OPENAI_BASE_URL),
+                timeout=min(max(timeout_seconds, 0.001), 300.0),
+                max_retries=0,
+                default_headers={"x-goog-api-client": "kaushalwatch-oai/1.0"},
+            )
+
+        # There is no platform.openai.com key in the free-provider configuration.
+        # Keep SDK tracing fully disabled rather than attempting to export traces.
+        set_tracing_disabled(True)
+        self.client = client
         self.agent = Agent[ProviderRunContext](
             name="Kaushal Assistant",
             instructions=AGENT_INSTRUCTIONS,
-            model=model or os.getenv("KAUSHAL_AI_MODEL", "gpt-5-mini"),
+            model=OpenAIChatCompletionsModel(
+                model=self.model_name,
+                openai_client=self.client,
+            ),
             model_settings=ModelSettings(tool_choice="required", parallel_tool_calls=False),
             tools=[
                 get_centre_overview,
