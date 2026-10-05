@@ -66,7 +66,7 @@ class FakeVoiceService:
         self.speech_calls.append(text)
         if self.error:
             raise self.error
-        return b"ID3-fake-mp3"
+        return b"RIFF-fake-wav"
 
 
 class SlowVoiceService:
@@ -145,7 +145,7 @@ def test_chat_endpoint_validates_centre_and_message(monkeypatch):
 def test_chat_endpoint_reports_missing_configuration_without_affecting_health(
     monkeypatch,
 ):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     client = _client(monkeypatch)
 
     response = client.post(
@@ -160,23 +160,37 @@ def test_chat_endpoint_reports_missing_configuration_without_affecting_health(
 
 def test_assistant_status_reports_enabled_and_configuration_state(monkeypatch):
     monkeypatch.setenv("KAUSHAL_AI_ENABLED", "true")
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     client = _client(monkeypatch)
 
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     assert client.get("/api/assistant/status").json() == {
         "enabled": True,
         "configured": False,
         "available": False,
+        "voice_configured": False,
+        "voice_available": False,
     }
 
-    monkeypatch.setenv("OPENAI_API_KEY", "   ")
+    monkeypatch.setenv("GEMINI_API_KEY", "   ")
     assert client.get("/api/assistant/status").json()["configured"] is False
 
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
     assert client.get("/api/assistant/status").json() == {
         "enabled": True,
         "configured": True,
         "available": True,
+        "voice_configured": False,
+        "voice_available": False,
+    }
+
+    monkeypatch.setenv("GROQ_API_KEY", "groq-test-key")
+    assert client.get("/api/assistant/status").json() == {
+        "enabled": True,
+        "configured": True,
+        "available": True,
+        "voice_configured": True,
+        "voice_available": True,
     }
 
 
@@ -274,7 +288,7 @@ def test_audio_upload_rejects_more_than_25_mb(monkeypatch):
     assert voice.transcription_calls == []
 
 
-def test_speech_endpoint_returns_mp3_and_validates_text(monkeypatch):
+def test_speech_endpoint_returns_wav_and_validates_text(monkeypatch):
     voice = FakeVoiceService()
     client = _client(monkeypatch, voice=voice)
 
@@ -283,8 +297,8 @@ def test_speech_endpoint_returns_mp3_and_validates_text(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.headers["content-type"] == "audio/mpeg"
-    assert response.content == b"ID3-fake-mp3"
+    assert response.headers["content-type"] == "audio/wav"
+    assert response.content == b"RIFF-fake-wav"
     assert voice.speech_calls == ["The system found no discrepancies."]
     assert client.post("/api/assistant/speech", json={"text": " "}).status_code == 422
     assert client.post(
@@ -340,7 +354,7 @@ class FakeSpeech:
     async def create(self, **kwargs):
         self.calls.append(kwargs)
         async def aread(_self):
-            return b"mp3-bytes"
+            return b"wav-bytes"
         return type("SpeechResponse", (), {"aread": aread})()
 
 
@@ -361,15 +375,28 @@ def test_voice_service_uses_current_models_and_in_memory_audio():
     speech = asyncio.run(service.speech("Grounded response"))
 
     assert transcript == "Recorded question"
-    assert client.audio.transcriptions.calls[0]["model"] == "gpt-transcribe"
+    assert client.audio.transcriptions.calls[0]["model"] == "whisper-large-v3-turbo"
     assert client.audio.transcriptions.calls[0]["file"] == (
         "recording.webm",
         b"audio",
         "audio/webm",
     )
-    assert speech == b"mp3-bytes"
-    assert client.audio.speech.calls[0]["model"] == "gpt-4o-mini-tts"
-    assert client.audio.speech.calls[0]["voice"] == "coral"
+    assert speech == b"wav-bytes"
+    assert client.audio.speech.calls[0]["model"] == "canopylabs/orpheus-v1-english"
+    assert client.audio.speech.calls[0]["voice"] == "hannah"\n    assert client.audio.speech.calls[0]["response_format"] == "wav"\n    assert "instructions" not in client.audio.speech.calls[0]
+
+
+
+
+def test_voice_service_trims_spoken_output_to_orpheus_limit():
+    client = FakeOpenAIClient()
+    service = VoiceService(client=client)
+
+    asyncio.run(service.speech("word " * 100))
+
+    spoken = client.audio.speech.calls[0]["input"]
+    assert len(spoken) <= 200
+    assert spoken.endswith("...")
 
 
 def test_voice_service_configures_async_client_timeout(monkeypatch):
@@ -383,8 +410,14 @@ def test_voice_service_configures_async_client_timeout(monkeypatch):
         return fake_client
 
     monkeypatch.setattr(voice_module, "AsyncOpenAI", build_client)
+    monkeypatch.setenv("GROQ_API_KEY", "groq-test-key")
 
     service = voice_module.VoiceService(timeout_seconds=7.5)
 
     assert service.client is fake_client
-    assert captured == {"timeout": 7.5, "max_retries": 0}
+    assert captured == {
+        "api_key": "groq-test-key",
+        "base_url": "https://api.groq.com/openai/v1",
+        "timeout": 7.5,
+        "max_retries": 0,
+    }
