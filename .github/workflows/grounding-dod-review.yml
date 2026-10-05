@@ -32,10 +32,19 @@ jobs:
 
       - name: Precompute wide-shot equipment review
         run: |
+          cat > /tmp/dod-prompts.json <<'JSON'
+          {
+            "workbench": "workbench",
+            "chair": "chair",
+            "training_panel": "training panel",
+            "drill_machine": "drill machine"
+          }
+          JSON
           python scripts/precompute_grounding_dino.py \
             --video /tmp/DOD_110930728.mp4 \
             --seconds "0,2,4,6,8,10,12" \
             --threshold 0.35 \
+            --prompt-config /tmp/dod-prompts.json \
             --out /tmp/dod-electrical-infrastructure.json \
             --review-dir /tmp/dod-electrical-infrastructure-review
 
