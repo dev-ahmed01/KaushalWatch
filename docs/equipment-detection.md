@@ -67,3 +67,19 @@ The generated cache keeps the existing detector-adapter schema, so it can be rev
 ### Windows tokenizer compatibility
 
 Some current Windows installations of the Transformers/tokenizers stack reject GroundingDINO's documented nested text-label shape with a `TextEncodeInput` `TypeError`. The precompute and smoke scripts now retry that specific failure with an equivalent period-separated text string. Other `TypeError` exceptions still propagate normally, so unrelated processor problems are not hidden.
+
+
+## Reviewed DOD infrastructure profile
+
+The public-domain `DOD_110930728.mp4` clip is now the reviewed infrastructure demo source.
+
+- Source SHA-1: `2ec8a58939656ffad0f38176835c22eb331bb96e`
+- GroundingDINO review samples: 0, 2, 4, 6, 8, 10 and 12 seconds
+- Accepted visual counts: one workbench and one electrical training panel
+- Confirmed absent in the reviewed wide shots: training chairs and drill machine
+- Rejected proposal: the 10.0 s drill-machine box covered the bench and was marked a false positive
+- Apparent-activity window: 14.0–33.0 seconds on the training-panel ROI
+
+The promoted cache uses `verification_confidence` only after explicit human review while retaining the original GroundingDINO `confidence`, boxes and scores. This avoids lowering the global detector confidence threshold merely to fit one clip and keeps the model proposal separate from the reviewed stage-safe observation.
+
+The reviewed cache is frozen to the exact source SHA-1. The discrepancy profile refuses to apply it to a different uploaded video.
