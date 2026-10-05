@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import os
@@ -28,7 +29,11 @@ from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
-from app.services.demo_assets import load_demo_manifest_and_cache, build_compliant_demo_cache
+from app.services.demo_assets import (
+    load_demo_manifest_and_cache,
+    load_demo_equipment_metadata,
+    build_compliant_demo_cache,
+)
 from app.services.demo_network import DEMO_CENTRES, centre_rows, get_centre
 from app.services.analysis_history import AnalysisHistoryStore
 from app.services.compliance_assistant import answer_question
@@ -883,9 +888,12 @@ def infrastructure_demo(profile: str = "compliant"):
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
+    equipment_profile = {}
     if profile == "compliant":
         rows = build_compliant_demo_cache(manifest)
-    elif profile != "discrepancy":
+    elif profile == "discrepancy":
+        equipment_profile = load_demo_equipment_metadata()
+    else:
         raise HTTPException(
             status_code=400,
             detail="profile must be 'compliant' or 'discrepancy'",
@@ -896,10 +904,11 @@ def infrastructure_demo(profile: str = "compliant"):
         "banner": (
             "Prototype — explicit compliant demo telemetry"
             if profile == "compliant"
-            else "Prototype — cached discrepancy demo telemetry"
+            else "Prototype — human-reviewed GroundingDINO equipment profile"
         ),
         "job_role": manifest["job_role"],
         "profile": profile,
+        "equipment_profile": equipment_profile,
         "items": compare_manifest(manifest, observed),
     }
 
@@ -913,7 +922,7 @@ def process_infrastructure_video(
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-02"),
     demo_profile: str = Form("compliant"),
-    operability_item_id: str | None = Form("drill_machine"),
+    operability_item_id: str | None = Form(None),
     roi_x1: int | None = Form(None),
     roi_y1: int | None = Form(None),
     roi_x2: int | None = Form(None),
@@ -929,6 +938,7 @@ def process_infrastructure_video(
     """
     try:
         manifest, rows = load_demo_manifest_and_cache()
+        equipment_profile = load_demo_equipment_metadata()
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
@@ -959,15 +969,50 @@ def process_infrastructure_video(
         if all(v is not None for v in window_values)
         else None
     )
+    if demo_profile == "discrepancy":
+        profile_operability = equipment_profile.get("operability") or {}
+        profile_roi = profile_operability.get("roi") or {}
+        profile_window = profile_operability.get("window") or {}
+        if roi is None and all(k in profile_roi for k in ("x1", "y1", "x2", "y2")):
+            roi = tuple(int(profile_roi[k]) for k in ("x1", "y1", "x2", "y2"))
+        if operability_window is None and all(
+            k in profile_window for k in ("start_sec", "end_sec")
+        ):
+            operability_window = (
+                float(profile_window["start_sec"]),
+                float(profile_window["end_sec"]),
+            )
+        if not operability_item_id:
+            operability_item_id = profile_operability.get("item_id")
+
     if operability_window is not None and roi is None:
         raise HTTPException(
             status_code=400,
             detail="Operability window requires all ROI coordinates",
         )
+    if roi is not None and not operability_item_id:
+        operability_item_id = "drill_machine"
 
     tmp_path = _materialize_video_upload(file)
 
     try:
+        source_match = None
+        if demo_profile == "discrepancy":
+            expected_sha1 = str(
+                (equipment_profile.get("source_video") or {}).get("sha1", "")
+            ).strip().lower()
+            if expected_sha1:
+                digest = hashlib.sha1()
+                with tmp_path.open("rb") as handle:
+                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                actual_sha1 = digest.hexdigest().lower()
+                source_match = actual_sha1 == expected_sha1
+                if not source_match:
+                    raise ValueError(
+                        "The reviewed discrepancy profile is frozen to "
+                        "DOD_110930728.mp4 and this upload does not match its SHA-1."
+                    )
         case = INFRA_PIPELINE.run(
             video_path=tmp_path,
             manifest=manifest,
@@ -997,6 +1042,8 @@ def process_infrastructure_video(
                     else "Prototype — cached equipment detections; no persistent visual manifest exception"
                 ),
                 "demo_profile": demo_profile,
+                "equipment_profile": equipment_profile if demo_profile == "discrepancy" else {},
+                "profile_source_match": source_match,
                 "items": preview_items,
             }
         STORE.save(case)
@@ -1015,6 +1062,8 @@ def process_infrastructure_video(
                 "not official live compliance data"
             ),
             "demo_profile": demo_profile,
+            "equipment_profile": equipment_profile if demo_profile == "discrepancy" else {},
+            "profile_source_match": source_match,
             "items": preview_items,
             "case": case.model_dump(mode="json"),
         }
