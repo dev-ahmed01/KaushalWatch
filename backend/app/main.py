@@ -1,6 +1,5 @@
 from __future__ import annotations
 import asyncio
-import hashlib
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import os
@@ -32,6 +31,7 @@ from app.services.offline_queue import json_payload_bytes
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
     load_demo_equipment_metadata,
+    require_equipment_profile_source,
     build_compliant_demo_cache,
 )
 from app.services.demo_network import DEMO_CENTRES, centre_rows, get_centre
@@ -998,21 +998,10 @@ def process_infrastructure_video(
     try:
         source_match = None
         if demo_profile == "discrepancy":
-            expected_sha1 = str(
-                (equipment_profile.get("source_video") or {}).get("sha1", "")
-            ).strip().lower()
-            if expected_sha1:
-                digest = hashlib.sha1()
-                with tmp_path.open("rb") as handle:
-                    for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                        digest.update(chunk)
-                actual_sha1 = digest.hexdigest().lower()
-                source_match = actual_sha1 == expected_sha1
-                if not source_match:
-                    raise ValueError(
-                        "The reviewed discrepancy profile is frozen to "
-                        "DOD_110930728.mp4 and this upload does not match its SHA-1."
-                    )
+            source_match = require_equipment_profile_source(
+                tmp_path,
+                equipment_profile,
+            )
         case = INFRA_PIPELINE.run(
             video_path=tmp_path,
             manifest=manifest,
