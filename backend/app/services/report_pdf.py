@@ -4,6 +4,39 @@ from textwrap import wrap
 from typing import Any
 
 
+def _display_status(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"compliant", "nominal", "clear", "verified", "resolved"}:
+        return "VERIFIED"
+    if normalized in {"attention", "high_priority", "review", "open", "under_review", "confirmed"}:
+        return "NEEDS REVIEW"
+    if normalized in {"blocked", "uncertain"}:
+        return "UNCERTAIN"
+    if normalized in {"virtual_verification"}:
+        return "OFFICER REVIEW"
+    return "ANALYSIS UNAVAILABLE"
+
+
+def _camera_untrusted(centre: dict[str, Any]) -> bool:
+    return str(centre.get("camera_status") or "").strip().lower() in {
+        "attention",
+        "blocked",
+        "uncertain",
+    }
+
+
+def _overall_status(centre: dict[str, Any]) -> str:
+    if _camera_untrusted(centre):
+        return "UNCERTAIN"
+    return _display_status(centre.get("status"))
+
+
+def _pillar_status(centre: dict[str, Any], key: str) -> str:
+    if key in {"attendance_status", "practical_status", "infrastructure_status"} and _camera_untrusted(centre):
+        return "UNCERTAIN"
+    return _display_status(centre.get(key))
+
+
 def _pdf_escape(value: str) -> str:
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
@@ -31,19 +64,20 @@ def build_report_pdf(report: dict[str, Any]) -> bytes:
         (f"Centre ID: {centre.get('centre_id', 'Unknown')}", 9),
         (f"Batch: {centre.get('batch_id', 'Unknown')}", 9),
         (f"Period: {report.get('period_label') or report.get('period', '7d')}", 9),
+        *(([("Data: SIMULATED PROTOTYPE RECORDS", 9)] if report.get("simulated") else [])),
         ("", 9),
         ("Executive summary", 13),
         (f"Analysis runs: {summary.get('analysis_runs', 0)}", 9),
         (f"Pending cases: {summary.get('pending_cases', 0)}", 9),
-        (f"Overall verification: {centre.get('status', 'unknown')}", 9),
+        (f"Overall verification: {_overall_status(centre)}", 9),
         (f"Escalation: {(summary.get('escalation') or {}).get('label', 'Normal')}", 9),
         ("", 9),
         ("Verification pillars", 13),
-        (f"Attendance: {centre.get('attendance_status', 'pending')}", 9),
-        (f"Practical work: {centre.get('practical_status', 'pending')}", 9),
-        (f"Infrastructure: {centre.get('infrastructure_status', 'pending')}", 9),
-        (f"Camera integrity: {centre.get('camera_status', 'pending')}", 9),
-        (f"Evidence integrity: {centre.get('evidence_integrity_status', 'pending')}", 9),
+        (f"Attendance: {_pillar_status(centre, 'attendance_status')}", 9),
+        (f"Practical work: {_pillar_status(centre, 'practical_status')}", 9),
+        (f"Infrastructure: {_pillar_status(centre, 'infrastructure_status')}", 9),
+        (f"Camera integrity: {_pillar_status(centre, 'camera_status')}", 9),
+        (f"Evidence integrity: {_pillar_status(centre, 'evidence_integrity_status')}", 9),
         ("", 9),
         ("Recent analyses", 13),
     ]

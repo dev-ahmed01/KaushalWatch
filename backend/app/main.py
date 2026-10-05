@@ -535,9 +535,15 @@ def _build_centre_report(
         case for case in cases
         if case.status.value in {"open", "under_review", "virtual_verification"}
     ]
+    simulated = any(
+        bool((row.get("details") or {}).get("simulated"))
+        for row in history
+    ) or any(bool(case.details.get("simulated")) for case in cases)
+
     return {
         "title": "KaushalWatch Centre Verification Report",
         "prototype": True,
+        "simulated": simulated,
         "period": period,
         "period_label": period_label,
         "start_date": start_date,

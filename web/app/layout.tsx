@@ -1,14 +1,19 @@
-import './styles.css';
-import './premium.css';
-import './reference.css';
+import './globals.css';
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import AppShell from './components/AppShell';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'KaushalWatch',
-  description: 'AI compliance monitoring for distributed skill-training centres'
+  description: 'Trusted Visual Compliance for PMKVY Training Centres',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  return <html lang="en"><body><AppShell>{children}</AppShell></body></html>;
+  return (
+    <html lang="en">
+      <body>
+        <AppShell>{children}</AppShell>
+      </body>
+    </html>
+  );
 }

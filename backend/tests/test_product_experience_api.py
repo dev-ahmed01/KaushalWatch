@@ -234,7 +234,7 @@ def test_report_pdf_and_custom_range_are_real_outputs(tmp_path, monkeypatch):
         analysis_type="attendance",
         outcome="compliant",
         summary="Attendance matched.",
-        details={},
+        details={"simulated": True},
     )
     today = datetime.now(timezone.utc).date().isoformat()
 
@@ -252,7 +252,41 @@ def test_report_pdf_and_custom_range_are_real_outputs(tmp_path, monkeypatch):
     assert pdf.headers["content-type"].startswith("application/pdf")
     assert "attachment;" in pdf.headers["content-disposition"]
     assert pdf.content.startswith(b"%PDF-1.4")
+    assert b"Data: SIMULATED PROTOTYPE RECORDS" in pdf.content
+    assert b"Overall verification: ANALYSIS UNAVAILABLE" in pdf.content
 
+
+
+def test_report_pdf_suspends_dependent_pillars_when_camera_is_untrusted(tmp_path, monkeypatch):
+    client, store, history = _client(tmp_path, monkeypatch)
+    for analysis_type in ("attendance", "practical_work", "infrastructure"):
+        history.append(
+            centre_id="DEMO-KA-207",
+            batch_id="ELEC-2026-09",
+            analysis_type=analysis_type,
+            outcome="compliant",
+            summary="Simulated check aligned before the camera trust issue.",
+            details={"simulated": True},
+        )
+    store.save(
+        ComplianceCase(
+            case_id="CASE-CAMERA-TRUST",
+            centre_id="DEMO-KA-207",
+            batch_id="ELEC-2026-09",
+            case_type="camera_integrity",
+            severity="medium",
+            summary="Camera view obstructed.",
+            details={"simulated": True},
+        )
+    )
+
+    pdf = client.get("/api/centres/DEMO-KA-207/report.pdf?period=7d")
+    assert pdf.status_code == 200
+    assert b"Overall verification: UNCERTAIN" in pdf.content
+    assert b"Attendance: UNCERTAIN" in pdf.content
+    assert b"Practical work: UNCERTAIN" in pdf.content
+    assert b"Infrastructure: UNCERTAIN" in pdf.content
+    assert b"Evidence integrity: VERIFIED" in pdf.content
 
 def test_practical_runtime_unavailable_becomes_blocked_history(tmp_path, monkeypatch):
     client, _, _ = _client(tmp_path, monkeypatch)
