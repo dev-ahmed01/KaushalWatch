@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "build/**"]
+    branches: [main, "build/**", "redesign/**"]
 
 jobs:
   hygiene:
@@ -83,6 +83,8 @@ jobs:
             --video /tmp/kaushalwatch-e2e.avi \
             --out /tmp/kaushalwatch-rehearsal.json
           test -s /tmp/kaushalwatch-rehearsal.json
+      - name: Prepare deterministic simulated demo state
+        run: python scripts/prepare_demo_state.py --yes
       - name: Start API
         env:
           # Browser E2E uses a tiny synthetic video; keep that test on the synthetic

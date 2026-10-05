@@ -59,3 +59,27 @@ Before presentation, precompute the reviewed equipment cache for the exact video
 ## Equipment clip suitability gate
 
 Before treating equipment metrics as final, confirm that the exact camera view genuinely contains the manifest classes you intend to score. Attendance/practical-work footage can still be useful even when it is not an appropriate Construction Electrician infrastructure scene. Do not turn unrelated industrial machinery into a "training panel" or "drill machine" merely to obtain a positive detection.
+
+
+## Command Centre rehearsal state
+
+Before a judge-facing UI rehearsal, prepare the deterministic simulated runtime state:
+
+```bash
+python scripts/prepare_demo_state.py
+python scripts/prepare_demo_state.py --yes
+```
+
+The first command is a dry run. The second clears only mutable runtime files (`cases.json`, `analysis_history.json`, `centre_settings.json`, `edge_events.json`, `evidence_index.json` and generated `data/evidence/` contents) and writes the marked-simulated judge seed. It **does not** delete `data/raw/`, manifests or reviewed detector assets.
+
+Expected Network story after preparation:
+- Bengaluru TC-04 — NEEDS REVIEW (attendance)
+- Mysuru TC-12 — VERIFIED
+- Tumakuru TC-07 — UNCERTAIN (camera integrity)
+- Hubballi TC-03 — NEEDS REVIEW / regional escalation (infrastructure)
+- Belagavi TC-09 — VERIFIED
+- Mangaluru TC-01 — ANALYSIS UNAVAILABLE
+
+The prepared seed includes synthetic integrity evidence only for demonstrating SHA-256 and duplicate detection. It is watermarked and tagged simulated; it must never be described as real centre footage.
+
+Run the strict final-video readiness gate independently. Preparing the UI seed does not validate the final video, detector accuracy or infrastructure cache.
