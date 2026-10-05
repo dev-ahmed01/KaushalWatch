@@ -1,0 +1,101 @@
+[
+  {
+    "analysis_id": "AN-000001",
+    "created_at": "2026-10-04T21:06:02.042228+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-08",
+    "analysis_type": "attendance",
+    "outcome": "attention",
+    "summary": "Reported attendance 3; privacy-preserving stable visual occupancy estimated at 4. Persistent mismatch across 76% of eligible observations.",
+    "details": {
+      "reported_attendance": 3,
+      "estimated_occupancy": 4,
+      "discrepancy_pct": 33.33,
+      "decision": "attendance_exception"
+    }
+  },
+  {
+    "analysis_id": "AN-000002",
+    "created_at": "2026-10-04T21:06:27.693729+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-08",
+    "analysis_type": "practical_work",
+    "outcome": "compliant",
+    "summary": "Authorized practical activity was observed.",
+    "details": {
+      "decision": "authorized_practical_activity",
+      "active_work_cells": 2,
+      "peak_stable_workers": 4,
+      "activity_fraction": 0.6286,
+      "detector_backend": "openvino",
+      "detector_authoritative": true,
+      "detector_failures": 0
+    }
+  },
+  {
+    "analysis_id": "AN-000003",
+    "created_at": "2026-10-04T21:40:49.467495+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-08",
+    "analysis_type": "attendance",
+    "outcome": "compliant",
+    "summary": "Attendance matched the reported record.",
+    "details": {
+      "reported_attendance": 5,
+      "estimated_occupancy": 5,
+      "discrepancy_pct": 0.0,
+      "decision": "compliant"
+    }
+  },
+  {
+    "analysis_id": "AN-000004",
+    "created_at": "2026-10-04T21:41:00.160697+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-08",
+    "analysis_type": "practical_work",
+    "outcome": "compliant",
+    "summary": "Authorized practical activity was observed.",
+    "details": {
+      "decision": "authorized_practical_activity",
+      "active_work_cells": 2,
+      "peak_stable_workers": 5,
+      "activity_fraction": 0.6286,
+      "detector_backend": "openvino",
+      "detector_authoritative": true,
+      "detector_failures": 0
+    }
+  },
+  {
+    "analysis_id": "AN-000005",
+    "created_at": "2026-10-05T09:24:26.170722+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-09",
+    "analysis_type": "attendance",
+    "outcome": "attention",
+    "summary": "Reported attendance 4; privacy-preserving stable visual occupancy estimated at 5. Persistent mismatch across 89% of eligible observations.",
+    "details": {
+      "reported_attendance": 4,
+      "estimated_occupancy": 5,
+      "discrepancy_pct": 25.0,
+      "decision": "attendance_exception"
+    }
+  },
+  {
+    "analysis_id": "AN-000006",
+    "created_at": "2026-10-05T09:35:07.671241+00:00",
+    "centre_id": "DEMO-KA-104",
+    "batch_id": "ELEC-2026-09",
+    "analysis_type": "practical_work",
+    "outcome": "attention",
+    "summary": "Persistent practical-work activity was visually observed in 3 configured work cell(s), but no matching training/work authorization was supplied. Human review is required.",
+    "details": {
+      "decision": "unauthorized_practical_activity",
+      "active_work_cells": 3,
+      "peak_stable_workers": 6,
+      "activity_fraction": 0.5439,
+      "detector_backend": "openvino",
+      "detector_authoritative": true,
+      "detector_failures": 0
+    }
+  }
+]
