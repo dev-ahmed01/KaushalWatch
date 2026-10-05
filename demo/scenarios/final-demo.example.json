@@ -59,6 +59,11 @@
     "y2": 190,
     "note": "Replace these coordinates after framing the final camera."
   },
+  "operability_window": {
+    "start_sec": 4.0,
+    "end_sec": 10.0,
+    "note": "Replace these timestamps after reviewing the exact final clip; keep hard cuts outside this window."
+  },
   "expected_human_workflow": [
     "open",
     "under_review",
