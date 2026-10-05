@@ -6,6 +6,21 @@ from app.config import demo_manifest_path, equipment_cache_path
 from app.services.infrastructure import load_manifest
 
 
+def equipment_cache_metadata_path():
+    cache_path = equipment_cache_path()
+    return cache_path.with_suffix(cache_path.suffix + ".meta.json")
+
+
+def load_demo_equipment_metadata() -> dict:
+    path = equipment_cache_metadata_path()
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text())
+    if not isinstance(payload, dict):
+        raise ValueError(f"Equipment cache metadata must contain a JSON object: {path}")
+    return payload
+
+
 def load_demo_manifest_and_cache() -> tuple[dict, list[dict]]:
     manifest_path = demo_manifest_path()
     cache_path = equipment_cache_path()
