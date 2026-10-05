@@ -30,6 +30,7 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Privacy-preserving design note matching the PS conditional on individual identification.
 - Next.js Command Centre connected to the live API.
 - Practical-work verification now reuses the shared person-detector abstraction plus anonymous short-lived tracking; it can process clips without a hard Ultralytics dependency, while non-authoritative detector modes explicitly withhold the final conclusion.
+- Held-out practical-work verification on the separate industrial unauthorized clip passed with the frozen calibrated OpenVINO profile: `unauthorized_practical_activity`, 6 peak stable workers, 3 active work cells, 54.39% practical-activity fraction, authoritative detector, zero detector failures, and a high-severity authorization case with retained privacy-transformed evidence.
 - Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
@@ -61,6 +62,7 @@ GroundingDINO remains outside the core API dependency set and the stage demo ret
 - Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
 - Example final-evaluation rows are synthetic templates, not SIH accuracy results.
 - Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
+- Exact held-out attendance count accuracy on dynamic-occupancy footage has not yet been scored against timestamped manual annotations; a dedicated timestamped evaluator is now available so dynamic footage is not incorrectly reduced to one constant ground-truth count.
 - Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
 - Apparent operability is visual activity evidence only, never mechanical/electrical health.
 - Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
