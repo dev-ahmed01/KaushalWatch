@@ -49,6 +49,7 @@ from app.services.activity_intelligence import build_activity_intelligence, acti
 from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
+from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +66,8 @@ CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
 ASSISTANT_SERVICE: AssistantService | None = None
 VOICE_SERVICE = None
 CONVERSATIONS = InMemoryConversationStore()
+VISION_PROFILE = load_vision_profile()
+VISION_PROFILE_ID = str(VISION_PROFILE["profile_id"])
 
 ASSISTANT_UNAVAILABLE_MESSAGE = (
     "Kaushal Assistant is temporarily unavailable. "
@@ -269,12 +272,37 @@ def health():
 def runtime_readiness():
     detector = PIPELINE.detector.info
     practical_detector = PRACTICAL_PIPELINE.detector.info
-    return build_runtime_readiness(
+    payload = build_runtime_readiness(
         attendance_detector=detector,
         practical_detector=practical_detector,
         zones_path=DEFAULT_WORK_ZONES,
         evidence_path=EVIDENCE,
     )
+    try:
+        governance = build_vision_governance(detector=PIPELINE.detector)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        governance = {
+            "profile": {
+                "profile_id": VISION_PROFILE_ID,
+                "valid": False,
+                "error": str(exc),
+            },
+            "runtime_alignment": {
+                "aligned": False,
+                "note": "Vision profile governance could not be validated.",
+            },
+        }
+    payload["vision_profile"] = governance["profile"]
+    payload["runtime_alignment"] = governance["runtime_alignment"]
+    return payload
+
+
+@app.get("/api/vision/governance")
+def vision_governance():
+    try:
+        return build_vision_governance(detector=PIPELINE.detector)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api/practical-work-zones")
@@ -771,6 +799,7 @@ def process_video(
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
+            result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
         HISTORY.append(
             centre_id=centre_id,
@@ -789,6 +818,7 @@ def process_video(
                 "estimated_occupancy": result.estimated_occupancy,
                 "discrepancy_pct": result.discrepancy_pct,
                 "decision": result.decision,
+                "vision_profile_id": VISION_PROFILE_ID,
             },
         )
         return result.model_dump(mode="json")
@@ -873,6 +903,7 @@ def process_practical_activity(
             zone_reference_size=zone_reference_size,
         )
         if result.case:
+            result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
         HISTORY.append(
             centre_id=centre_id,
@@ -903,6 +934,7 @@ def process_practical_activity(
                 "detector_backend": result.detector_backend,
                 "detector_authoritative": result.detector_authoritative,
                 "detector_failures": result.detector_failures,
+                "vision_profile_id": VISION_PROFILE_ID,
                 "activity_buckets": [
                     activity_bucket_for_practical_run(
                         start_at=datetime.now(timezone.utc),
@@ -928,6 +960,7 @@ def process_practical_activity(
                 "active_work_cells": 0,
                 "peak_stable_workers": 0,
                 "activity_fraction": 0.0,
+                "vision_profile_id": VISION_PROFILE_ID,
             },
         )
         return {
@@ -1138,7 +1171,11 @@ def process_infrastructure_video(
                 analysis_type="infrastructure",
                 outcome="compliant",
                 summary="Infrastructure demo profile completed without a persistent visual exception.",
-                details={"demo_profile": demo_profile, "items": preview_items},
+                details={
+                    "demo_profile": demo_profile,
+                    "items": preview_items,
+                    "vision_profile_id": VISION_PROFILE_ID,
+                },
             )
             return {
                 "created": False,
@@ -1153,6 +1190,7 @@ def process_infrastructure_video(
                 "profile_source_match": source_match,
                 "items": preview_items,
             }
+        case.details["vision_profile_id"] = VISION_PROFILE_ID
         STORE.save(case)
         HISTORY.append(
             centre_id=centre_id,
@@ -1160,7 +1198,11 @@ def process_infrastructure_video(
             analysis_type="infrastructure",
             outcome="attention",
             summary=case.summary,
-            details={"demo_profile": demo_profile, "items": preview_items},
+            details={
+                "demo_profile": demo_profile,
+                "items": preview_items,
+                "vision_profile_id": VISION_PROFILE_ID,
+            },
         )
         return {
             "created": True,
@@ -1203,6 +1245,7 @@ def operability_check(
         return {
             "state": state,
             "activity_score": round(activity_score, 4),
+            "vision_profile_id": VISION_PROFILE_ID,
             "interpretation": "Visual activity proxy only; not a mechanical/electrical health diagnosis.",
             "frames_sampled": len(frames),
         }
