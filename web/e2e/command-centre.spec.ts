@@ -17,6 +17,12 @@ test('AI-first restructure exposes the new four-item navigation and core routes'
   await expect(page.getByRole('heading', { name: 'Centres' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'View', exact: true }).first()).toBeVisible();
 
+  await page.goto('/centres/DEMO-KA-104');
+  await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();
+  await expect(page.getByText('KaushalAI centre brief')).toBeVisible();
+  await expect(page.getByText('Verification engines')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Centre sections' }).getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('aria-current', 'page');
+
   await page.goto('/insights');
   await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
   await expect(page.getByText('Centre health')).toBeVisible();
