@@ -194,6 +194,11 @@ def prepare_demo_state(data_dir: Path) -> dict:
             details={
                 "simulated": True,
                 "temporal_proof": "Persisted across 3 simulated analysis periods",
+                "temporal_points": [
+                    {"label": "10:30", "state": "ok", "note": "Reported and observed presence were aligned."},
+                    {"label": "11:15", "state": "miss", "note": "Observed presence fell below the reported record."},
+                    {"label": "12:00", "state": "miss", "note": "The attendance gap persisted in the next trusted period."},
+                ],
             },
             evidence=[evidence_primary],
             created_at=(now - timedelta(hours=2)).isoformat(),
@@ -226,6 +231,11 @@ def prepare_demo_state(data_dir: Path) -> dict:
                 "reported_quantity": 12,
                 "observed_quantity": 9,
                 "temporal_proof": "Observed in 3 simulated review periods",
+                "temporal_points": [
+                    {"label": "09:30", "state": "miss", "note": "Observed quantity remained below the simulated record."},
+                    {"label": "12:30", "state": "miss", "note": "The equipment gap persisted."},
+                    {"label": "15:15", "state": "miss", "note": "The same manifest gap remained visible."},
+                ],
             },
             created_at=(now - timedelta(days=4)).isoformat(),
         ),
