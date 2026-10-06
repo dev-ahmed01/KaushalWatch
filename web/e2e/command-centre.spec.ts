@@ -47,8 +47,17 @@ test('AI-first restructure exposes the new four-item navigation and core routes'
 
   await page.goto('/actions');
   await expect(page.getByRole('heading', { name: 'Actions', exact: true })).toBeVisible();
-  await expect(page.getByText('Today’s recommended actions')).toBeVisible();
+  await expect(page.getByText('KaushalAI priority')).toBeVisible();
+  await expect(page.getByText(/Start with Hubballi TC-03: review infrastructure exception/)).toBeVisible();
   await expect(page.getByText('Action queue')).toBeVisible();
+  await expect(page.getByText('Review infrastructure exception', { exact: true })).toBeVisible();
+  await expect(page.getByText('Verify camera evidence', { exact: true })).toBeVisible();
+  await expect(page.getByText('Review attendance evidence', { exact: true })).toBeVisible();
+  await expect(page.getByText('Confirm low-activity context', { exact: true })).toBeVisible();
+  await expect(page.getByText('Regional escalation').first()).toBeVisible();
+  await expect(page.getByText('Blocks dependent visual conclusions').first()).toBeVisible();
+  await expect(page.getByText('4 actions')).toBeVisible();
+  await expect(page.getByText('3', { exact: true }).last()).toBeVisible();
 
   await page.goto('/cases');
   await expect(page).toHaveURL(/\/actions$/);
