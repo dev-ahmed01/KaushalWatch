@@ -46,6 +46,7 @@ from app.services.conversation_store import InMemoryConversationStore
 from app.services.kaushalai_briefing import build_network_brief
 from app.services.centre_intelligence import build_centre_intelligence
 from app.services.activity_intelligence import build_activity_intelligence, activity_bucket_for_practical_run
+from app.services.evidence_review import build_evidence_review_pack
 
 logger = logging.getLogger(__name__)
 
@@ -921,24 +922,10 @@ def get_evidence_pack(case_id: str):
     case = STORE.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return {
-        "prototype": True,
-        "case": case.model_dump(mode="json"),
-        "integrity": [
-            {
-                "evidence_id": e.evidence_id,
-                "sha256": e.sha256,
-                "perceptual_hash": e.perceptual_hash,
-                "possible_duplicate": e.duplicate_of is not None,
-                "duplicate_of": e.duplicate_of,
-            }
-            for e in case.evidence
-        ],
-        "decision_policy": (
-            "AI evidence supports human review only; no automatic penalty or final compliance "
-            "decision is issued by this prototype."
-        ),
-    }
+    return build_evidence_review_pack(
+        case=case,
+        history=HISTORY.list(centre_id=case.centre_id, limit=500),
+    )
 
 
 @app.post("/api/cases/{case_id}/review")
