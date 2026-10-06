@@ -1,6 +1,17 @@
 import { test, expect } from '@playwright/test';
 
 test('AI-first restructure exposes the new four-item navigation and core routes', async ({ page }) => {
+  const governanceResponse = await page.request.get('http://127.0.0.1:8000/api/vision/governance');
+  expect(governanceResponse.ok()).toBeTruthy();
+  const governance = await governanceResponse.json();
+  expect(governance.profile.profile_id).toBe('kaushalwatch-fixed-camera-v1');
+  expect(governance.engines.attendance.profiled).toBe(true);
+  expect(governance.engines.practical_activity.geometry_policy).toBe('same_fixed_camera_view_only');
+  expect(governance.engines.infrastructure.source_digest_required).toBe(true);
+  expect(governance.engines.operability.method).toBe('roi_motion_proxy');
+  expect(governance.engines.camera_trust.profiled).toBe(true);
+  expect(governance.datasets.some((item: any) => item.dataset_id === 'epfl-laboratory-camera0')).toBe(true);
+
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'KaushalAI' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link')).toHaveCount(4);
