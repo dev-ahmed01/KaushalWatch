@@ -294,8 +294,13 @@ function TrustAndOutcomes({ data }: { data: NetworkInsights }) {
           <div className="mt-5 flex gap-2">
             {data.camera_trust.map(item => (
               <div key={item.centre_id} className="min-w-0 flex-1 text-center">
-                <div className={'mx-auto h-10 w-full rounded-lg ' + stateBlock(item.state)} title={item.name + ' · ' + item.state} />
+                <div
+                  aria-hidden="true"
+                  className={'mx-auto h-10 w-full rounded-lg ' + stateBlock(item.state)}
+                  title={item.name + ' · ' + item.state}
+                />
                 <div className="mt-1.5 truncate text-[9px] text-[#98A2B3]">{item.short_name}</div>
+                <div className="mt-0.5 truncate text-[9px] font-medium capitalize text-[#667085]">{item.state.replaceAll('_', ' ')}</div>
               </div>
             ))}
           </div>
