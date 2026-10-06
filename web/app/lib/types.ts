@@ -157,3 +157,63 @@ export type KaushalBrief = {
   };
   decision_policy: string;
 };
+
+
+export type CentreEngine = {
+  key: string;
+  name: string;
+  state: 'verified' | 'review' | 'uncertain' | 'unavailable';
+  label: string | null;
+  summary: string;
+  href_suffix: string;
+};
+
+export type CentreIntelligence = {
+  generated_at: string;
+  timezone: string;
+  period: 'today' | 'yesterday' | 'last_7_days' | 'last_30_days';
+  period_label: string;
+  grounded: boolean;
+  simulated: boolean;
+  centre: {
+    centre_id: string;
+    name: string;
+    location: string;
+    district: string;
+    state: string;
+    batch_id: string;
+    job_role: string;
+    trainees: number;
+    camera_id: string;
+    connectivity_mode: string;
+    last_analysis: string | null;
+    escalation: Centre['escalation'];
+  };
+  brief: { headline: string; bullets: string[] };
+  engines: CentreEngine[];
+  actions: Array<{ priority: string; title: string; reason: string; href: string }>;
+  contact: {
+    role: string;
+    available: boolean;
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+    note: string;
+  };
+  schedule: {
+    automatic_analysis: boolean;
+    frequency: string;
+    monitoring_windows: string[];
+  };
+  period_activity: {
+    analysis_runs: number;
+    recent_analyses: Array<{
+      analysis_id: string;
+      created_at: string;
+      analysis_type: string;
+      outcome: string;
+      summary: string;
+    }>;
+  };
+  decision_policy: string;
+};
