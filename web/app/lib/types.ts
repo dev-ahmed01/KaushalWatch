@@ -217,3 +217,64 @@ export type CentreIntelligence = {
   };
   decision_policy: string;
 };
+
+
+export type ActivityTimelineBucket = {
+  start_at: string;
+  end_at: string;
+  label: string;
+  activity_score: number;
+  activity_percent: number;
+  trusted_frame_ratio: number;
+  active_work_cells: number;
+  trusted: boolean;
+  simulated: boolean;
+  source: string;
+};
+
+export type ActivityIntelligence = {
+  generated_at: string;
+  timezone: string;
+  period: 'today' | 'yesterday' | 'last_7_days' | 'last_30_days';
+  period_label: string;
+  grounded: boolean;
+  simulated: boolean;
+  centre_id: string;
+  state: 'available' | 'uncertain' | 'unavailable';
+  explanation: string;
+  thresholds: {
+    minimum_trusted_ratio: number;
+    low_activity_threshold: number;
+    follow_up_minutes: number;
+  };
+  summary: {
+    bucket_count: number;
+    trusted_bucket_count: number;
+    peak: {
+      label: string;
+      activity_score: number;
+      activity_percent: number;
+      active_work_cells: number;
+    } | null;
+    lowest: {
+      label: string;
+      activity_score: number;
+      activity_percent: number;
+      active_work_cells: number;
+    } | null;
+    longest_low_period: {
+      label: string;
+      minutes: number;
+      activity_score: number;
+    } | null;
+  };
+  timeline: ActivityTimelineBucket[];
+  follow_up: {
+    recommended: boolean;
+    title: string;
+    reason: string;
+    action_label: string;
+  };
+  interpretation_boundary: string;
+  decision_policy: string;
+};
