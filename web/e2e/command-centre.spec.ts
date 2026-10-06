@@ -12,7 +12,7 @@ test('AI-first restructure exposes the new four-item navigation and core routes'
 
   await page.goto('/centres');
   await expect(page.getByRole('heading', { name: 'Centres' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /View centre/ }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'View', exact: true }).first()).toBeVisible();
 
   await page.goto('/insights');
   await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
