@@ -146,6 +146,16 @@ def get_assistant_service() -> AssistantService:
         cases=STORE,
         centre_lookup=_centre_with_settings,
         readiness_provider=runtime_readiness,
+        network_brief_provider=lambda period: build_network_brief(
+            centres=centre_rows(
+                STORE.list(),
+                settings_by_centre=_network_settings(),
+                history_by_centre=_network_history(),
+            ),
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        ),
     )
     ASSISTANT_SERVICE = AssistantService(
         provider=OpenAIAssistantProvider(toolset=KaushalToolset(context)),
