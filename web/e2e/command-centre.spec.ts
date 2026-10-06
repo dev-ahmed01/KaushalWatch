@@ -37,7 +37,7 @@ test('AI-first restructure exposes the new four-item navigation and core routes'
   await expect(page.getByText('Reported vs observed attendance')).toBeVisible();
   await expect(page.getByText('Activity across the training day')).toBeVisible();
   await expect(page.getByText('Infrastructure exceptions')).toBeVisible();
-  await expect(page.getByText('Camera trust')).toBeVisible();
+  await expect(page.getByText('Camera trust', { exact: true })).toBeVisible();
   await expect(page.getByText('Case outcomes')).toBeVisible();
   await expect(page.getByText('Bengaluru attendance variance')).toBeVisible();
   await expect(page.getByText('Hubballi infrastructure')).toBeVisible();
