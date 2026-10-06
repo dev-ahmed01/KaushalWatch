@@ -117,10 +117,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             </Button>
           ) : (
             <div className="px-2 py-1.5">
-              <div className="flex items-center gap-2 text-[11px] text-[#667085]">
-                <span className="h-2 w-2 rounded-full bg-[#12B76A]" />
-                <span>System ready</span>
-              </div>
+              <div className="text-[11px] font-medium text-[#667085]">Evidence-assistance mode</div>
               <div className="mt-1 text-[11px] text-[#98A2B3]">AI surfaces evidence. Officers decide.</div>
             </div>
           )}
