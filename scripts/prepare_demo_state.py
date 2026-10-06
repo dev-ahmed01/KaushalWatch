@@ -21,6 +21,7 @@ from app.services.evidence import persist_evidence
 from scripts.reset_demo_state import reset_demo_state
 
 DEFAULT_DATA = ROOT / "data"
+DEMO_TIMEZONE = timezone(timedelta(hours=5, minutes=30))
 
 
 def _simulated_evidence_frame() -> np.ndarray:
@@ -70,6 +71,59 @@ def _simulated_evidence_frame() -> np.ndarray:
         cv2.LINE_AA,
     )
     return frame
+
+
+def _demo_activity_buckets(now: datetime, profile: str) -> list[dict]:
+    local_now = now.astimezone(DEMO_TIMEZONE)
+    day = (local_now - timedelta(days=1)).date()
+
+    profiles = {
+        "review": [
+            ("09:00", "09:45", 0.48, 0.93, 2),
+            ("09:45", "10:30", 0.72, 0.95, 3),
+            ("10:45", "12:00", 0.91, 0.96, 4),
+            ("12:00", "13:00", 0.62, 0.94, 3),
+            ("13:00", "14:00", 0.41, 0.92, 2),
+            ("14:00", "14:45", 0.18, 0.95, 1),
+            ("14:45", "16:00", 0.66, 0.94, 3),
+        ],
+        "steady": [
+            ("09:00", "10:00", 0.58, 0.96, 2),
+            ("10:00", "11:00", 0.75, 0.96, 3),
+            ("11:00", "12:00", 0.82, 0.97, 3),
+            ("13:00", "14:00", 0.61, 0.95, 2),
+            ("14:00", "15:00", 0.69, 0.96, 3),
+            ("15:00", "16:00", 0.64, 0.96, 2),
+        ],
+        "blocked": [
+            ("09:00", "10:00", 0.0, 0.21, 0),
+            ("10:00", "11:00", 0.0, 0.18, 0),
+            ("14:00", "15:00", 0.0, 0.24, 0),
+        ],
+    }
+
+    rows = []
+    for start_text, end_text, score, trust, cells in profiles[profile]:
+        start_hour, start_minute = (int(part) for part in start_text.split(":"))
+        end_hour, end_minute = (int(part) for part in end_text.split(":"))
+        start = datetime(
+            day.year, day.month, day.day, start_hour, start_minute,
+            tzinfo=DEMO_TIMEZONE,
+        )
+        end = datetime(
+            day.year, day.month, day.day, end_hour, end_minute,
+            tzinfo=DEMO_TIMEZONE,
+        )
+        rows.append({
+            "start_at": start.isoformat(),
+            "end_at": end.isoformat(),
+            "activity_score": score,
+            "trusted_frame_ratio": trust,
+            "active_work_cells": cells,
+            "simulated": True,
+            "source": "simulated_scheduled_practical_analysis",
+        })
+    return rows
 
 
 def _append_history(
@@ -193,25 +247,108 @@ def prepare_demo_state(data_dir: Path) -> dict:
 
     # Bengaluru — review needed.
     _append_history(history, centre_id="DEMO-KA-104", batch_id="ELEC-2026-08", analysis_type="attendance", outcome="attention", summary="Simulated attendance gap persisted across trusted periods.", details={"reported": 28, "observed": 19})
-    _append_history(history, centre_id="DEMO-KA-104", batch_id="ELEC-2026-08", analysis_type="practical_work", outcome="compliant", summary="Simulated practical activity evidence aligned.")
+    _append_history(
+        history,
+        centre_id="DEMO-KA-104",
+        batch_id="ELEC-2026-08",
+        analysis_type="practical_work",
+        outcome="compliant",
+        summary="Simulated practical activity evidence aligned.",
+        details={
+            "activity_fraction": 0.62,
+            "active_work_cells": 4,
+            "peak_stable_workers": 6,
+            "trusted_frame_ratio": 0.94,
+            "activity_buckets": _demo_activity_buckets(now, "review"),
+        },
+    )
     _append_history(history, centre_id="DEMO-KA-104", batch_id="ELEC-2026-08", analysis_type="infrastructure", outcome="compliant", summary="Simulated infrastructure presence aligned with the manifest.")
 
     # Mysuru — verified.
     for analysis_type in ("attendance", "practical_work", "infrastructure"):
-        _append_history(history, centre_id="DEMO-KA-112", batch_id="ELEC-2026-07", analysis_type=analysis_type, outcome="compliant", summary=f"Simulated {analysis_type.replace('_', ' ')} evidence aligned.")
+        details = (
+            {
+                "activity_fraction": 0.68,
+                "active_work_cells": 3,
+                "peak_stable_workers": 5,
+                "trusted_frame_ratio": 0.96,
+                "activity_buckets": _demo_activity_buckets(now, "steady"),
+            }
+            if analysis_type == "practical_work"
+            else None
+        )
+        _append_history(
+            history,
+            centre_id="DEMO-KA-112",
+            batch_id="ELEC-2026-07",
+            analysis_type=analysis_type,
+            outcome="compliant",
+            summary=f"Simulated {analysis_type.replace('_', ' ')} evidence aligned.",
+            details=details,
+        )
 
     # Tumakuru — camera trust issue; dependent conclusions are blocked.
     for analysis_type in ("attendance", "practical_work", "infrastructure"):
-        _append_history(history, centre_id="DEMO-KA-207", batch_id="ELEC-2026-09", analysis_type=analysis_type, outcome="blocked", summary="Simulated camera obstruction suspended this conclusion.", details={"camera_trust": "untrusted"})
+        details = {"camera_trust": "untrusted"}
+        if analysis_type == "practical_work":
+            details.update({
+                "activity_fraction": 0.0,
+                "active_work_cells": 0,
+                "peak_stable_workers": 0,
+                "trusted_frame_ratio": 0.21,
+                "activity_buckets": _demo_activity_buckets(now, "blocked"),
+            })
+        _append_history(
+            history,
+            centre_id="DEMO-KA-207",
+            batch_id="ELEC-2026-09",
+            analysis_type=analysis_type,
+            outcome="blocked",
+            summary="Simulated camera obstruction suspended this conclusion.",
+            details=details,
+        )
 
     # Hubballi — infrastructure review and aged escalation.
     _append_history(history, centre_id="DEMO-KA-303", batch_id="ELEC-2026-06", analysis_type="attendance", outcome="compliant", summary="Simulated attendance evidence aligned.")
-    _append_history(history, centre_id="DEMO-KA-303", batch_id="ELEC-2026-06", analysis_type="practical_work", outcome="compliant", summary="Simulated practical activity evidence aligned.")
+    _append_history(
+        history,
+        centre_id="DEMO-KA-303",
+        batch_id="ELEC-2026-06",
+        analysis_type="practical_work",
+        outcome="compliant",
+        summary="Simulated practical activity evidence aligned.",
+        details={
+            "activity_fraction": 0.65,
+            "active_work_cells": 3,
+            "peak_stable_workers": 5,
+            "trusted_frame_ratio": 0.95,
+            "activity_buckets": _demo_activity_buckets(now, "steady"),
+        },
+    )
     _append_history(history, centre_id="DEMO-KA-303", batch_id="ELEC-2026-06", analysis_type="infrastructure", outcome="attention", summary="Simulated training-panel quantity remained below the required manifest.")
 
     # Belagavi — verified.
     for analysis_type in ("attendance", "practical_work", "infrastructure"):
-        _append_history(history, centre_id="DEMO-KA-509", batch_id="ELEC-2026-10", analysis_type=analysis_type, outcome="compliant", summary=f"Simulated {analysis_type.replace('_', ' ')} evidence aligned.")
+        details = (
+            {
+                "activity_fraction": 0.67,
+                "active_work_cells": 3,
+                "peak_stable_workers": 5,
+                "trusted_frame_ratio": 0.96,
+                "activity_buckets": _demo_activity_buckets(now, "steady"),
+            }
+            if analysis_type == "practical_work"
+            else None
+        )
+        _append_history(
+            history,
+            centre_id="DEMO-KA-509",
+            batch_id="ELEC-2026-10",
+            analysis_type=analysis_type,
+            outcome="compliant",
+            summary=f"Simulated {analysis_type.replace('_', ' ')} evidence aligned.",
+            details=details,
+        )
 
     # Mangaluru intentionally receives no analysis rows: ANALYSIS UNAVAILABLE.
 
