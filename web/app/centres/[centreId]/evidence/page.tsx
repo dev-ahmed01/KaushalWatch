@@ -27,20 +27,35 @@ export default function EvidencePage() {
   const id = String(centreId);
   const [centre, setCentre] = useState<Centre | null>(null);
   const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [casesError, setCasesError] = useState('');
+  const [centreDegraded, setCentreDegraded] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [selected, setSelected] = useState(0);
 
   async function load() {
-    try {
-      const [current, allCases] = await Promise.all([
-        getCentre(id),
-        getCases().catch(() => []),
-      ]);
-      setCentre(current);
-      setCases(allCases.filter(item => item.centre_id === id));
-    } catch {
+    setLoading(true);
+    setCasesError('');
+    setCentreDegraded(false);
+    const [centreResult, casesResult] = await Promise.allSettled([
+      getCentre(id),
+      getCases(),
+    ]);
+
+    if (centreResult.status === 'fulfilled') {
+      setCentre(centreResult.value);
+    } else {
       setCentre(FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK_CENTRES[0]);
+      setCentreDegraded(true);
     }
+
+    if (casesResult.status === 'fulfilled') {
+      setCases(casesResult.value.filter(item => item.centre_id === id));
+    } else {
+      setCases([]);
+      setCasesError('Case and evidence records are unavailable. No empty or healthy conclusion is being inferred.');
+    }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -52,8 +67,8 @@ export default function EvidencePage() {
   const chosen = evidence[selected] || evidence[0];
   const duplicateCount = evidence.filter(item => item.duplicate_of).length;
   const reviewCases = cases.filter(item => !TERMINAL.has(item.status));
-  const integrityState = duplicateCount ? 'review' : evidence.length ? 'verified' : 'unavailable';
-  const cameraTrusted = !['attention', 'blocked'].includes(String(current.camera_status).toLowerCase());
+  const integrityState = casesError ? 'unavailable' : duplicateCount ? 'review' : evidence.length ? 'verified' : 'unavailable';
+  const cameraTrusted = !centreDegraded && !['attention', 'blocked'].includes(String(current.camera_status).toLowerCase());
   const src = chosen?.evidence_id ? API + '/evidence/' + chosen.evidence_id + '.jpg' : undefined;
   const simulated = Boolean(chosen?.metadata?.simulated);
 
@@ -66,7 +81,10 @@ export default function EvidencePage() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusPill state={integrityState} />
             {simulated && <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">Simulated evidence</span>}
-            <span className="text-[11px] text-[#98A2B3]">{evidence.length} retained item{evidence.length === 1 ? '' : 's'}</span>
+            {centreDegraded && <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">Simulated centre metadata</span>}
+            <span className="text-[11px] text-[#98A2B3]">
+              {casesError ? 'Evidence records unavailable' : loading ? 'Loading evidence…' : evidence.length + ' retained item' + (evidence.length === 1 ? '' : 's')}
+            </span>
           </div>
         </div>
 
@@ -90,12 +108,19 @@ export default function EvidencePage() {
 
       <CentreTabs centreId={id} />
 
+      {(casesError || centreDegraded) && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          {casesError || 'Live centre metadata is unavailable. Camera trust is not being inferred from fallback metadata.'}
+        </div>
+      )}
+
       <section className="grid gap-7 lg:grid-cols-[1.15fr_.85fr]">
         <div>
           <EvidenceFrame
             src={src}
             timestamp={chosen?.created_at ? new Date(chosen.created_at).toLocaleString() : undefined}
-            trusted={cameraTrusted}
+            trusted={centreDegraded ? false : cameraTrusted}
+            emptyText={casesError ? 'Evidence records unavailable' : 'Evidence preview appears after analysis'}
           />
 
           {evidence.length > 1 && (
@@ -155,8 +180,8 @@ export default function EvidencePage() {
               />
               <IntegrityRow
                 ok={cameraTrusted}
-                label={cameraTrusted ? 'Camera trusted' : 'Camera trust needs verification'}
-                unavailable={false}
+                label={centreDegraded ? 'Camera trust unavailable' : cameraTrusted ? 'Camera trusted' : 'Camera trust needs verification'}
+                unavailable={centreDegraded}
               />
               <IntegrityRow
                 ok={true}
@@ -192,7 +217,7 @@ export default function EvidencePage() {
               </div>
             ) : (
               <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-5 text-[12px] text-[#667085]">
-                No open officer-review case for this centre.
+                {casesError ? 'Case records are unavailable. No empty queue conclusion is being shown.' : 'No open officer-review case for this centre.'}
               </div>
             )}
           </section>
