@@ -4,8 +4,8 @@ import type { ReactNode } from 'react';
 import AppShell from './components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'KaushalWatch',
-  description: 'Trusted Visual Compliance for PMKVY Training Centres',
+  title: 'KaushalWatch · KaushalAI',
+  description: 'AI-powered compliance intelligence for PMKVY training centres',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
