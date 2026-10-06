@@ -1,4 +1,4 @@
-import type { ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack } from './types';
+import type { ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -6,6 +6,10 @@ async function parse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.detail || 'KaushalWatch API request failed');
   return payload as T;
+}
+
+export async function getNetworkInsights(period = 'last_7_days') {
+  return parse<NetworkInsights>(await fetch(`${API}/api/insights?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
 }
 
 export async function getKaushalBrief(period = 'yesterday') {
