@@ -8,8 +8,8 @@ import {
   Download,
   Sparkles,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { StatusPill } from '../components/CalmUi';
+import type { CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { getNetworkInsights, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
@@ -340,7 +340,7 @@ function Legend({ swatch, label }: { swatch: string; label: string }) {
   return <span className="inline-flex items-center gap-1.5"><span className={'h-2 w-2 rounded-sm ' + swatch} />{label}</span>;
 }
 
-function heatStyle(value: number | null): React.CSSProperties {
+function heatStyle(value: number | null): CSSProperties {
   if (value == null) return { background: '#F8FAFC', color: '#98A2B3' };
   const alpha = 0.12 + (Math.min(100, Math.max(0, value)) / 100) * 0.7;
   return {
