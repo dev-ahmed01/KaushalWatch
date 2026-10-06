@@ -285,6 +285,8 @@ def prepare_demo_state(data_dir: Path) -> dict:
                 "activity_buckets": _demo_activity_buckets(now, "steady"),
             }
             if analysis_type == "practical_work"
+            else {"reported": 24, "observed": 23}
+            if analysis_type == "attendance"
             else None
         )
         _append_history(
@@ -319,7 +321,15 @@ def prepare_demo_state(data_dir: Path) -> dict:
         )
 
     # Hubballi — infrastructure review and aged escalation.
-    _append_history(history, centre_id="DEMO-KA-303", batch_id="ELEC-2026-06", analysis_type="attendance", outcome="compliant", summary="Simulated attendance evidence aligned.")
+    _append_history(
+        history,
+        centre_id="DEMO-KA-303",
+        batch_id="ELEC-2026-06",
+        analysis_type="attendance",
+        outcome="compliant",
+        summary="Simulated attendance evidence aligned.",
+        details={"reported": 26, "observed": 25},
+    )
     _append_history(
         history,
         centre_id="DEMO-KA-303",
@@ -348,6 +358,8 @@ def prepare_demo_state(data_dir: Path) -> dict:
                 "activity_buckets": _demo_activity_buckets(now, "steady"),
             }
             if analysis_type == "practical_work"
+            else {"reported": 18, "observed": 18}
+            if analysis_type == "attendance"
             else None
         )
         _append_history(
