@@ -118,7 +118,7 @@ export function EvidenceFrame({ src, timestamp, trusted, anonymized = true, alt 
         {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[#D0D5DD]">{emptyText}</div>}
         <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 bg-black/45 px-4 py-3 text-xs">
           <span>{timestamp || 'Latest retained frame'}</span>
-          <span>{trusted === false ? 'Camera untrusted' : 'Camera trusted'}</span>
+          <span>{trusted === true ? 'Camera trusted' : trusted === false ? 'Camera untrusted' : 'Camera trust unavailable'}</span>
         </div>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs text-[#D0D5DD]">
