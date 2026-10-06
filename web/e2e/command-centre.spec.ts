@@ -24,7 +24,7 @@ test('AI-first restructure exposes the new four-item navigation and core routes'
   await expect(page.getByRole('navigation', { name: 'Centre sections' }).getByRole('link', { name: 'Overview', exact: true })).toHaveAttribute('aria-current', 'page');
 
   await page.goto('/centres/DEMO-KA-104/practical');
-  await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activity', exact: true })).toBeVisible();
   await expect(page.getByText('Daily activity pattern')).toBeVisible();
   await expect(page.getByText('10:45–12:00').first()).toBeVisible();
   await expect(page.getByText('14:00–14:45').first()).toBeVisible();
