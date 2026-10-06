@@ -4,6 +4,24 @@
 
 This file is the source of truth for what is verified, scaffolded, or still pending.
 
+
+## AI-first release branch
+
+The active release branch `restructure/kaushalai-first-v1` uses four primary product areas: **KaushalAI, Centres, Insights, Actions**. Its primary judge/demo scope is exactly five centres.
+
+Release-hardening behavior includes:
+- responsive desktop/tablet/mobile navigation and centre tabs,
+- keyboard skip navigation, visible focus, reduced-motion support and accessible dialogs/drawers,
+- explicit text labels for status cues that previously relied on colour,
+- route loading, application-error and not-found recovery views,
+- honest unavailable/empty states: an empty live API response is not backfilled with demo values,
+- deterministic fallbacks are shown only when clearly marked **Simulated fallback** / **Simulated demo data**,
+- centre-intelligence failure does not get presented as "healthy", "no action", or "no analysis",
+- a non-destructive `python scripts/check_release_readiness.py` gate for frozen vision-profile validity, exact five-centre scope, deterministic network story, action ordering, required review cases and duplicate-evidence fixtures,
+- Playwright release-quality coverage for keyboard behavior, mobile viewport overflow, narrow centre tabs, dialog bounds, recovery views and degraded API-state truthfulness.
+
+This release gate validates deterministic product/configuration behavior. It does **not** create new model-accuracy claims or replace strict validation of the exact stage video.
+
 ## Verified in the current core build
 - FastAPI API, configurable browser-origin CORS, evidence serving and persisted compliance cases.
 - Video upload vertical slice.
@@ -34,7 +52,8 @@ This file is the source of truth for what is verified, scaffolded, or still pend
 - Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
 - Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
 - Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
-- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.\n- The DOD_110930728 electrical-training clip has now been run through GroundingDINO on seven wide-shot timestamps and human-reviewed: one workbench and one training panel were accepted, chairs/drill were confirmed absent, and the 10 s drill proposal was rejected as a false positive. The reviewed cache preserves raw model confidence separately from review confidence and is SHA-256-bound to the exact source clip (with the published SHA-1 retained as provenance).
+- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.
+- The DOD_110930728 electrical-training clip has now been run through GroundingDINO on seven wide-shot timestamps and human-reviewed: one workbench and one training panel were accepted, chairs/drill were confirmed absent, and the 10 s drill proposal was rejected as a false positive. The reviewed cache preserves raw model confidence separately from review confidence and is SHA-256-bound to the exact source clip (with the published SHA-1 retained as provenance).
 
 - Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, and configuration-safe failure states. The agent uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint; voice uses Groq Whisper Large V3 Turbo and Orpheus with WAV playback. Provider calls are contract-tested with mocks; live free-provider verification still requires operator-supplied `GEMINI_API_KEY` and `GROQ_API_KEY`.
 
