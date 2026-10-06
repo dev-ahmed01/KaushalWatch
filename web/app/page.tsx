@@ -29,7 +29,7 @@ export default function KaushalAIHome() {
       .catch(() => {
         if (!active) return;
         setBrief(null);
-        setError('Live grounded briefing is unavailable. Showing the local demo state.');
+        setError('Live grounded briefing is unavailable. The values below are clearly marked simulated demo fallback data.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -74,6 +74,7 @@ export default function KaushalAIHome() {
   }), [centres]);
 
   const counts = brief?.counts || fallbackCounts;
+  const usingFallback = !brief;
   const fallbackAttention = centres
     .filter(item => item.state !== 'verified')
     .slice(0, 3)
@@ -107,12 +108,20 @@ export default function KaushalAIHome() {
         <p className="mt-1 text-[14px] text-[var(--kw-muted)]">What changed, what needs attention, and what to do next.</p>
       </header>
 
+      {error && !loading && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          {error}
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-8 py-8 shadow-[var(--kw-shadow)]">
         <div className="relative z-10 max-w-[720px]">
           <div className="flex items-center gap-2">
             <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7C8AA5]">{periodLabel}</div>
-            {brief?.simulated && (
-              <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[10px] font-medium text-[#667085]">Simulated demo data</span>
+            {(brief?.simulated || usingFallback) && (
+              <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[10px] font-medium text-[#667085]">
+                {usingFallback ? 'Simulated fallback' : 'Simulated demo data'}
+              </span>
             )}
           </div>
 
