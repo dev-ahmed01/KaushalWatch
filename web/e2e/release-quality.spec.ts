@@ -182,3 +182,19 @@ test('officer review exposes a labelled decision field and alert errors', async 
   await expect(page.getByRole('alert')).toContainText('Add a short review note');
 });
 
+test('attendance and activity pages withhold conclusions when evidence services fail', async ({ page }) => {
+  await page.route('**/api/analysis-history**', route => route.abort());
+  await page.goto('/centres/DEMO-KA-104/attendance');
+
+  await expect(page.getByRole('alert')).toContainText('Reported/observed facts and Temporal Proof are withheld');
+  await expect(page.getByText('Unavailable while required evidence services are unavailable. No temporal pattern is inferred.')).toBeVisible();
+  await expect(page.getByText('Simulated preview:', { exact: false })).toHaveCount(0);
+
+  await page.unroute('**/api/analysis-history**');
+  await page.route('**/api/centres/DEMO-KA-104/activity-intelligence**', route => route.abort());
+  await page.goto('/centres/DEMO-KA-104/practical');
+
+  await expect(page.getByRole('alert')).toContainText('No activity pattern or follow-up conclusion is being inferred');
+  await expect(page.getByText('Activity service unavailable')).toBeVisible();
+});
+
