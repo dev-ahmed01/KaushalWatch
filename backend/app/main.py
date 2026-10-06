@@ -158,6 +158,11 @@ def get_assistant_service() -> AssistantService:
             history=HISTORY.list(limit=500),
             period=period,
         ),
+        activity_intelligence_provider=lambda centre_id, period: build_activity_intelligence(
+            centre=_centre_with_settings(centre_id) or {},
+            history=HISTORY.list(centre_id=centre_id, limit=500),
+            period=period,
+        ),
     )
     ASSISTANT_SERVICE = AssistantService(
         provider=OpenAIAssistantProvider(toolset=KaushalToolset(context)),
