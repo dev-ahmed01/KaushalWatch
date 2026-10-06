@@ -16,7 +16,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AnalysisModal from '../../components/AnalysisModal';
 import CentreTabs from '../../components/CentreTabs';
 import { StatusPill } from '../../components/CalmUi';
@@ -75,15 +75,6 @@ export default function CentreOverview() {
   const engines = intelligence?.engines || [];
   const actions = intelligence?.actions || [];
   const recent = intelligence?.period_activity.recent_analyses || [];
-
-  const fallbackHeadline = useMemo(() => {
-    if (current.camera_status === 'attention' || current.camera_status === 'blocked') {
-      return "Camera trust is limiting this centre's conclusions.";
-    }
-    if (current.pending_cases > 0) return 'This centre needs officer attention.';
-    if (current.status === 'compliant') return 'Latest trusted checks are aligned.';
-    return 'Some centre checks do not yet have a trusted conclusion.';
-  }, [current]);
 
   function askAssistant() {
     window.dispatchEvent(new Event('kaushalwatch:assistant'));
