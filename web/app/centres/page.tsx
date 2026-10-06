@@ -24,52 +24,63 @@ export default function CentresPage() {
     uncertain: centres.filter(item => centreUiState(item) === 'uncertain').length,
   }), [centres]);
 
+  const attention = centres.filter(item => centreUiState(item) !== 'verified').slice(0, 3);
+
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-[34px] font-medium tracking-[-0.035em] text-[#152238]">Centres</h1>
-        <p className="mt-1 text-[15px] text-[#667085]">Five monitored centres, summarised by KaushalAI.</p>
-      </div>
+      <header className="mb-7">
+        <h1 className="text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Centres</h1>
+        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">Five monitored centres, summarised by KaushalAI.</p>
+      </header>
 
-      <section className="mb-6 grid gap-3 md:grid-cols-3">
-        <Summary value={counts.verified} label="Verified" tone="green" />
-        <Summary value={counts.review} label="Need review" tone="amber" />
-        <Summary value={counts.uncertain} label="Uncertain" tone="blue" />
+      <section className="mb-6 grid divide-y divide-[#EEF2F6] rounded-[18px] border border-[var(--kw-border)] bg-white shadow-[var(--kw-shadow)] md:grid-cols-3 md:divide-x md:divide-y-0">
+        <Summary value={counts.verified} label="Verified" note="No officer action" tone="green" />
+        <Summary value={counts.review} label="Need review" note="Evidence requires attention" tone="amber" />
+        <Summary value={counts.uncertain} label="Uncertain" note="Trust gate applied" tone="blue" />
       </section>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-        <section className="rounded-[18px] border border-[#E3EAF3] bg-white px-6 py-5 shadow-[0_1px_3px_rgba(16,24,40,.04)]">
-          <div className="mb-2 text-[18px] font-medium text-[#152238]">Centres ({centres.length})</div>
+      <div className="grid gap-7 lg:grid-cols-[1fr_300px]">
+        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
+          <div className="mb-2 text-[17px] font-semibold text-[var(--kw-text)]">Centres ({centres.length})</div>
+
           <div className="divide-y divide-[#EEF2F6]">
             {centres.map(centre => (
-              <div key={centre.centre_id} className="grid gap-4 py-4 md:grid-cols-[44px_1fr_auto] md:items-center">
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#F5F8FD] text-[#6C86B4]"><Building2 size={19} /></span>
+              <div key={centre.centre_id} className="grid gap-4 py-4 md:grid-cols-[40px_1fr_auto] md:items-center">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F8FD] text-[#6C86B4]">
+                  <Building2 size={18} />
+                </span>
+
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[14px] font-medium text-[#152238]">{centre.name}</span>
+                    <span className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</span>
                     <StatusPill state={centreUiState(centre)} />
                   </div>
-                  <div className="mt-1 text-[12px] text-[#98A2B3]">{centre.location} · Construction Electrician-LV</div>
-                  <div className="mt-1 truncate text-[13px] text-[#667085]">{centreReason(centre)}</div>
+                  <div className="mt-1 text-[11px] text-[#98A2B3]">{centre.location} · Construction Electrician-LV</div>
+                  <div className="mt-1 truncate text-[12px] text-[var(--kw-muted)]">{centreReason(centre)}</div>
                 </div>
-                <Link href={`/centres/${centre.centre_id}`} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
-                  View centre <ArrowRight size={15} />
+
+                <Link href={'/centres/' + centre.centre_id} className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
+                  View
+                  <ArrowRight size={14} />
                 </Link>
               </div>
             ))}
           </div>
         </section>
 
-        <aside className="rounded-[18px] border border-[#E3EAF3] bg-white px-5 py-5 shadow-[0_1px_3px_rgba(16,24,40,.04)]">
-          <h2 className="text-[18px] font-medium text-[#152238]">Attention first</h2>
-          <div className="mt-3 space-y-1">
-            {centres.filter(item => centreUiState(item) !== 'verified').slice(0, 3).map((centre, index) => (
-              <Link href={`/centres/${centre.centre_id}`} key={centre.centre_id} className="kw-focus flex items-start gap-3 rounded-xl px-2 py-3 hover:bg-[#F8FAFC]">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[12px] font-medium text-[#B54708]">{index + 1}</span>
-                <div>
-                  <div className="text-[14px] font-medium text-[#152238]">{centre.name}</div>
-                  <div className="mt-1 text-[12px] leading-5 text-[#667085]">{centreReason(centre)}</div>
+        <aside className="rounded-[18px] border border-[var(--kw-border)] bg-white px-5 py-5 shadow-[var(--kw-shadow)]">
+          <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Attention first</h2>
+          <p className="mt-1 text-[12px] text-[#98A2B3]">Prioritised by evidence state.</p>
+
+          <div className="mt-3 divide-y divide-[#EEF2F6]">
+            {attention.map((centre, index) => (
+              <Link href={'/centres/' + centre.centre_id} key={centre.centre_id} className="kw-focus flex items-start gap-3 rounded-md py-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[12px] font-semibold text-[#B54708]">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-[var(--kw-muted)]">{centreReason(centre)}</div>
                 </div>
+                <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
               </Link>
             ))}
           </div>
@@ -79,17 +90,29 @@ export default function CentresPage() {
   );
 }
 
-function Summary({ value, label, tone }: { value: number; label: string; tone: 'green' | 'amber' | 'blue' }) {
+function Summary({
+  value,
+  label,
+  note,
+  tone,
+}: {
+  value: number;
+  label: string;
+  note: string;
+  tone: 'green' | 'amber' | 'blue';
+}) {
   const tones = {
     green: 'bg-[#ECFDF3] text-[#067647]',
     amber: 'bg-[#FFF7E8] text-[#B54708]',
     blue: 'bg-[#EFF6FF] text-[#41658F]',
   };
+
   return (
-    <div className="rounded-[16px] border border-[#E3EAF3] bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,.03)]">
-      <div className="flex items-center gap-3">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-full text-[15px] font-medium ${tones[tone]}`}>{value}</span>
-        <div><div className="text-[14px] font-medium text-[#152238]">{label}</div><div className="text-[12px] text-[#98A2B3]">centres</div></div>
+    <div className="flex items-center gap-3 px-5 py-4">
+      <span className={'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold ' + tones[tone]}>{value}</span>
+      <div>
+        <div className="text-[13px] font-semibold text-[var(--kw-text)]">{label}</div>
+        <div className="mt-0.5 text-[11px] text-[#98A2B3]">{note}</div>
       </div>
     </div>
   );
