@@ -107,7 +107,7 @@ export default function CentreOverview() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" onClick={askAssistant}><Bot size={16} /> Ask KaushalAI</Button>
           <Button variant="primary" onClick={() => setAnalysisOpen(true)}><Play size={16} /> Run analysis</Button>
         </div>
