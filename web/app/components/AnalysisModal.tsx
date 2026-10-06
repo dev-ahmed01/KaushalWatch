@@ -122,7 +122,7 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
           <Dialog.Portal forceMount>
             <Dialog.Overlay asChild><motion.div className="fixed inset-0 z-40 bg-[#172033]/15" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} /></Dialog.Overlay>
             <Dialog.Content asChild>
-              <motion.div className="fixed left-1/2 top-1/2 z-50 w-[min(680px,calc(100vw-40px))] rounded-2xl border border-[#E6EAF0] bg-white p-7 shadow-[0_12px_32px_rgba(16,24,40,.12)]" initial={{ opacity: 0, x: '-50%', y: '-48%' }} animate={{ opacity: 1, x: '-50%', y: '-50%' }} exit={{ opacity: 0, x: '-50%', y: '-48%' }} transition={{ duration: 0.18 }}>
+              <motion.div className="kw-scrollbar fixed left-1/2 top-1/2 z-50 max-h-[calc(100vh-24px)] w-[min(680px,calc(100vw-24px))] overflow-y-auto rounded-2xl border border-[#E6EAF0] bg-white p-5 shadow-[0_12px_32px_rgba(16,24,40,.12)] sm:p-7" initial={{ opacity: 0, x: '-50%', y: '-48%' }} animate={{ opacity: 1, x: '-50%', y: '-50%' }} exit={{ opacity: 0, x: '-50%', y: '-48%' }} transition={{ duration: 0.18 }}>
                 <div className="flex items-start justify-between">
                   <div>
                     <Dialog.Title className="text-xl font-medium text-[#172033]">Run analysis</Dialog.Title>
@@ -143,7 +143,7 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
                   </label>
                 </div>
 
-                <div className="mt-7 space-y-2">
+                <div className="mt-7 space-y-2" aria-live="polite" aria-busy={running}>
                   {steps.map((step, index) => (
                     <div key={step.label} className="flex items-start gap-4 rounded-xl px-2 py-3">
                       <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${step.state === 'done' ? 'bg-[#ECFDF3] text-[#067647]' : step.state === 'error' ? 'bg-[#F2F4F7] text-[#475467]' : step.state === 'running' ? 'bg-[#EFF6FF] text-[#2563EB]' : 'bg-[#F2F4F7] text-[#98A2B3]'}`}>
@@ -154,7 +154,7 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
                   ))}
                 </div>
 
-                {error && <div className="mt-4 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[13px] text-[#B42318]">{error}</div>}
+                {error && <div role="alert" className="mt-4 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[13px] text-[#B42318]">{error}</div>}
                 {technical.length > 0 && <details className="mt-4 text-[13px] text-[#667085]"><summary className="cursor-pointer font-medium">Technical details</summary><div className="mt-2 space-y-1">{technical.map(item => <div key={item}>{item}</div>)}</div></details>}
 
                 <div className="mt-7 flex items-center justify-between border-t border-[#EEF1F4] pt-5">
