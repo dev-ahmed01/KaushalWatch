@@ -26,10 +26,12 @@ export default function ActivityPage() {
   const [centre, setCentre] = useState<Centre | null>(null);
   const [activity, setActivity] = useState<ActivityIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
+  const [degraded, setDegraded] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
   async function load() {
     setLoading(true);
+    setDegraded(false);
     try {
       const [current, intelligence] = await Promise.all([
         getCentre(id),
@@ -40,6 +42,7 @@ export default function ActivityPage() {
     } catch {
       setCentre(FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK_CENTRES[0]);
       setActivity(null);
+      setDegraded(true);
     } finally {
       setLoading(false);
     }
@@ -89,6 +92,12 @@ export default function ActivityPage() {
       </header>
 
       <CentreTabs centreId={id} />
+
+      {degraded && !loading && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          Activity intelligence is unavailable. No activity pattern or follow-up conclusion is being inferred from fallback centre metadata.
+        </div>
+      )}
 
       <div className="grid gap-7 lg:grid-cols-[1fr_320px]">
         <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
