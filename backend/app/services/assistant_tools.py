@@ -59,6 +59,7 @@ class AssistantDataContext:
     cases: CaseStore
     centre_lookup: Callable[[str], dict[str, Any] | None]
     readiness_provider: Callable[[], dict[str, Any]]
+    network_brief_provider: Callable[[str], dict[str, Any]] | None = None
     now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
 
 
@@ -224,6 +225,23 @@ class KaushalToolset:
             "end_date": end_label,
             "timezone": "Asia/Kolkata",
         }
+
+    def get_network_brief(self, period: str = "last_7_days") -> ToolResult:
+        if self.context.network_brief_provider is None:
+            return ToolResult({"available": False, "reason": "Network briefing is unavailable."})
+        data = self.context.network_brief_provider(period)
+        sources = [
+            AssistantSource(
+                "centre",
+                str(item.get("centre_id") or ""),
+                str(item.get("name") or item.get("centre_id") or "Centre"),
+                str(item.get("href") or f"/centres/{item.get('centre_id')}"),
+                data.get("generated_at"),
+            )
+            for item in data.get("centres", [])
+            if item.get("centre_id")
+        ]
+        return ToolResult({"available": True, **data}, sources)
 
     def get_centre_overview(self, centre_id: str) -> ToolResult:
         centre = self._centre(centre_id)
