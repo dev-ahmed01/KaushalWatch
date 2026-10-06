@@ -10,12 +10,29 @@ import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from '.
 import type { Centre } from '../lib/types';
 
 export default function CentresPage() {
-  const [centres, setCentres] = useState<Centre[]>(aiFirstCentres(FALLBACK_CENTRES));
+  const [centres, setCentres] = useState<Centre[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError('');
     getCentres()
-      .then(payload => setCentres(aiFirstCentres(payload.centres.length ? payload.centres : FALLBACK_CENTRES)))
-      .catch(() => setCentres(aiFirstCentres(FALLBACK_CENTRES)));
+      .then(payload => {
+        if (active) setCentres(aiFirstCentres(payload.centres, false));
+      })
+      .catch(() => {
+        if (!active) return;
+        setCentres(aiFirstCentres(FALLBACK_CENTRES));
+        setError('Live centre records are unavailable. Showing clearly marked simulated demo fallback data.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const counts = useMemo(() => ({
@@ -29,21 +46,44 @@ export default function CentresPage() {
   return (
     <div>
       <header className="mb-7">
-        <h1 className="text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Centres</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Centres</h1>
+          {error && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated fallback</span>}
+        </div>
         <p className="mt-1 text-[14px] text-[var(--kw-muted)]">Five monitored centres, summarised by KaushalAI.</p>
       </header>
 
+      {error && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          {error}
+        </div>
+      )}
+
+      {loading && centres.length === 0 ? (
+        <div aria-live="polite" aria-busy="true" className="mb-6 grid gap-4 md:grid-cols-3">
+          <div className="h-20 rounded-[18px] kw-skeleton" />
+          <div className="h-20 rounded-[18px] kw-skeleton" />
+          <div className="h-20 rounded-[18px] kw-skeleton" />
+        </div>
+      ) : (
       <section className="mb-6 grid divide-y divide-[#EEF2F6] rounded-[18px] border border-[var(--kw-border)] bg-white shadow-[var(--kw-shadow)] md:grid-cols-3 md:divide-x md:divide-y-0">
         <Summary value={counts.verified} label="Verified" note="No officer action" tone="green" />
         <Summary value={counts.review} label="Need review" note="Evidence requires attention" tone="amber" />
         <Summary value={counts.uncertain} label="Uncertain" note="Trust gate applied" tone="blue" />
       </section>
+      )}
 
       <div className="grid gap-7 lg:grid-cols-[1fr_300px]">
         <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
           <div className="mb-2 text-[17px] font-semibold text-[var(--kw-text)]">Centres ({centres.length})</div>
 
           <div className="divide-y divide-[#EEF2F6]">
+            {!loading && !error && centres.length === 0 && (
+              <div className="py-10 text-center">
+                <div className="text-[13px] font-medium text-[#475467]">No monitored centre records are available.</div>
+                <p className="mt-1 text-[12px] text-[#98A2B3]">No demo values have been substituted for an empty live response.</p>
+              </div>
+            )}
             {centres.map(centre => (
               <div key={centre.centre_id} className="grid gap-4 py-4 md:grid-cols-[40px_1fr_auto] md:items-center">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F8FD] text-[#6C86B4]">
