@@ -7,7 +7,6 @@ import {
   Play,
   TrendingDown,
   TrendingUp,
-  UsersRound,
 } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
