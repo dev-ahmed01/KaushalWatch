@@ -29,6 +29,8 @@ jobs:
       - run: ruff check backend/app scripts --select F821
       - name: Validate frozen vision profile
         run: python scripts/validate_vision_profile.py
+      - name: Check release readiness
+        run: python scripts/check_release_readiness.py
       - run: pytest -q backend/tests
       - name: Smoke-test final demo evaluator
         run: |
