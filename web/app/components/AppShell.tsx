@@ -15,6 +15,7 @@ import {
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/cn';
+import { PeriodProvider, useBriefPeriod } from '../lib/period';
 import AssistantDrawer from './AssistantDrawer';
 import { Button } from './ui/button';
 
@@ -25,8 +26,6 @@ const NAV = [
   { href: '/actions', label: 'Actions', icon: CheckSquare2 },
 ] as const;
 
-const PERIODS = ['Yesterday', '7 days', '30 days', 'Custom'] as const;
-
 function primarySection(pathname: string) {
   if (pathname.startsWith('/centres')) return '/centres';
   if (pathname.startsWith('/insights') || pathname.startsWith('/reports') || pathname.startsWith('/analytics')) return '/insights';
@@ -35,10 +34,18 @@ function primarySection(pathname: string) {
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  return (
+    <PeriodProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </PeriodProvider>
+  );
+}
+
+function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
-  const [period, setPeriod] = useState<(typeof PERIODS)[number]>('Yesterday');
+  const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
   const activeLabel = NAV.find(item => item.href === active)?.label || 'KaushalAI';
   const centreId = useMemo(
@@ -125,14 +132,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
           <div className="flex items-center gap-2">
             <div className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
-              {PERIODS.map(label => {
-                const selected = period === label;
+              {[
+                ['Yesterday', 'yesterday'],
+                ['7 days', 'last_7_days'],
+                ['30 days', 'last_30_days'],
+              ].map(([label, value]) => {
+                const selected = period === value;
                 return (
                   <button
-                    key={label}
+                    key={value}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() => setPeriod(label)}
+                    onClick={() => setPeriod(value as 'yesterday' | 'last_7_days' | 'last_30_days')}
                     className={cn(
                       'kw-focus h-8 rounded-lg px-3 text-[12px] font-medium transition-colors',
                       selected
@@ -144,6 +155,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                disabled
+                title="Custom date range will be added with the reporting phase"
+                className="h-8 cursor-not-allowed rounded-lg px-3 text-[12px] font-medium text-[#B0B8C5]"
+              >
+                Custom
+              </button>
             </div>
             <Button variant="primary" onClick={() => setAssistantOpen(true)}>
               <Sparkles size={15} />
