@@ -162,3 +162,23 @@ test('empty and unavailable centre data remain distinct from healthy state', asy
   await expect(page.getByText('Recent analysis is unavailable until centre intelligence responds.')).toBeVisible();
 });
 
+test('evidence API failures do not masquerade as an empty review queue', async ({ page }) => {
+  await page.route('**/api/cases', route => route.abort());
+  await page.goto('/centres/DEMO-KA-104/evidence');
+
+  await expect(page.getByRole('alert')).toContainText('Case and evidence records are unavailable');
+  await expect(page.getByText('Evidence records unavailable').first()).toBeVisible();
+  await expect(page.getByText('Case records are unavailable. No empty queue conclusion is being shown.')).toBeVisible();
+  await expect(page.getByText('No open officer-review case for this centre.')).toHaveCount(0);
+});
+
+test('officer review exposes a labelled decision field and alert errors', async ({ page }) => {
+  await page.goto('/cases/SIM-KA-104-ATT');
+
+  const note = page.getByLabel('Decision note');
+  await expect(note).toBeVisible();
+
+  await page.getByRole('button', { name: 'Confirm discrepancy' }).click();
+  await expect(page.getByRole('alert')).toContainText('Add a short review note');
+});
+
