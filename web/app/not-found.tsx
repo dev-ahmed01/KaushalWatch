@@ -13,7 +13,7 @@ export default function NotFound() {
         <p className="mt-2 text-[13px] leading-6 text-[#667085]">
           The requested KaushalWatch view does not exist or is no longer part of the active workflow.
         </p>
-        <Link href="/" className={buttonVariants({ variant: 'primary', className: 'mt-5' })}>
+        <Link href="/" className={buttonVariants({ variant: 'primary' }) + ' mt-5'}>
           <ArrowLeft size={15} />
           Back to KaushalAI
         </Link>
