@@ -92,3 +92,68 @@ export type AssistantSource = {
 export type AssistantToolCall = { name: string; status: 'success' | 'error' | string; duration_ms: number };
 export type AssistantStatus = { enabled: boolean; configured: boolean; available: boolean; voice_configured: boolean; voice_available: boolean };
 export type AssistantMessage = { id: string; role: 'user' | 'assistant'; text: string; sources?: AssistantSource[]; voiceOrigin?: boolean };
+
+
+export type KaushalBriefCentre = {
+  centre_id: string;
+  name: string;
+  location: string;
+  district: string;
+  job_role: string;
+  state: 'verified' | 'review' | 'uncertain' | 'unavailable';
+  reason: string;
+  period_analysis_count: number;
+  period_attention_count: number;
+  analysis_types: Record<string, number>;
+  open_case_count: number;
+  escalation_level: number;
+  recommended_action: { label: string; href: string };
+  simulated: boolean;
+  href: string;
+};
+
+export type KaushalBrief = {
+  generated_at: string;
+  timezone: string;
+  period: 'today' | 'yesterday' | 'last_7_days' | 'last_30_days';
+  period_label: string;
+  window: { start: string; end: string };
+  grounded: boolean;
+  simulated: boolean;
+  headline: string;
+  bullets: string[];
+  counts: {
+    total: number;
+    verified: number;
+    review: number;
+    uncertain: number;
+    unavailable: number;
+  };
+  period_activity: {
+    analysis_runs: number;
+    attention_or_blocked_runs: number;
+    analysis_types: Record<string, number>;
+  };
+  priority: {
+    centre_id: string;
+    centre_name: string;
+    state: string;
+    reason: string;
+    label: string;
+    href: string;
+  } | null;
+  recommendations: Array<{
+    centre_id: string;
+    centre_name: string;
+    state: string;
+    reason: string;
+    label: string;
+    href: string;
+  }>;
+  centres: KaushalBriefCentre[];
+  source_counts: {
+    analysis_rows_in_period: number;
+    unresolved_or_confirmed_cases: number;
+  };
+  decision_policy: string;
+};
