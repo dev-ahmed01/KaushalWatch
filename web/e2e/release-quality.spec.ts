@@ -124,3 +124,41 @@ test('unknown routes provide a clear recovery action', async ({ page }) => {
   await back.click();
   await expect(page).toHaveURL(/\/$/);
 });
+
+test('API failures never present simulated fallbacks as live evidence', async ({ page }) => {
+  await page.route('**/api/kaushalai/brief**', route => route.abort());
+  await page.goto('/');
+
+  await expect(page.getByRole('alert')).toContainText('simulated demo fallback data');
+  await expect(page.getByText('Simulated fallback')).toBeVisible();
+
+  await page.unroute('**/api/kaushalai/brief**');
+  await page.route('**/api/centres', route => route.abort());
+  await page.goto('/centres');
+
+  await expect(page.getByRole('alert')).toContainText('simulated demo fallback data');
+  await expect(page.getByText('Simulated fallback')).toBeVisible();
+  await expect(page.getByText('Bengaluru TC-04')).toBeVisible();
+});
+
+test('empty and unavailable centre data remain distinct from healthy state', async ({ page }) => {
+  await page.route('**/api/centres', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ centres: [], total: 0 }),
+  }));
+  await page.goto('/centres');
+
+  await expect(page.getByText('No monitored centre records are available.')).toBeVisible();
+  await expect(page.getByText('No demo values have been substituted for an empty live response.')).toBeVisible();
+  await expect(page.getByText('Bengaluru TC-04')).toHaveCount(0);
+
+  await page.unroute('**/api/centres');
+  await page.route('**/api/centres/DEMO-KA-104/intelligence**', route => route.abort());
+  await page.goto('/centres/DEMO-KA-104');
+
+  await expect(page.getByRole('alert')).toContainText('verification states, recommendations and recent analysis are not being inferred');
+  await expect(page.getByText('Recommendations are unavailable until centre intelligence responds.')).toBeVisible();
+  await expect(page.getByText('Recent analysis is unavailable until centre intelligence responds.')).toBeVisible();
+});
+
