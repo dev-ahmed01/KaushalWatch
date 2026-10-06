@@ -251,3 +251,39 @@ def test_network_brief_tool_uses_shared_grounded_provider(tmp_path):
     assert result.data["headline"] == "2 of 5 centres are verified."
     assert result.sources[0].kind == "centre"
     assert result.sources[0].href == "/centres/DEMO-KA-104"
+
+
+def test_activity_intelligence_tool_uses_shared_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda centre_id: {"centre_id": centre_id},
+        readiness_provider=lambda: {},
+        activity_intelligence_provider=lambda centre_id, period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "centre_id": centre_id,
+            "period": period,
+            "state": "available",
+            "summary": {
+                "peak": {"label": "10:45–12:00"},
+                "lowest": {"label": "14:00–14:45"},
+            },
+            "follow_up": {
+                "recommended": True,
+                "title": "Confirm the low-activity period with the Centre Head",
+            },
+        },
+    )
+
+    result = KaushalToolset(context).get_activity_intelligence(
+        "DEMO-KA-104",
+        "yesterday",
+    )
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "yesterday"
+    assert result.data["summary"]["peak"]["label"] == "10:45–12:00"
+    assert result.sources[0].href == "/centres/DEMO-KA-104/practical"
