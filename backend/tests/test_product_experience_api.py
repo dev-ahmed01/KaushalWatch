@@ -314,6 +314,7 @@ def test_practical_runtime_unavailable_becomes_blocked_history(tmp_path, monkeyp
     latest = history.json()["rows"][0]
     assert latest["analysis_type"] == "practical_work"
     assert latest["outcome"] == "blocked"
+    assert latest["details"]["vision_profile_id"] == "kaushalwatch-fixed-camera-v1"
 
 
 
