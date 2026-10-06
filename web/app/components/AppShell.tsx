@@ -145,7 +145,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 <option value="last_30_days">30 days</option>
               </select>
             </label>
-            <div className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
+            <div role="group" className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
               {[
                 ['Yesterday', 'yesterday'],
                 ['7 days', 'last_7_days'],
