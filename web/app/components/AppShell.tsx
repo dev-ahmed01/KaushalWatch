@@ -61,9 +61,10 @@ function AppShellContent({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-[var(--kw-page)]">
+      <a href="#main-content" className="kw-skip-link">Skip to content</a>
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 flex flex-col border-r border-[var(--kw-border)] bg-white transition-[width] duration-200',
+          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-[var(--kw-border)] bg-white transition-[width] duration-200 md:flex',
           collapsed ? 'w-[72px]' : 'w-[208px]',
         )}
       >
@@ -123,14 +124,27 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className={cn('min-h-screen transition-[padding] duration-200', collapsed ? 'pl-[72px]' : 'pl-[208px]')}>
-        <header className="sticky top-0 z-20 flex h-[68px] items-center justify-between border-b border-[#EEF2F6] bg-[#F7F9FC]/95 px-8 backdrop-blur-sm">
+      <div className={cn('min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[208px]')}>
+        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-[#EEF2F6] bg-[#F7F9FC]/95 px-4 backdrop-blur-sm md:h-[68px] md:px-8">
           <div>
-            <div className="text-[12px] text-[#98A2B3]">PMKVY Compliance Intelligence</div>
-            <div className="mt-0.5 text-[13px] font-medium text-[#475467]">{activeLabel}</div>
+            <div className="hidden text-[12px] text-[#98A2B3] sm:block">PMKVY Compliance Intelligence</div>
+            <div className="text-[13px] font-medium text-[#475467] sm:mt-0.5">{activeLabel}</div>
           </div>
 
           <div className="flex items-center gap-2">
+            <label className="md:hidden">
+              <span className="sr-only">Date range</span>
+              <select
+                aria-label="Date range"
+                value={period}
+                onChange={event => setPeriod(event.target.value as 'yesterday' | 'last_7_days' | 'last_30_days')}
+                className="kw-focus h-9 rounded-lg border border-[#DCE3EC] bg-white px-2 text-[12px] font-medium text-[#475467]"
+              >
+                <option value="yesterday">Yesterday</option>
+                <option value="last_7_days">7 days</option>
+                <option value="last_30_days">30 days</option>
+              </select>
+            </label>
             <div className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
               {[
                 ['Yesterday', 'yesterday'],
@@ -155,24 +169,37 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   </button>
                 );
               })}
-              <button
-                type="button"
-                disabled
-                title="Custom date range will be added with the reporting phase"
-                className="h-8 cursor-not-allowed rounded-lg px-3 text-[12px] font-medium text-[#B0B8C5]"
-              >
-                Custom
-              </button>
             </div>
-            <Button variant="primary" onClick={() => setAssistantOpen(true)}>
+            <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
               <Sparkles size={15} />
-              Ask KaushalAI
+              <span className="hidden sm:inline">Ask KaushalAI</span>
             </Button>
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-[1200px] px-8 py-9">{children}</main>
+        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1200px] px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-9 md:pb-9">{children}</main>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E6EAF0] bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden" aria-label="Mobile primary navigation">
+        {NAV.map(item => {
+          const Icon = item.icon;
+          const selected = active === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={selected ? 'page' : undefined}
+              className={cn(
+                'kw-focus flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium',
+                selected ? 'bg-[var(--kw-accent-soft)] text-[var(--kw-accent-strong)]' : 'text-[#667085]',
+              )}
+            >
+              <Icon size={17} strokeWidth={1.8} />
+              <span>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
 
       <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} centreId={centreId} />
     </div>
