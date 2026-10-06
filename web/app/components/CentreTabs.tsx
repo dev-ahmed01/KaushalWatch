@@ -7,7 +7,7 @@ import { cn } from '../lib/cn';
 const tabs = [
   { suffix: '', label: 'Overview' },
   { suffix: '/attendance', label: 'Attendance' },
-  { suffix: '/practical', label: 'Practical' },
+  { suffix: '/practical', label: 'Activity' },
   { suffix: '/infrastructure', label: 'Infrastructure' },
   { suffix: '/evidence', label: 'Evidence' },
 ];
