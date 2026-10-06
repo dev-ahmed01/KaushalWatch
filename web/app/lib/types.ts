@@ -339,3 +339,84 @@ export type EvidenceReviewPack = {
   decision_policy: string;
   privacy_note: string;
 };
+
+
+export type InsightState = 'verified' | 'review' | 'uncertain' | 'unavailable';
+
+export type NetworkInsights = {
+  generated_at: string;
+  timezone: string;
+  period: 'today' | 'yesterday' | 'last_7_days' | 'last_30_days';
+  period_label: string;
+  grounded: boolean;
+  simulated: boolean;
+  counts: {
+    total: number;
+    verified: number;
+    review: number;
+    uncertain: number;
+    unavailable: number;
+    analysis_runs: number;
+  };
+  centre_health: Array<{
+    centre_id: string;
+    name: string;
+    short_name: string;
+    state: InsightState;
+  }>;
+  attendance: Array<{
+    centre_id: string;
+    name: string;
+    short_name: string;
+    reported: number | null;
+    observed: number | null;
+    difference: number | null;
+    available: boolean;
+    status: InsightState;
+  }>;
+  activity_heatmap: {
+    hours: string[];
+    rows: Array<{
+      centre_id: string;
+      name: string;
+      short_name: string;
+      state: 'available' | 'uncertain' | 'unavailable';
+      values: Array<number | null>;
+      peak: { label: string; activity_percent: number } | null;
+      lowest: { label: string; activity_percent: number } | null;
+    }>;
+  };
+  infrastructure: Array<{
+    centre_id: string;
+    name: string;
+    short_name: string;
+    case_count: number;
+    missing_units: number;
+    discrepancy_items: number;
+    status: InsightState;
+  }>;
+  camera_trust: Array<{
+    centre_id: string;
+    name: string;
+    short_name: string;
+    state: InsightState;
+  }>;
+  analysis_mix: {
+    types: Record<string, number>;
+    outcomes: Record<string, number>;
+  };
+  case_outcomes: Record<string, number>;
+  insights: Array<{
+    title: string;
+    body: string;
+    centre_id: string;
+    href: string;
+    kind: string;
+  }>;
+  report_centres: Array<{
+    centre_id: string;
+    name: string;
+    state: InsightState;
+  }>;
+  decision_policy: string;
+};
