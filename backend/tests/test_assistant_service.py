@@ -280,6 +280,7 @@ def test_openai_provider_configures_one_grounded_agent_and_all_tools():
     assert provider.model_name == "gemini-3.8-flash"
     assert provider.agent.model.model == "gemini-3.8-flash"
     assert {tool.name for tool in provider.agent.tools} == {
+        "get_network_brief",
         "get_centre_overview",
         "get_runtime_readiness",
         "get_operational_history",
@@ -291,6 +292,7 @@ def test_openai_provider_configures_one_grounded_agent_and_all_tools():
     }
     assert "Never invent" in AGENT_INSTRUCTIONS
     assert "anonymous" in AGENT_INSTRUCTIONS.lower()
+    assert "network briefing tool" in AGENT_INSTRUCTIONS
     assert provider.agent.handoffs == []
 
 
