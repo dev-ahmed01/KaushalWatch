@@ -53,6 +53,7 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
       update(0, 'running');
       const [fresh, readiness] = await Promise.all([getCentre(centre.centre_id), getRuntimeReadiness()]);
       setTechnical([
+        `Vision profile: ${readiness?.vision_profile?.profile_id || 'unavailable'} · ${readiness?.runtime_alignment?.aligned ? 'aligned' : 'drifted / unavailable'}`,
         `Attendance runtime: ${readiness?.attendance?.ready ? 'ready' : 'unavailable'}`,
         `Practical runtime: ${readiness?.practical_work?.ready ? 'ready' : 'unavailable'}`,
         `Infrastructure runtime: ${readiness?.infrastructure?.ready ? 'ready' : 'unavailable'}`,
