@@ -16,7 +16,7 @@ test('prepared SIH demo stays deterministic and auditable after AI-first restruc
   await expect(page.getByText('Apparent operability', { exact: true }).first()).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Centre sections' }).getByRole('link', { name: 'Evidence', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Evidence' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Evidence', exact: true })).toBeVisible();
   await expect(page.getByText('Simulated evidence')).toBeVisible();
   await expect(page.getByText('1 possible duplicate')).toBeVisible();
   await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
@@ -29,7 +29,7 @@ test('prepared SIH demo stays deterministic and auditable after AI-first restruc
   await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
 
   await page.getByPlaceholder('Record the reason for your decision…').fill('Reviewed during SIH demo rehearsal.');
-  await page.getByRole('button', { name: 'Confirm' }).click();
+  await page.getByRole('button', { name: 'Confirm discrepancy', exact: true }).click();
   await expect(page.getByText('Case confirmed for officer follow-up.')).toBeVisible();
 
   await page.getByText(/Audit trail · 2 events/).click();
@@ -37,7 +37,8 @@ test('prepared SIH demo stays deterministic and auditable after AI-first restruc
   await expect(page.getByText(/under review → confirmed/)).toBeVisible();
 
   await page.reload();
-  await expect(page.getByText('OPEN', { exact: true })).toBeVisible();
+  await expect(page.getByText('CONFIRMED', { exact: true })).toBeVisible();
+  await expect(page.getByText('A final officer outcome has been recorded. The evidence and audit trail remain available.')).toBeVisible();
 
   await page.goto('/reports?centre=DEMO-KA-104');
   await expect(page).toHaveURL(/\/insights$/);
