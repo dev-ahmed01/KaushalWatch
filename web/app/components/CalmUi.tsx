@@ -112,14 +112,14 @@ export function PersistenceTimeline({ points, summary }: { points: { label: stri
 export function EvidenceFrame({ src, timestamp, trusted, anonymized = true, alt = 'Retained compliance evidence', emptyText = 'Evidence preview appears after analysis' }: { src?: string; timestamp?: string; trusted?: boolean; anonymized?: boolean; alt?: string; emptyText?: string }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-[#111827] text-white shadow-[0_1px_2px_rgba(16,24,40,.06)]">
-      <div className="relative aspect-video min-h-64 bg-[#111827]">
+      <div className="relative aspect-video min-h-0 bg-[#111827] sm:min-h-64">
         {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[#D0D5DD]">{emptyText}</div>}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/45 px-4 py-3 text-xs">
+        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 bg-black/45 px-4 py-3 text-xs">
           <span>{timestamp || 'Latest retained frame'}</span>
           <span>{trusted === false ? 'Camera untrusted' : 'Camera trusted'}</span>
         </div>
       </div>
-      <div className="flex items-center justify-between px-4 py-3 text-xs text-[#D0D5DD]">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs text-[#D0D5DD]">
         <span>{anonymized ? 'Position tracked. Identity not collected.' : 'Evidence retained for review.'}</span>
         <span>No face recognition</span>
       </div>
