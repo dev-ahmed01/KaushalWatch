@@ -129,7 +129,7 @@ test('API failures never present simulated fallbacks as live evidence', async ({
   await page.route('**/api/kaushalai/brief**', route => route.abort());
   await page.goto('/');
 
-  await expect(page.getByRole('alert')).toContainText('simulated demo fallback data');
+  await expect(page.getByRole('alert').filter({ hasText: 'simulated demo fallback data' })).toBeVisible();
   await expect(page.getByText('Simulated fallback')).toBeVisible();
 
   await page.unroute('**/api/kaushalai/brief**');
@@ -157,7 +157,7 @@ test('empty and unavailable centre data remain distinct from healthy state', asy
   await page.route('**/api/centres/DEMO-KA-104/intelligence**', route => route.abort());
   await page.goto('/centres/DEMO-KA-104');
 
-  await expect(page.getByRole('alert')).toContainText('verification states, recommendations and recent analysis are not being inferred');
+  await expect(page.getByRole('alert').filter({ hasText: 'verification states, recommendations and recent analysis are not being inferred' })).toBeVisible();
   await expect(page.getByText('Recommendations are unavailable until centre intelligence responds.')).toBeVisible();
   await expect(page.getByText('Recent analysis is unavailable until centre intelligence responds.')).toBeVisible();
 });
@@ -166,27 +166,80 @@ test('evidence API failures do not masquerade as an empty review queue', async (
   await page.route('**/api/cases', route => route.abort());
   await page.goto('/centres/DEMO-KA-104/evidence');
 
-  await expect(page.getByRole('alert')).toContainText('Case and evidence records are unavailable');
+  await expect(page.getByRole('alert').filter({ hasText: 'Case and evidence records are unavailable' })).toBeVisible();
   await expect(page.getByText('Evidence records unavailable').first()).toBeVisible();
   await expect(page.getByText('Case records are unavailable. No empty queue conclusion is being shown.')).toBeVisible();
   await expect(page.getByText('No open officer-review case for this centre.')).toHaveCount(0);
 });
 
 test('officer review exposes a labelled decision field and alert errors', async ({ page }) => {
+  await page.route('**/api/cases/SIM-KA-104-ATT/evidence-pack', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({
+      prototype: true,
+      case: {
+        case_id: 'SIM-KA-104-ATT',
+        centre_id: 'DEMO-KA-104',
+        batch_id: 'ELEC-2026-08',
+        case_type: 'attendance_discrepancy',
+        status: 'open',
+        severity: 'medium',
+        summary: 'Reported 28 trainees; sustained simulated visual evidence showed 19.',
+        reported_attendance: 28,
+        visual_occupancy: 19,
+        details: { simulated: true },
+        evidence: [],
+        camera_trust: { trusted: true },
+      },
+      facts: [
+        { label: 'Reported', value: '28', note: 'Simulated centre record' },
+        { label: 'Observed', value: '19', note: 'Sustained visual evidence' },
+      ],
+      temporal_proof: {
+        points: [
+          { label: '10:30', state: 'ok', note: 'Aligned' },
+          { label: '11:15', state: 'miss', note: 'Discrepancy' },
+        ],
+        summary: 'Discrepancy persisted across trusted periods.',
+        rule: 'A single frame never creates a case.',
+      },
+      integrity: {
+        state: 'unavailable',
+        retained_count: 0,
+        possible_duplicate_count: 0,
+        checks: {
+          sha256_retained: false,
+          duplicate_review_clear: true,
+          camera_trust: 'trusted',
+        },
+        items: [],
+      },
+      review: {
+        status: 'open',
+        terminal: false,
+        allowed_actions: [],
+        history: [],
+      },
+      decision_policy: 'AI surfaces evidence. Officers decide.',
+      privacy_note: 'Track position, not identity.',
+    }),
+  }));
+
   await page.goto('/cases/SIM-KA-104-ATT');
 
   const note = page.getByLabel('Decision note');
   await expect(note).toBeVisible();
 
   await page.getByRole('button', { name: 'Confirm discrepancy' }).click();
-  await expect(page.getByRole('alert')).toContainText('Add a short review note');
+  await expect(page.getByRole('alert').filter({ hasText: 'Add a short review note' })).toBeVisible();
 });
 
 test('attendance and activity pages withhold conclusions when evidence services fail', async ({ page }) => {
   await page.route('**/api/analysis-history**', route => route.abort());
   await page.goto('/centres/DEMO-KA-104/attendance');
 
-  await expect(page.getByRole('alert')).toContainText('Reported/observed facts and Temporal Proof are withheld');
+  await expect(page.getByRole('alert').filter({ hasText: 'Reported/observed facts and Temporal Proof are withheld' })).toBeVisible();
   await expect(page.getByText('Unavailable while required evidence services are unavailable. No temporal pattern is inferred.')).toBeVisible();
   await expect(page.getByText('Simulated preview:', { exact: false })).toHaveCount(0);
 
@@ -194,7 +247,7 @@ test('attendance and activity pages withhold conclusions when evidence services 
   await page.route('**/api/centres/DEMO-KA-104/activity-intelligence**', route => route.abort());
   await page.goto('/centres/DEMO-KA-104/practical');
 
-  await expect(page.getByRole('alert')).toContainText('No activity pattern or follow-up conclusion is being inferred');
+  await expect(page.getByRole('alert').filter({ hasText: 'No activity pattern or follow-up conclusion is being inferred' })).toBeVisible();
   await expect(page.getByText('Activity service unavailable')).toBeVisible();
 });
 
