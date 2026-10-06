@@ -1,4 +1,4 @@
-import type { ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence } from './types';
+import type { ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -44,7 +44,7 @@ export async function getCases() {
 }
 
 export async function getEvidencePack(caseId: string) {
-  return parse<{ prototype: boolean; case: CaseRecord; integrity: any[]; decision_policy: string }>(
+  return parse<EvidenceReviewPack>(
     await fetch(`${API}/api/cases/${encodeURIComponent(caseId)}/evidence-pack`, { cache: 'no-store' }),
   );
 }
