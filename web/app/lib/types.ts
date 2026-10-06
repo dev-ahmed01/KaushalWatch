@@ -278,3 +278,64 @@ export type ActivityIntelligence = {
   interpretation_boundary: string;
   decision_policy: string;
 };
+
+
+export type EvidenceReviewFact = {
+  label: string;
+  value: string;
+  note: string;
+};
+
+export type EvidenceTemporalPoint = {
+  label: string;
+  state: 'ok' | 'miss' | 'uncertain';
+  note: string | null;
+};
+
+export type EvidenceReviewPack = {
+  prototype: boolean;
+  case: CaseRecord;
+  facts: EvidenceReviewFact[];
+  temporal_proof: {
+    points: EvidenceTemporalPoint[];
+    summary: string;
+    rule: string;
+  };
+  integrity: {
+    state: 'verified' | 'review' | 'unavailable';
+    retained_count: number;
+    possible_duplicate_count: number;
+    checks: {
+      sha256_retained: boolean;
+      duplicate_review_clear: boolean;
+      camera_trust: 'trusted' | 'untrusted' | 'not_recorded';
+    };
+    items: Array<{
+      evidence_id: string;
+      created_at: string;
+      sha256: string;
+      perceptual_hash: string;
+      possible_duplicate: boolean;
+      duplicate_of: string | null;
+      metadata: Record<string, unknown>;
+    }>;
+  };
+  review: {
+    status: string;
+    terminal: boolean;
+    allowed_actions: Array<{
+      action: string;
+      label: string;
+      note_required: boolean;
+    }>;
+    history: Array<{
+      timestamp: string;
+      actor?: string | null;
+      from_status: string;
+      to_status: string;
+      note?: string | null;
+    }>;
+  };
+  decision_policy: string;
+  privacy_note: string;
+};
