@@ -49,7 +49,7 @@ test('mobile shell stays usable without document-level horizontal overflow', asy
   }
 
   await page.getByRole('navigation', { name: 'Mobile primary navigation' }).getByRole('link', { name: 'Centres' }).click();
-  await expect(page).toHaveURL(/\\/centres$/);
+  await expect(page).toHaveURL(/\/centres$/);
 
   await page.getByRole('combobox', { name: 'Date range' }).selectOption('last_7_days');
   await expect(page.getByRole('combobox', { name: 'Date range' })).toHaveValue('last_7_days');
@@ -65,7 +65,7 @@ test('centre tabs remain reachable on a narrow viewport', async ({ page }) => {
   await expect(tabs.getByRole('link', { name: 'Evidence', exact: true })).toBeAttached();
 
   await tabs.getByRole('link', { name: 'Evidence', exact: true }).click();
-  await expect(page).toHaveURL(/\\/centres\\/DEMO-KA-104\\/evidence$/);
+  await expect(page).toHaveURL(/\/centres\/DEMO-KA-104\/evidence$/);
   await expect(page.getByRole('heading', { name: 'Evidence', exact: true })).toBeVisible();
   await expectNoDocumentOverflow(page);
 });
@@ -97,5 +97,5 @@ test('unknown routes provide a clear recovery action', async ({ page }) => {
   const back = page.getByRole('link', { name: 'Back to KaushalAI' });
   await expect(back).toBeVisible();
   await back.click();
-  await expect(page).toHaveURL(/\\/$/);
+  await expect(page).toHaveURL(/\/$/);
 });
