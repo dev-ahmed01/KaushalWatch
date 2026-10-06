@@ -45,6 +45,7 @@ from app.services.assistant_tools import AssistantDataContext, KaushalToolset
 from app.services.conversation_store import InMemoryConversationStore
 from app.services.kaushalai_briefing import build_network_brief
 from app.services.centre_intelligence import build_centre_intelligence
+from app.services.activity_intelligence import build_activity_intelligence, activity_bucket_for_practical_run
 
 logger = logging.getLogger(__name__)
 
@@ -316,6 +317,21 @@ def kaushalai_brief(period: str = "yesterday"):
             centres=centres,
             cases=STORE.list(),
             history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/centres/{centre_id}/activity-intelligence")
+def centre_activity_intelligence(centre_id: str, period: str = "yesterday"):
+    centre = _centre_with_settings(centre_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    try:
+        return build_activity_intelligence(
+            centre=centre,
+            history=HISTORY.list(centre_id=centre_id, limit=500),
             period=period,
         )
     except ValueError as exc:
@@ -833,6 +849,15 @@ def process_practical_activity(
                 "detector_backend": result.detector_backend,
                 "detector_authoritative": result.detector_authoritative,
                 "detector_failures": result.detector_failures,
+                "activity_buckets": [
+                    activity_bucket_for_practical_run(
+                        start_at=datetime.now(timezone.utc),
+                        duration_sec=result.duration_sec,
+                        activity_score=result.practical_activity_fraction,
+                        trusted_frame_ratio=result.trusted_frame_ratio,
+                        active_work_cells=result.active_work_cells,
+                    )
+                ],
             },
         )
         return result.model_dump(mode="json")
