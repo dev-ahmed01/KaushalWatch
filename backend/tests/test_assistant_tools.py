@@ -219,3 +219,35 @@ def test_runtime_readiness_tool_returns_shared_provider_result(tmp_path):
     assert result.data == readiness
     assert result.sources[0].kind == "readiness"
     assert result.sources[0].href == "/centres/DEMO-KA-104/analysis"
+
+
+def test_network_brief_tool_uses_shared_grounded_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda _centre_id: None,
+        readiness_provider=lambda: {},
+        network_brief_provider=lambda period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "period": period,
+            "headline": "2 of 5 centres are verified.",
+            "centres": [
+                {
+                    "centre_id": "DEMO-KA-104",
+                    "name": "Bengaluru TC-04",
+                    "href": "/centres/DEMO-KA-104",
+                }
+            ],
+        },
+    )
+
+    result = KaushalToolset(context).get_network_brief("last_7_days")
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "last_7_days"
+    assert result.data["headline"] == "2 of 5 centres are verified."
+    assert result.sources[0].kind == "centre"
+    assert result.sources[0].href == "/centres/DEMO-KA-104"
