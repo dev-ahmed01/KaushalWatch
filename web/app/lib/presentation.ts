@@ -144,9 +144,9 @@ export const AI_FIRST_CENTRE_IDS = [
   'DEMO-KA-509',
 ] as const;
 
-export function aiFirstCentres(centres: Centre[]) {
+export function aiFirstCentres(centres: Centre[], allowFallback = true) {
   const byId = new Map(centres.map(centre => [centre.centre_id, centre]));
   return AI_FIRST_CENTRE_IDS
-    .map(id => byId.get(id) || FALLBACK_CENTRES.find(centre => centre.centre_id === id))
+    .map(id => byId.get(id) || (allowFallback ? FALLBACK_CENTRES.find(centre => centre.centre_id === id) : undefined))
     .filter((centre): centre is Centre => Boolean(centre));
 }
