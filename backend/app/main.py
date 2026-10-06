@@ -43,6 +43,7 @@ from app.services.runtime_readiness import build_runtime_readiness
 from app.services.assistant_service import AssistantService, AssistantUnavailableError
 from app.services.assistant_tools import AssistantDataContext, KaushalToolset
 from app.services.conversation_store import InMemoryConversationStore
+from app.services.kaushalai_briefing import build_network_brief
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +291,24 @@ def list_centres():
         "centres": rows,
         "total": len(rows),
     }
+
+
+@app.get("/api/kaushalai/brief")
+def kaushalai_brief(period: str = "yesterday"):
+    centres = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
+    try:
+        return build_network_brief(
+            centres=centres,
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/centres/{centre_id}")
