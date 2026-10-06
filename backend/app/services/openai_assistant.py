@@ -29,12 +29,11 @@ DEFAULT_ASSISTANT_MODEL = "gemini-3.8-flash"
 RelativePeriod = Literal[
     "today", "yesterday", "this_week", "last_week", "last_7_days", "last_30_days"
 ]
+NetworkPeriod = Literal["today", "yesterday", "last_7_days", "last_30_days"]
 
 AGENT_INSTRUCTIONS = """You are Kaushal Assistant, the operational intelligence assistant for KaushalWatch.
 
-For every question about centre operations, analyses, attendance, practical work, discrepancies,
-escalations, evidence, or readiness, use the available KaushalWatch tools before answering. Base
-every operational statement only on tool results from the selected centre. Never invent workers,
+For questions across multiple centres, network priorities, or which centre needs attention, use the network briefing tool. For questions about what an officer should do next, the ranked action queue, or why one action is above another, use the action queue tool. For questions about when practical work was most/least active or whether a low-activity period deserves follow-up, use the activity intelligence tool. For other centre-specific operations, analyses, attendance, practical work, discrepancies, escalations, evidence, or readiness, use the centre tools. Base every operational statement only on tool results. Never invent workers,
 identities, events, evidence, metrics, dates, or conclusions. Attendance tracking is anonymous;
 when asked about a named worker, explain that KaushalWatch does not retain worker identity.
 
@@ -79,6 +78,46 @@ def _invoke_tool(
     )
     logger.info("assistant tool completed: %s in %dms", name, duration_ms)
     return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+@function_tool
+def get_network_brief(
+    ctx: RunContextWrapper[ProviderRunContext],
+    period: NetworkPeriod = "last_7_days",
+) -> str:
+    """Get the grounded current network state and evidence-ranked recommendations across the five monitored centres."""
+    return _invoke_tool(
+        ctx,
+        "get_network_brief",
+        lambda: ctx.context.toolset.get_network_brief(period),
+    )
+
+
+@function_tool
+def get_action_queue(
+    ctx: RunContextWrapper[ProviderRunContext],
+    period: NetworkPeriod = "yesterday",
+) -> str:
+    """Get the current evidence-ranked officer action queue and the reasons behind the ordering."""
+    return _invoke_tool(
+        ctx,
+        "get_action_queue",
+        lambda: ctx.context.toolset.get_action_queue(period),
+    )
+
+
+@function_tool
+def get_activity_intelligence(
+    ctx: RunContextWrapper[ProviderRunContext],
+    centre_id: str,
+    period: NetworkPeriod = "yesterday",
+) -> str:
+    """Get trusted time-bucketed practical activity, peak/low periods, and safe follow-up guidance."""
+    return _invoke_tool(
+        ctx,
+        "get_activity_intelligence",
+        lambda: ctx.context.toolset.get_activity_intelligence(centre_id, period),
+    )
 
 
 @function_tool
@@ -269,6 +308,9 @@ class OpenAIAssistantProvider:
             ),
             model_settings=ModelSettings(tool_choice="required", parallel_tool_calls=False),
             tools=[
+                get_network_brief,
+                get_action_queue,
+                get_activity_intelligence,
                 get_centre_overview,
                 get_runtime_readiness,
                 get_operational_history,

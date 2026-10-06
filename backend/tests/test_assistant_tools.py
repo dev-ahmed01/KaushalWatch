@@ -219,3 +219,104 @@ def test_runtime_readiness_tool_returns_shared_provider_result(tmp_path):
     assert result.data == readiness
     assert result.sources[0].kind == "readiness"
     assert result.sources[0].href == "/centres/DEMO-KA-104/analysis"
+
+
+def test_network_brief_tool_uses_shared_grounded_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda _centre_id: None,
+        readiness_provider=lambda: {},
+        network_brief_provider=lambda period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "period": period,
+            "headline": "2 of 5 centres are verified.",
+            "centres": [
+                {
+                    "centre_id": "DEMO-KA-104",
+                    "name": "Bengaluru TC-04",
+                    "href": "/centres/DEMO-KA-104",
+                }
+            ],
+        },
+    )
+
+    result = KaushalToolset(context).get_network_brief("last_7_days")
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "last_7_days"
+    assert result.data["headline"] == "2 of 5 centres are verified."
+    assert result.sources[0].kind == "centre"
+    assert result.sources[0].href == "/centres/DEMO-KA-104"
+
+
+def test_activity_intelligence_tool_uses_shared_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda centre_id: {"centre_id": centre_id},
+        readiness_provider=lambda: {},
+        activity_intelligence_provider=lambda centre_id, period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "centre_id": centre_id,
+            "period": period,
+            "state": "available",
+            "summary": {
+                "peak": {"label": "10:45–12:00"},
+                "lowest": {"label": "14:00–14:45"},
+            },
+            "follow_up": {
+                "recommended": True,
+                "title": "Confirm the low-activity period with the Centre Head",
+            },
+        },
+    )
+
+    result = KaushalToolset(context).get_activity_intelligence(
+        "DEMO-KA-104",
+        "yesterday",
+    )
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "yesterday"
+    assert result.data["summary"]["peak"]["label"] == "10:45–12:00"
+    assert result.sources[0].href == "/centres/DEMO-KA-104/practical"
+
+
+def test_action_queue_tool_uses_shared_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda _centre_id: None,
+        readiness_provider=lambda: {},
+        action_queue_provider=lambda period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "period": period,
+            "headline": "Start with Hubballi.",
+            "actions": [
+                {
+                    "case_id": "CASE-1",
+                    "centre_id": "DEMO-KA-303",
+                    "title": "Review infrastructure exception",
+                    "href": "/cases/CASE-1",
+                }
+            ],
+        },
+    )
+
+    result = KaushalToolset(context).get_action_queue("yesterday")
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "yesterday"
+    assert result.data["headline"] == "Start with Hubballi."
+    assert result.sources[0].kind == "case"
+    assert result.sources[0].href == "/cases/CASE-1"

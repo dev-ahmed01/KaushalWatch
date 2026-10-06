@@ -54,6 +54,28 @@ single-camera video
 
 Equipment presence, Temporal Proof, apparent operability, evidence authenticity, camera integrity and officer audit history all plug into the same persisted case workflow rather than becoming separate demos.
 
+
+## Judge-day start
+
+From the repository root, prepare and verify the deterministic demo state before starting services:
+
+```bash
+python scripts/prepare_demo_state.py --yes
+python scripts/validate_vision_profile.py
+python scripts/check_release_readiness.py
+python scripts/start_demo_backend.py
+```
+
+Then, in a second terminal:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The release-readiness check is non-destructive and validates the five-centre product story and frozen configuration. It does not validate the exact stage footage. For strict real-video readiness, use `python scripts/check_demo_readiness.py --video <exact-video> --final` after the authoritative OpenVINO runtime and reviewed clip are present.
+
 ## Verified attendance benchmark
 
 On EPFL Laboratory Camera 0 (113 labelled frames, IoU 0.5), the selected OpenVINO detector achieved **91.45% precision, 89.95% recall, 90.69% F1 and 0.327-person occupancy MAE**. See [`docs/benchmarks.md`](docs/benchmarks.md) for methodology and limits.

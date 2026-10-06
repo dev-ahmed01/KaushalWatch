@@ -314,6 +314,7 @@ def test_practical_runtime_unavailable_becomes_blocked_history(tmp_path, monkeyp
     latest = history.json()["rows"][0]
     assert latest["analysis_type"] == "practical_work"
     assert latest["outcome"] == "blocked"
+    assert latest["details"]["vision_profile_id"] == "kaushalwatch-fixed-camera-v1"
 
 
 
@@ -437,3 +438,23 @@ def test_practical_zone_endpoint_and_runtime_readiness(tmp_path, monkeypatch):
     assert "processing_available" in practical
     assert "backend" in practical
     assert practical["processing_available"] is True
+
+
+def test_kaushalai_brief_endpoint_is_available_without_model_credentials(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, monkeypatch)
+
+    response = client.get("/api/kaushalai/brief?period=yesterday")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["grounded"] is True
+    assert payload["counts"]["total"] == 5
+    assert len(payload["centres"]) == 5
+    assert payload["decision_policy"] == "AI surfaces evidence. Officers decide."
+
+
+def test_kaushalai_brief_rejects_unknown_period(tmp_path, monkeypatch):
+    client, _, _ = _client(tmp_path, monkeypatch)
+
+    response = client.get("/api/kaushalai/brief?period=quarter")
+    assert response.status_code == 422
+    assert "period must be one of" in response.json()["detail"]

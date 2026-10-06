@@ -1,0 +1,50 @@
+{
+  "dataset_id": "replace-with-dataset-id",
+  "status": "candidate",
+  "purpose": [
+    "attendance",
+    "practical_activity",
+    "infrastructure",
+    "operability",
+    "camera_trust"
+  ],
+  "source": {
+    "name": "Dataset or controlled collection name",
+    "url": null,
+    "license_reviewed": false,
+    "consent_or_usage_notes": "Record licensing, consent and redistribution constraints here."
+  },
+  "camera": {
+    "mode": "fixed_camera",
+    "camera_id": "CAM-01",
+    "expected_resolution": [1920, 1080],
+    "scene_transfer_allowed": false
+  },
+  "splits": [
+    {
+      "split_id": "calibration",
+      "role": "calibration",
+      "video": "local-only/path-to-calibration-video.mp4",
+      "annotations": {
+        "attendance_counts_csv": null,
+        "work_zones_json": null,
+        "equipment_csv": null,
+        "operability_csv": null,
+        "camera_events_csv": null
+      }
+    },
+    {
+      "split_id": "held-out",
+      "role": "held_out",
+      "video": "local-only/path-to-held-out-video.mp4",
+      "annotations": {
+        "attendance_counts_csv": null,
+        "work_zones_json": null,
+        "equipment_csv": null,
+        "operability_csv": null,
+        "camera_events_csv": null
+      }
+    }
+  ],
+  "promotion_notes": "Tune only on calibration split. Freeze settings before running held-out evaluation."
+}

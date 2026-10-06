@@ -59,6 +59,9 @@ class AssistantDataContext:
     cases: CaseStore
     centre_lookup: Callable[[str], dict[str, Any] | None]
     readiness_provider: Callable[[], dict[str, Any]]
+    network_brief_provider: Callable[[str], dict[str, Any]] | None = None
+    activity_intelligence_provider: Callable[[str, str], dict[str, Any]] | None = None
+    action_queue_provider: Callable[[str], dict[str, Any]] | None = None
     now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
 
 
@@ -224,6 +227,60 @@ class KaushalToolset:
             "end_date": end_label,
             "timezone": "Asia/Kolkata",
         }
+
+    def get_network_brief(self, period: str = "last_7_days") -> ToolResult:
+        if self.context.network_brief_provider is None:
+            return ToolResult({"available": False, "reason": "Network briefing is unavailable."})
+        data = self.context.network_brief_provider(period)
+        sources = [
+            AssistantSource(
+                "centre",
+                str(item.get("centre_id") or ""),
+                str(item.get("name") or item.get("centre_id") or "Centre"),
+                str(item.get("href") or f"/centres/{item.get('centre_id')}"),
+                data.get("generated_at"),
+            )
+            for item in data.get("centres", [])
+            if item.get("centre_id")
+        ]
+        return ToolResult({"available": True, **data}, sources)
+
+    def get_activity_intelligence(
+        self,
+        centre_id: str,
+        period: str = "yesterday",
+    ) -> ToolResult:
+        if self.context.activity_intelligence_provider is None:
+            return ToolResult({"available": False, "reason": "Activity intelligence is unavailable."})
+        data = self.context.activity_intelligence_provider(centre_id, period)
+        return ToolResult(
+            {"available": True, **data},
+            [
+                AssistantSource(
+                    "centre",
+                    centre_id,
+                    f"{centre_id} activity intelligence",
+                    f"/centres/{centre_id}/practical",
+                    data.get("generated_at"),
+                )
+            ],
+        )
+
+    def get_action_queue(self, period: str = "yesterday") -> ToolResult:
+        if self.context.action_queue_provider is None:
+            return ToolResult({"available": False, "reason": "Action queue is unavailable."})
+        data = self.context.action_queue_provider(period)
+        sources = [
+            AssistantSource(
+                "case" if item.get("case_id") else "centre",
+                str(item.get("case_id") or item.get("centre_id") or ""),
+                str(item.get("title") or "Recommended action"),
+                str(item.get("href") or "/actions"),
+                data.get("generated_at"),
+            )
+            for item in data.get("actions", [])
+        ]
+        return ToolResult({"available": True, **data}, sources)
 
     def get_centre_overview(self, centre_id: str) -> ToolResult:
         centre = self._centre(centre_id)

@@ -89,6 +89,7 @@ export function TechnicalDetails({ children }: { children: ReactNode }) {
 
 export function PersistenceTimeline({ points, summary }: { points: { label: string; state: 'ok' | 'miss' | 'uncertain' }[]; summary: string }) {
   const tone = (state: string) => state === 'ok' ? 'bg-[#067647]' : state === 'miss' ? 'bg-[#B54708]' : 'bg-[#98A2B3]';
+  const stateLabel = (state: string) => state === 'ok' ? 'Aligned' : state === 'miss' ? 'Discrepancy' : 'Uncertain';
   return (
     <div className="rounded-2xl bg-[#FBFCFD] p-6">
       <div className="text-[14px] font-medium text-[#475467]">Temporal Proof</div>
@@ -96,8 +97,9 @@ export function PersistenceTimeline({ points, summary }: { points: { label: stri
         {points.map((point, index) => (
           <div className="flex flex-1 items-start" key={`${point.label}-${index}`}>
             <div className="flex min-w-0 flex-1 flex-col items-center text-center">
-              <span className={cn('h-3 w-3 rounded-full ring-4 ring-white', tone(point.state))} />
+              <span aria-hidden="true" className={cn('h-3 w-3 rounded-full ring-4 ring-white', tone(point.state))} />
               <span className="mt-2 text-xs text-[#667085]">{point.label}</span>
+              <span className="mt-0.5 text-[10px] font-medium text-[#667085]">{stateLabel(point.state)}</span>
             </div>
             {index < points.length - 1 && <span className="mt-[5px] h-px flex-1 bg-[#D7DCE3]" />}
           </div>
@@ -112,14 +114,14 @@ export function PersistenceTimeline({ points, summary }: { points: { label: stri
 export function EvidenceFrame({ src, timestamp, trusted, anonymized = true, alt = 'Retained compliance evidence', emptyText = 'Evidence preview appears after analysis' }: { src?: string; timestamp?: string; trusted?: boolean; anonymized?: boolean; alt?: string; emptyText?: string }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-[#111827] text-white shadow-[0_1px_2px_rgba(16,24,40,.06)]">
-      <div className="relative aspect-video min-h-64 bg-[#111827]">
+      <div className="relative aspect-video min-h-0 bg-[#111827] sm:min-h-64">
         {src ? <img src={src} alt={alt} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-6 text-center text-sm text-[#D0D5DD]">{emptyText}</div>}
-        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-black/45 px-4 py-3 text-xs">
+        <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center justify-between gap-2 bg-black/45 px-4 py-3 text-xs">
           <span>{timestamp || 'Latest retained frame'}</span>
-          <span>{trusted === false ? 'Camera untrusted' : 'Camera trusted'}</span>
+          <span>{trusted === true ? 'Camera trusted' : trusted === false ? 'Camera untrusted' : 'Camera trust unavailable'}</span>
         </div>
       </div>
-      <div className="flex items-center justify-between px-4 py-3 text-xs text-[#D0D5DD]">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-xs text-[#D0D5DD]">
         <span>{anonymized ? 'Position tracked. Identity not collected.' : 'Evidence retained for review.'}</span>
         <span>No face recognition</span>
       </div>

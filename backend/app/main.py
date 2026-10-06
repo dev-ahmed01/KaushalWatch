@@ -43,6 +43,13 @@ from app.services.runtime_readiness import build_runtime_readiness
 from app.services.assistant_service import AssistantService, AssistantUnavailableError
 from app.services.assistant_tools import AssistantDataContext, KaushalToolset
 from app.services.conversation_store import InMemoryConversationStore
+from app.services.kaushalai_briefing import build_network_brief
+from app.services.centre_intelligence import build_centre_intelligence
+from app.services.activity_intelligence import build_activity_intelligence, activity_bucket_for_practical_run
+from app.services.evidence_review import build_evidence_review_pack
+from app.services.network_insights import build_network_insights
+from app.services.action_queue import build_action_queue
+from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +66,8 @@ CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
 ASSISTANT_SERVICE: AssistantService | None = None
 VOICE_SERVICE = None
 CONVERSATIONS = InMemoryConversationStore()
+VISION_PROFILE = load_vision_profile()
+VISION_PROFILE_ID = str(VISION_PROFILE["profile_id"])
 
 ASSISTANT_UNAVAILABLE_MESSAGE = (
     "Kaushal Assistant is temporarily unavailable. "
@@ -145,6 +154,31 @@ def get_assistant_service() -> AssistantService:
         cases=STORE,
         centre_lookup=_centre_with_settings,
         readiness_provider=runtime_readiness,
+        network_brief_provider=lambda period: build_network_brief(
+            centres=centre_rows(
+                STORE.list(),
+                settings_by_centre=_network_settings(),
+                history_by_centre=_network_history(),
+            ),
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        ),
+        activity_intelligence_provider=lambda centre_id, period: build_activity_intelligence(
+            centre=_centre_with_settings(centre_id) or {},
+            history=HISTORY.list(centre_id=centre_id, limit=500),
+            period=period,
+        ),
+        action_queue_provider=lambda period: build_action_queue(
+            centres=centre_rows(
+                STORE.list(),
+                settings_by_centre=_network_settings(),
+                history_by_centre=_network_history(),
+            ),
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        ),
     )
     ASSISTANT_SERVICE = AssistantService(
         provider=OpenAIAssistantProvider(toolset=KaushalToolset(context)),
@@ -238,12 +272,37 @@ def health():
 def runtime_readiness():
     detector = PIPELINE.detector.info
     practical_detector = PRACTICAL_PIPELINE.detector.info
-    return build_runtime_readiness(
+    payload = build_runtime_readiness(
         attendance_detector=detector,
         practical_detector=practical_detector,
         zones_path=DEFAULT_WORK_ZONES,
         evidence_path=EVIDENCE,
     )
+    try:
+        governance = build_vision_governance(detector=PIPELINE.detector)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        governance = {
+            "profile": {
+                "profile_id": VISION_PROFILE_ID,
+                "valid": False,
+                "error": str(exc),
+            },
+            "runtime_alignment": {
+                "aligned": False,
+                "note": "Vision profile governance could not be validated.",
+            },
+        }
+    payload["vision_profile"] = governance["profile"]
+    payload["runtime_alignment"] = governance["runtime_alignment"]
+    return payload
+
+
+@app.get("/api/vision/governance")
+def vision_governance():
+    try:
+        return build_vision_governance(detector=PIPELINE.detector)
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api/practical-work-zones")
@@ -290,6 +349,92 @@ def list_centres():
         "centres": rows,
         "total": len(rows),
     }
+
+
+@app.get("/api/actions")
+def action_queue(period: str = "yesterday"):
+    centres = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
+    try:
+        return build_action_queue(
+            centres=centres,
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/insights")
+def network_insights(period: str = "last_7_days"):
+    centres = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
+    try:
+        return build_network_insights(
+            centres=centres,
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/kaushalai/brief")
+def kaushalai_brief(period: str = "yesterday"):
+    centres = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
+    try:
+        return build_network_brief(
+            centres=centres,
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/centres/{centre_id}/activity-intelligence")
+def centre_activity_intelligence(centre_id: str, period: str = "yesterday"):
+    centre = _centre_with_settings(centre_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    try:
+        return build_activity_intelligence(
+            centre=centre,
+            history=HISTORY.list(centre_id=centre_id, limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/centres/{centre_id}/intelligence")
+def centre_intelligence(centre_id: str, period: str = "last_7_days"):
+    centre = _centre_with_settings(centre_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    try:
+        return build_centre_intelligence(
+            centre=centre,
+            cases=STORE.list(),
+            history=HISTORY.list(centre_id=centre_id, limit=500),
+            settings=CENTRE_SETTINGS.get(centre_id),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/centres/{centre_id}")
@@ -654,6 +799,7 @@ def process_video(
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
+            result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
         HISTORY.append(
             centre_id=centre_id,
@@ -672,6 +818,7 @@ def process_video(
                 "estimated_occupancy": result.estimated_occupancy,
                 "discrepancy_pct": result.discrepancy_pct,
                 "decision": result.decision,
+                "vision_profile_id": VISION_PROFILE_ID,
             },
         )
         return result.model_dump(mode="json")
@@ -756,6 +903,7 @@ def process_practical_activity(
             zone_reference_size=zone_reference_size,
         )
         if result.case:
+            result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
         HISTORY.append(
             centre_id=centre_id,
@@ -786,6 +934,16 @@ def process_practical_activity(
                 "detector_backend": result.detector_backend,
                 "detector_authoritative": result.detector_authoritative,
                 "detector_failures": result.detector_failures,
+                "vision_profile_id": VISION_PROFILE_ID,
+                "activity_buckets": [
+                    activity_bucket_for_practical_run(
+                        start_at=datetime.now(timezone.utc),
+                        duration_sec=result.duration_sec,
+                        activity_score=result.practical_activity_fraction,
+                        trusted_frame_ratio=result.trusted_frame_ratio,
+                        active_work_cells=result.active_work_cells,
+                    )
+                ],
             },
         )
         return result.model_dump(mode="json")
@@ -802,6 +960,7 @@ def process_practical_activity(
                 "active_work_cells": 0,
                 "peak_stable_workers": 0,
                 "activity_fraction": 0.0,
+                "vision_profile_id": VISION_PROFILE_ID,
             },
         )
         return {
@@ -844,24 +1003,10 @@ def get_evidence_pack(case_id: str):
     case = STORE.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return {
-        "prototype": True,
-        "case": case.model_dump(mode="json"),
-        "integrity": [
-            {
-                "evidence_id": e.evidence_id,
-                "sha256": e.sha256,
-                "perceptual_hash": e.perceptual_hash,
-                "possible_duplicate": e.duplicate_of is not None,
-                "duplicate_of": e.duplicate_of,
-            }
-            for e in case.evidence
-        ],
-        "decision_policy": (
-            "AI evidence supports human review only; no automatic penalty or final compliance "
-            "decision is issued by this prototype."
-        ),
-    }
+    return build_evidence_review_pack(
+        case=case,
+        history=HISTORY.list(centre_id=case.centre_id, limit=500),
+    )
 
 
 @app.post("/api/cases/{case_id}/review")
@@ -1026,7 +1171,11 @@ def process_infrastructure_video(
                 analysis_type="infrastructure",
                 outcome="compliant",
                 summary="Infrastructure demo profile completed without a persistent visual exception.",
-                details={"demo_profile": demo_profile, "items": preview_items},
+                details={
+                    "demo_profile": demo_profile,
+                    "items": preview_items,
+                    "vision_profile_id": VISION_PROFILE_ID,
+                },
             )
             return {
                 "created": False,
@@ -1041,6 +1190,7 @@ def process_infrastructure_video(
                 "profile_source_match": source_match,
                 "items": preview_items,
             }
+        case.details["vision_profile_id"] = VISION_PROFILE_ID
         STORE.save(case)
         HISTORY.append(
             centre_id=centre_id,
@@ -1048,7 +1198,11 @@ def process_infrastructure_video(
             analysis_type="infrastructure",
             outcome="attention",
             summary=case.summary,
-            details={"demo_profile": demo_profile, "items": preview_items},
+            details={
+                "demo_profile": demo_profile,
+                "items": preview_items,
+                "vision_profile_id": VISION_PROFILE_ID,
+            },
         )
         return {
             "created": True,
@@ -1091,6 +1245,7 @@ def operability_check(
         return {
             "state": state,
             "activity_score": round(activity_score, 4),
+            "vision_profile_id": VISION_PROFILE_ID,
             "interpretation": "Visual activity proxy only; not a mechanical/electrical health diagnosis.",
             "frames_sampled": len(frames),
         }
