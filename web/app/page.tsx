@@ -1,13 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Building2, Camera, FileSearch, Phone, Sparkles } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, CircleAlert, CircleHelp, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { StatusPill } from './components/CalmUi';
+import { buttonVariants } from './components/ui/button';
 import { getCentres } from './lib/api';
 import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from './lib/presentation';
 import type { Centre } from './lib/types';
-import { StatusPill } from './components/CalmUi';
-import { buttonVariants } from './components/ui/button';
 
 export default function KaushalAIHome() {
   const [centres, setCentres] = useState<Centre[]>(aiFirstCentres(FALLBACK_CENTRES));
@@ -29,100 +29,128 @@ export default function KaushalAIHome() {
 
   return (
     <div>
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-[13px] font-medium text-[#155EEF]">
-          <Sparkles size={15} />
+      <header className="mb-7">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
+          <Sparkles size={14} />
           Daily intelligence
         </div>
-        <h1 className="mt-2 text-[34px] font-medium tracking-[-0.035em] text-[#152238]">KaushalAI</h1>
-        <p className="mt-1 text-[15px] text-[#667085]">AI-powered compliance intelligence for PMKVY centres.</p>
-      </div>
+        <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">KaushalAI</h1>
+        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">What changed, what needs attention, and what to do next.</p>
+      </header>
 
-      <section className="relative overflow-hidden rounded-[18px] border border-[#E3EAF3] bg-white px-8 py-8 shadow-[0_1px_3px_rgba(16,24,40,.04)]">
-        <div className="max-w-[720px]">
-          <div className="text-[12px] font-medium uppercase tracking-[0.15em] text-[#7C8AA5]">Yesterday</div>
-          <h2 className="mt-3 text-[30px] font-medium leading-[1.2] tracking-[-0.03em] text-[#152238]">
+      <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-8 py-8 shadow-[var(--kw-shadow)]">
+        <div className="relative z-10 max-w-[700px]">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7C8AA5]">Yesterday</div>
+          <h2 className="mt-3 text-[30px] font-semibold leading-[1.18] tracking-[-0.035em] text-[var(--kw-text)]">
             {counts.verified} of {centres.length} centres were verified.
           </h2>
-          <div className="mt-6 space-y-3 text-[15px] text-[#475467]">
-            <p>{counts.review} centres need officer review based on persistent evidence.</p>
-            <p>{counts.uncertain} centre has an uncertain conclusion because camera trust dropped.</p>
-            <p>KaushalAI recommends reviewing {priority?.name || 'the highest-priority centre'} first.</p>
+
+          <div className="mt-6 space-y-3">
+            <BriefLine
+              icon={CheckCircle2}
+              tone="verified"
+              text={counts.verified + ' centres had no persistent discrepancy requiring action.'}
+            />
+            <BriefLine
+              icon={CircleAlert}
+              tone="review"
+              text={counts.review + ' centres need officer review based on persistent evidence.'}
+            />
+            <BriefLine
+              icon={CircleHelp}
+              tone="uncertain"
+              text={counts.uncertain + ' centre has an uncertain conclusion because camera trust dropped.'}
+            />
           </div>
+
           {priority && (
-            <Link href={`/centres/${priority.centre_id}`} className={buttonVariants({ variant: 'primary', className: 'mt-7' })}>
-              Review {priority.name}
-              <ArrowRight size={16} />
-            </Link>
+            <div className="mt-7 flex items-center gap-4">
+              <Link href={'/centres/' + priority.centre_id} className={buttonVariants({ variant: 'primary' })}>
+                Review {priority.name}
+                <ArrowRight size={15} />
+              </Link>
+              <span className="text-[12px] text-[#98A2B3]">Recommended first action</span>
+            </div>
           )}
         </div>
-        <div className="pointer-events-none absolute -right-16 -top-20 h-72 w-72 rounded-full bg-[#EEF5FF]" />
-        <div className="pointer-events-none absolute right-12 top-14 flex h-28 w-28 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F7FAFF] text-[#93B4E8]">
-          <Building2 size={44} strokeWidth={1.2} />
+
+        <div className="pointer-events-none absolute -right-14 -top-16 h-72 w-72 rounded-full bg-[#F1F6FD]" />
+        <div className="pointer-events-none absolute right-12 top-1/2 flex h-24 w-24 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F8FBFF] text-[#94AED2]">
+          <Building2 size={38} strokeWidth={1.2} />
         </div>
       </section>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_330px]">
-        <section className="rounded-[18px] border border-[#E3EAF3] bg-white px-6 py-5 shadow-[0_1px_3px_rgba(16,24,40,.04)]">
-          <div className="mb-3 flex items-center justify-between">
+      <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_300px]">
+        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
+          <div className="mb-2 flex items-start justify-between">
             <div>
-              <h2 className="text-[18px] font-medium text-[#152238]">Centres at a glance</h2>
-              <p className="mt-0.5 text-[13px] text-[#98A2B3]">Five centres · one-line context</p>
+              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Centres at a glance</h2>
+              <p className="mt-0.5 text-[12px] text-[#98A2B3]">Five centres · one line of context each</p>
             </div>
-            <Link href="/centres" className="text-[13px] font-medium text-[#155EEF]">View all</Link>
+            <Link href="/centres" className="kw-focus rounded-md text-[12px] font-medium text-[var(--kw-accent-strong)]">View all</Link>
           </div>
 
           <div className="divide-y divide-[#EEF2F6]">
             {centres.map(centre => (
               <Link
-                href={`/centres/${centre.centre_id}`}
+                href={'/centres/' + centre.centre_id}
                 key={centre.centre_id}
-                className="kw-focus grid gap-2 py-4 transition-colors hover:bg-[#FBFCFE] md:grid-cols-[180px_1fr_auto] md:items-center"
+                className="kw-focus grid gap-2 rounded-md py-4 transition-colors hover:bg-[#FBFCFE] md:grid-cols-[170px_1fr_auto] md:items-center"
               >
                 <div>
-                  <div className="text-[14px] font-medium text-[#152238]">{centre.name}</div>
-                  <div className="mt-0.5 text-[12px] text-[#98A2B3]">{centre.district}</div>
+                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</div>
+                  <div className="mt-0.5 text-[11px] text-[#98A2B3]">{centre.district}</div>
                 </div>
-                <div className="truncate text-[13px] text-[#667085]">{centreReason(centre)}</div>
+                <div className="truncate text-[12px] text-[var(--kw-muted)]">{centreReason(centre)}</div>
                 <StatusPill state={centreUiState(centre)} />
               </Link>
             ))}
           </div>
         </section>
 
-        <aside className="rounded-[18px] border border-[#E3EAF3] bg-white px-5 py-5 shadow-[0_1px_3px_rgba(16,24,40,.04)]">
-          <h2 className="text-[18px] font-medium text-[#152238]">Attention first</h2>
+        <aside className="rounded-[18px] border border-[var(--kw-border)] bg-white px-5 py-5 shadow-[var(--kw-shadow)]">
+          <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Attention first</h2>
+          <p className="mt-1 text-[12px] text-[#98A2B3]">Only items requiring a human next step.</p>
+
           <div className="mt-3 divide-y divide-[#EEF2F6]">
             {attention.map((centre, index) => (
-              <Link href={`/centres/${centre.centre_id}`} key={centre.centre_id} className="kw-focus flex items-start gap-3 py-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[13px] font-medium text-[#B54708]">{index + 1}</span>
+              <Link href={'/centres/' + centre.centre_id} key={centre.centre_id} className="kw-focus flex items-start gap-3 rounded-md py-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[12px] font-semibold text-[#B54708]">{index + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[14px] font-medium text-[#152238]">{centre.name}</div>
-                  <div className="mt-1 text-[12px] leading-5 text-[#667085]">{centreReason(centre)}</div>
+                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-[var(--kw-muted)]">{centreReason(centre)}</div>
                 </div>
+                <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
               </Link>
             ))}
           </div>
         </aside>
       </div>
-
-      <section className="mt-6 grid gap-3 rounded-[18px] border border-[#E3EAF3] bg-white p-4 shadow-[0_1px_3px_rgba(16,24,40,.04)] md:grid-cols-3">
-        <QuickAction icon={FileSearch} title="Review evidence" body="Open the highest-priority case." href="/actions" />
-        <QuickAction icon={Phone} title="Contact centre head" body="Follow up where context is needed." href="/actions" />
-        <QuickAction icon={Camera} title="Verify camera issue" body="Resolve uncertain evidence first." href="/actions" />
-      </section>
     </div>
   );
 }
 
-function QuickAction({ icon: Icon, title, body, href }: { icon: typeof FileSearch; title: string; body: string; href: string }) {
+function BriefLine({
+  icon: Icon,
+  tone,
+  text,
+}: {
+  icon: typeof CheckCircle2;
+  tone: 'verified' | 'review' | 'uncertain';
+  text: string;
+}) {
+  const tones = {
+    verified: 'bg-[var(--kw-verified-bg)] text-[var(--kw-verified)]',
+    review: 'bg-[var(--kw-review-bg)] text-[var(--kw-review)]',
+    uncertain: 'bg-[var(--kw-neutral-bg)] text-[var(--kw-neutral)]',
+  };
+
   return (
-    <Link href={href} className="kw-focus flex items-center gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[#F8FAFC]">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EFF6FF] text-[#155EEF]"><Icon size={17} /></span>
-      <div className="min-w-0">
-        <div className="text-[14px] font-medium text-[#152238]">{title}</div>
-        <div className="mt-0.5 truncate text-[12px] text-[#667085]">{body}</div>
-      </div>
-    </Link>
+    <div className="flex items-center gap-3">
+      <span className={'flex h-8 w-8 shrink-0 items-center justify-center rounded-full ' + tones[tone]}>
+        <Icon size={16} />
+      </span>
+      <span className="text-[14px] text-[#475467]">{text}</span>
+    </div>
   );
 }
