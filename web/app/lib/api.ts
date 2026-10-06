@@ -1,4 +1,4 @@
-import type { AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence } from './types';
+import type { ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -14,6 +14,10 @@ export async function getKaushalBrief(period = 'yesterday') {
 
 export async function getCentres() {
   return parse<{ centres: Centre[]; total: number }>(await fetch(`${API}/api/centres`, { cache: 'no-store' }));
+}
+
+export async function getActivityIntelligence(centreId: string, period = 'yesterday') {
+  return parse<ActivityIntelligence>(await fetch(`${API}/api/centres/${encodeURIComponent(centreId)}/activity-intelligence?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
 }
 
 export async function getCentreIntelligence(centreId: string, period = 'last_7_days') {
