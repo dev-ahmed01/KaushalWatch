@@ -420,3 +420,50 @@ export type NetworkInsights = {
   }>;
   decision_policy: string;
 };
+
+
+export type ActionPriority = 'high' | 'medium' | 'low';
+
+export type ActionQueueItem = {
+  action_id: string;
+  source: 'case' | 'activity';
+  kind: string;
+  priority: ActionPriority;
+  score: number;
+  centre_id: string;
+  centre_name: string;
+  title: string;
+  reason: string;
+  href: string;
+  cta: string;
+  case_id: string | null;
+  case_status: string | null;
+  severity: string | null;
+  age_days: number;
+  escalation_level: number;
+  escalation_label: string;
+  evidence_basis: string[];
+  simulated: boolean;
+};
+
+export type ActionQueue = {
+  generated_at: string;
+  timezone: string;
+  period: string;
+  grounded: boolean;
+  simulated: boolean;
+  headline: string;
+  summary: string;
+  counts: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+    centres: number;
+    camera_blockers: number;
+  };
+  top_action: ActionQueueItem | null;
+  actions: ActionQueueItem[];
+  scope_note: string;
+  decision_policy: string;
+};
