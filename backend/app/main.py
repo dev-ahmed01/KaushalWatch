@@ -44,6 +44,7 @@ from app.services.assistant_service import AssistantService, AssistantUnavailabl
 from app.services.assistant_tools import AssistantDataContext, KaushalToolset
 from app.services.conversation_store import InMemoryConversationStore
 from app.services.kaushalai_briefing import build_network_brief
+from app.services.centre_intelligence import build_centre_intelligence
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +316,23 @@ def kaushalai_brief(period: str = "yesterday"):
             centres=centres,
             cases=STORE.list(),
             history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/api/centres/{centre_id}/intelligence")
+def centre_intelligence(centre_id: str, period: str = "last_7_days"):
+    centre = _centre_with_settings(centre_id)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    try:
+        return build_centre_intelligence(
+            centre=centre,
+            cases=STORE.list(),
+            history=HISTORY.list(centre_id=centre_id, limit=500),
+            settings=CENTRE_SETTINGS.get(centre_id),
             period=period,
         )
     except ValueError as exc:
