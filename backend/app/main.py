@@ -47,6 +47,7 @@ from app.services.kaushalai_briefing import build_network_brief
 from app.services.centre_intelligence import build_centre_intelligence
 from app.services.activity_intelligence import build_activity_intelligence, activity_bucket_for_practical_run
 from app.services.evidence_review import build_evidence_review_pack
+from app.services.network_insights import build_network_insights
 
 logger = logging.getLogger(__name__)
 
@@ -309,6 +310,24 @@ def list_centres():
         "centres": rows,
         "total": len(rows),
     }
+
+
+@app.get("/api/insights")
+def network_insights(period: str = "last_7_days"):
+    centres = centre_rows(
+        STORE.list(),
+        settings_by_centre=_network_settings(),
+        history_by_centre=_network_history(),
+    )
+    try:
+        return build_network_insights(
+            centres=centres,
+            cases=STORE.list(),
+            history=HISTORY.list(limit=500),
+            period=period,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/kaushalai/brief")
