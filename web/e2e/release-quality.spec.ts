@@ -1,13 +1,38 @@
 import { expect, test } from '@playwright/test';
 
 async function expectNoDocumentOverflow(page: import('@playwright/test').Page) {
-  const overflow = await page.evaluate(() => ({
-    scrollWidth: document.documentElement.scrollWidth,
-    clientWidth: document.documentElement.clientWidth,
-    bodyScrollWidth: document.body.scrollWidth,
-  }));
-  expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
-  expect(overflow.bodyScrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1);
+  const overflow = await page.evaluate(() => {
+    const clientWidth = document.documentElement.clientWidth;
+    const offenders = Array.from(document.querySelectorAll<HTMLElement>('body *'))
+      .map(element => {
+        const rect = element.getBoundingClientRect();
+        return {
+          tag: element.tagName.toLowerCase(),
+          className: String(element.className || '').slice(0, 180),
+          text: String(element.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 100),
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          width: Math.round(rect.width),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+        };
+      })
+      .filter(item => item.right > clientWidth + 1 || item.left < -1 || item.width > clientWidth + 1)
+      .sort((a, b) => b.right - a.right)
+      .slice(0, 10);
+
+    return {
+      pathname: window.location.pathname,
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      offenders,
+    };
+  });
+
+  const diagnostic = `${overflow.pathname}: ${JSON.stringify(overflow.offenders)}`;
+  expect(overflow.scrollWidth, diagnostic).toBeLessThanOrEqual(overflow.clientWidth + 1);
+  expect(overflow.bodyScrollWidth, diagnostic).toBeLessThanOrEqual(overflow.clientWidth + 1);
 }
 
 test('keyboard users can skip navigation and close the assistant', async ({ page }) => {
