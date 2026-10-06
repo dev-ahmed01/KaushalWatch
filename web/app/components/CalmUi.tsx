@@ -89,6 +89,7 @@ export function TechnicalDetails({ children }: { children: ReactNode }) {
 
 export function PersistenceTimeline({ points, summary }: { points: { label: string; state: 'ok' | 'miss' | 'uncertain' }[]; summary: string }) {
   const tone = (state: string) => state === 'ok' ? 'bg-[#067647]' : state === 'miss' ? 'bg-[#B54708]' : 'bg-[#98A2B3]';
+  const stateLabel = (state: string) => state === 'ok' ? 'Aligned' : state === 'miss' ? 'Discrepancy' : 'Uncertain';
   return (
     <div className="rounded-2xl bg-[#FBFCFD] p-6">
       <div className="text-[14px] font-medium text-[#475467]">Temporal Proof</div>
@@ -96,8 +97,9 @@ export function PersistenceTimeline({ points, summary }: { points: { label: stri
         {points.map((point, index) => (
           <div className="flex flex-1 items-start" key={`${point.label}-${index}`}>
             <div className="flex min-w-0 flex-1 flex-col items-center text-center">
-              <span className={cn('h-3 w-3 rounded-full ring-4 ring-white', tone(point.state))} />
+              <span aria-hidden="true" className={cn('h-3 w-3 rounded-full ring-4 ring-white', tone(point.state))} />
               <span className="mt-2 text-xs text-[#667085]">{point.label}</span>
+              <span className="mt-0.5 text-[10px] font-medium text-[#667085]">{stateLabel(point.state)}</span>
             </div>
             {index < points.length - 1 && <span className="mt-[5px] h-px flex-1 bg-[#D7DCE3]" />}
           </div>
