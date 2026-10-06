@@ -138,7 +138,7 @@ test('API failures never present simulated fallbacks as live evidence', async ({
 
   await expect(page.getByRole('alert').filter({ hasText: 'simulated demo fallback data' })).toBeVisible();
   await expect(page.getByText('Simulated fallback')).toBeVisible();
-  await expect(page.getByText('Bengaluru TC-04')).toBeVisible();
+  await expect(page.getByText('Bengaluru TC-04').first()).toBeVisible();
 });
 
 test('empty and unavailable centre data remain distinct from healthy state', async ({ page }) => {
