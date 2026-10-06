@@ -119,7 +119,7 @@ export default function EvidencePage() {
           <EvidenceFrame
             src={src}
             timestamp={chosen?.created_at ? new Date(chosen.created_at).toLocaleString() : undefined}
-            trusted={centreDegraded ? false : cameraTrusted}
+            trusted={centreDegraded ? undefined : cameraTrusted}
             emptyText={casesError ? 'Evidence records unavailable' : 'Evidence preview appears after analysis'}
           />
 
