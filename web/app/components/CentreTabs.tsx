@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '../lib/cn';
 
 const tabs = [
-  { suffix: '', label: 'Cockpit' },
+  { suffix: '', label: 'Overview' },
   { suffix: '/attendance', label: 'Attendance' },
   { suffix: '/practical', label: 'Practical' },
   { suffix: '/infrastructure', label: 'Infrastructure' },
@@ -15,7 +15,7 @@ const tabs = [
 export default function CentreTabs({ centreId }: { centreId: string }) {
   const pathname = usePathname();
   return (
-    <nav className="mb-12 flex flex-wrap gap-1 border-b border-[#E6EAF0]" aria-label="Centre sections">
+    <nav className="mb-7 flex flex-wrap gap-1 border-b border-[#E6EAF0]" aria-label="Centre sections">
       {tabs.map(tab => {
         const href = `/centres/${centreId}${tab.suffix}`;
         const active = tab.suffix ? pathname === href : pathname === `/centres/${centreId}`;
