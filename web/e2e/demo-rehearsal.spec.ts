@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test';
 
-test('prepared SIH demo stays deterministic and auditable', async ({ page }) => {
+test('prepared SIH demo stays deterministic and auditable after AI-first restructure', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'Network' })).toBeVisible();
-  await expect(page.getByText('2 verified · 2 need review · 1 uncertain · 1 unavailable')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'KaushalAI' })).toBeVisible();
+  await expect(page.getByText('Centres at a glance')).toBeVisible();
+  await expect(page.getByText('Bengaluru TC-04').first()).toBeVisible();
 
-  await page.getByRole('link', { name: /Bengaluru TC-04:/ }).click();
+  await page.goto('/centres/DEMO-KA-104');
   await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();
   await expect(page.getByText(/Next analysis · (Today|Tomorrow) · \d{2}:\d{2}–\d{2}:\d{2}/)).toBeVisible();
   await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
@@ -36,13 +37,12 @@ test('prepared SIH demo stays deterministic and auditable', async ({ page }) => 
   await expect(page.getByText('OPEN', { exact: true })).toBeVisible();
 
   await page.goto('/reports?centre=DEMO-KA-104');
-  await expect(page.getByRole('heading', { name: 'Reports' })).toBeVisible();
-  await expect(page.getByText('Simulated', { exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/\/insights$/);
+  await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
 
-  const pdfHref = await page.getByRole('link', { name: /Download PDF/i }).getAttribute('href');
-  expect(pdfHref).toBeTruthy();
-
-  const reportPdf = await page.request.get(pdfHref!);
+  const reportPdf = await page.request.get(
+    'http://127.0.0.1:8000/api/centres/DEMO-KA-104/report.pdf?period=7d',
+  );
   expect(reportPdf.ok()).toBeTruthy();
   expect(reportPdf.headers()['content-type']).toContain('application/pdf');
   const reportBytes = await reportPdf.body();
