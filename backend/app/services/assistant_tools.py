@@ -60,6 +60,7 @@ class AssistantDataContext:
     centre_lookup: Callable[[str], dict[str, Any] | None]
     readiness_provider: Callable[[], dict[str, Any]]
     network_brief_provider: Callable[[str], dict[str, Any]] | None = None
+    activity_intelligence_provider: Callable[[str, str], dict[str, Any]] | None = None
     now_provider: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
 
 
@@ -242,6 +243,27 @@ class KaushalToolset:
             if item.get("centre_id")
         ]
         return ToolResult({"available": True, **data}, sources)
+
+    def get_activity_intelligence(
+        self,
+        centre_id: str,
+        period: str = "yesterday",
+    ) -> ToolResult:
+        if self.context.activity_intelligence_provider is None:
+            return ToolResult({"available": False, "reason": "Activity intelligence is unavailable."})
+        data = self.context.activity_intelligence_provider(centre_id, period)
+        return ToolResult(
+            {"available": True, **data},
+            [
+                AssistantSource(
+                    "centre",
+                    centre_id,
+                    f"{centre_id} activity intelligence",
+                    f"/centres/{centre_id}/practical",
+                    data.get("generated_at"),
+                )
+            ],
+        )
 
     def get_centre_overview(self, centre_id: str) -> ToolResult:
         centre = self._centre(centre_id)
