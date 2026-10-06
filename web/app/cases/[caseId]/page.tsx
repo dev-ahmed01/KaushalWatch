@@ -97,7 +97,7 @@ export default function CaseDetailPage() {
           Back to actions
         </Link>
         <div className="mt-8 h-72 rounded-2xl kw-skeleton" />
-        {error && <div className="mt-4 text-[13px] text-[#B42318]">{error}</div>}
+        {error && <div role="alert" className="mt-4 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[13px] text-[#B42318]">{error}</div>}
       </div>
     );
   }
@@ -170,14 +170,17 @@ export default function CaseDetailPage() {
 
             {!terminal ? (
               <>
+                <label htmlFor="officer-review-note" className="mt-4 block text-[12px] font-medium text-[#475467]">Decision note</label>
                 <textarea
+                  id="officer-review-note"
+                  aria-label="Decision note"
                   value={note}
                   onChange={event => setNote(event.target.value)}
                   rows={3}
                   placeholder="Record the reason for your decision…"
-                  className="mt-4 w-full resize-none rounded-xl border border-[#D7DCE3] bg-white px-4 py-3 text-[13px] leading-6 text-[#344054] outline-none focus:border-[#93B4F6]"
+                  className="mt-2 w-full resize-none rounded-xl border border-[#D7DCE3] bg-white px-4 py-3 text-[13px] leading-6 text-[#344054] outline-none focus:border-[#93B4F6]"
                 />
-                {error && <div className="mt-3 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[12px] text-[#B42318]">{error}</div>}
+                {error && <div role="alert" className="mt-3 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[12px] text-[#B42318]">{error}</div>}
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <Button variant="primary" disabled={Boolean(busy)} onClick={() => void apply('confirmed')}>
                     <Check size={15} />
