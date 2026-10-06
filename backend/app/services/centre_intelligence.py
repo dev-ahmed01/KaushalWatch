@@ -204,7 +204,7 @@ def _action_rows(centre_id: str, centre: dict[str, Any], cases: list[ComplianceC
             "priority": "high",
             "title": "Review attendance evidence",
             "reason": attendance_cases[0].summary,
-            "href": f"/centres/{centre_id}/evidence",
+            "href": f"/cases/{attendance_cases[0].case_id}",
         })
 
     infrastructure_cases = _active_cases(cases, "infrastructure_compliance")
@@ -213,7 +213,7 @@ def _action_rows(centre_id: str, centre: dict[str, Any], cases: list[ComplianceC
             "priority": "medium",
             "title": "Review infrastructure evidence",
             "reason": infrastructure_cases[0].summary,
-            "href": f"/centres/{centre_id}/infrastructure",
+            "href": f"/cases/{infrastructure_cases[0].case_id}",
         })
 
     if not actions and str(centre.get("status") or "").lower() == "compliant":
