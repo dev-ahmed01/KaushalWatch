@@ -287,3 +287,36 @@ def test_activity_intelligence_tool_uses_shared_provider(tmp_path):
     assert result.data["period"] == "yesterday"
     assert result.data["summary"]["peak"]["label"] == "10:45–12:00"
     assert result.sources[0].href == "/centres/DEMO-KA-104/practical"
+
+
+def test_action_queue_tool_uses_shared_provider(tmp_path):
+    history = AnalysisHistoryStore(tmp_path / "analysis_history.json")
+    cases = CaseStore(tmp_path / "cases.json")
+
+    context = AssistantDataContext(
+        history=history,
+        cases=cases,
+        centre_lookup=lambda _centre_id: None,
+        readiness_provider=lambda: {},
+        action_queue_provider=lambda period: {
+            "generated_at": "2026-10-06T10:00:00+05:30",
+            "period": period,
+            "headline": "Start with Hubballi.",
+            "actions": [
+                {
+                    "case_id": "CASE-1",
+                    "centre_id": "DEMO-KA-303",
+                    "title": "Review infrastructure exception",
+                    "href": "/cases/CASE-1",
+                }
+            ],
+        },
+    )
+
+    result = KaushalToolset(context).get_action_queue("yesterday")
+
+    assert result.data["available"] is True
+    assert result.data["period"] == "yesterday"
+    assert result.data["headline"] == "Start with Hubballi."
+    assert result.sources[0].kind == "case"
+    assert result.sources[0].href == "/cases/CASE-1"
