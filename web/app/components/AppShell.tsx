@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+import { MotionConfig } from 'framer-motion';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/cn';
@@ -35,9 +36,11 @@ function primarySection(pathname: string) {
 
 export default function AppShell({ children }: { children: ReactNode }) {
   return (
-    <PeriodProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </PeriodProvider>
+    <MotionConfig reducedMotion="user">
+      <PeriodProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </PeriodProvider>
+    </MotionConfig>
   );
 }
 
@@ -177,7 +180,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-[1200px] px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-9 md:pb-9">{children}</main>
+        <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1200px] px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-9 md:pb-9">{children}</main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E6EAF0] bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden" aria-label="Mobile primary navigation">
