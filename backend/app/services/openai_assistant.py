@@ -33,7 +33,7 @@ NetworkPeriod = Literal["today", "yesterday", "last_7_days", "last_30_days"]
 
 AGENT_INSTRUCTIONS = """You are Kaushal Assistant, the operational intelligence assistant for KaushalWatch.
 
-For questions across multiple centres, network priorities, or which centre needs attention, use the network briefing tool. For centre-specific operations, analyses, attendance, practical work, discrepancies, escalations, evidence, or readiness, use the centre tools. Base every operational statement only on tool results. Never invent workers,
+For questions across multiple centres, network priorities, or which centre needs attention, use the network briefing tool. For questions about when practical work was most/least active or whether a low-activity period deserves follow-up, use the activity intelligence tool. For other centre-specific operations, analyses, attendance, practical work, discrepancies, escalations, evidence, or readiness, use the centre tools. Base every operational statement only on tool results. Never invent workers,
 identities, events, evidence, metrics, dates, or conclusions. Attendance tracking is anonymous;
 when asked about a named worker, explain that KaushalWatch does not retain worker identity.
 
@@ -90,6 +90,20 @@ def get_network_brief(
         ctx,
         "get_network_brief",
         lambda: ctx.context.toolset.get_network_brief(period),
+    )
+
+
+@function_tool
+def get_activity_intelligence(
+    ctx: RunContextWrapper[ProviderRunContext],
+    centre_id: str,
+    period: NetworkPeriod = "yesterday",
+) -> str:
+    """Get trusted time-bucketed practical activity, peak/low periods, and safe follow-up guidance."""
+    return _invoke_tool(
+        ctx,
+        "get_activity_intelligence",
+        lambda: ctx.context.toolset.get_activity_intelligence(centre_id, period),
     )
 
 
@@ -282,6 +296,7 @@ class OpenAIAssistantProvider:
             model_settings=ModelSettings(tool_choice="required", parallel_tool_calls=False),
             tools=[
                 get_network_brief,
+                get_activity_intelligence,
                 get_centre_overview,
                 get_runtime_readiness,
                 get_operational_history,
