@@ -76,7 +76,7 @@ export default function ActivityPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="ghost" onClick={() => window.dispatchEvent(new Event('kaushalwatch:assistant'))}>
             <Bot size={16} />
             Ask KaushalAI
