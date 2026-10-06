@@ -9,19 +9,22 @@ test('prepared SIH demo stays deterministic and auditable after AI-first restruc
 
   await page.goto('/centres/DEMO-KA-104');
   await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();
-  await expect(page.getByText(/Next analysis · (Today|Tomorrow) · \d{2}:\d{2}–\d{2}:\d{2}/)).toBeVisible();
-  await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
-
-  await page.getByText('Technical details', { exact: true }).first().click();
-  await expect(page.getByText(/SHA-256:/)).toBeVisible();
+  await expect(page.getByText('KaushalAI centre brief')).toBeVisible();
+  await expect(page.getByText('Verification engines')).toBeVisible();
+  await expect(page.getByText('Attendance', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Practical activity', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Apparent operability', { exact: true }).first()).toBeVisible();
 
   await page.getByRole('navigation', { name: 'Centre sections' }).getByRole('link', { name: 'Evidence', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Evidence' })).toBeVisible();
   await expect(page.getByText('Simulated evidence')).toBeVisible();
   await expect(page.getByText('1 possible duplicate')).toBeVisible();
+  await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
+  await page.getByText('Technical details', { exact: true }).first().click();
+  await expect(page.getByText(/SHA-256:/)).toBeVisible();
 
   await page.goto('/centres/DEMO-KA-104');
-  await page.getByText('Review evidence', { exact: true }).click();
+  await page.getByText('Review attendance evidence', { exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Attendance discrepancy' })).toBeVisible();
   await expect(page.getByAltText('Retained compliance evidence')).toBeVisible();
 
