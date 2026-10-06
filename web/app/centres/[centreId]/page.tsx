@@ -44,10 +44,12 @@ export default function CentreOverview() {
   const [centre, setCentre] = useState<Centre | null>(null);
   const [intelligence, setIntelligence] = useState<CentreIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
+  const [degraded, setDegraded] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
   async function load() {
     setLoading(true);
+    setDegraded(false);
     try {
       const [current, currentIntelligence] = await Promise.all([
         getCentre(id),
@@ -58,6 +60,7 @@ export default function CentreOverview() {
     } catch {
       setCentre(FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK);
       setIntelligence(null);
+      setDegraded(true);
     } finally {
       setLoading(false);
     }
@@ -97,7 +100,11 @@ export default function CentreOverview() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">{meta?.name || current.name}</h1>
-            {intelligence?.simulated && <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">Simulated demo data</span>}
+            {(intelligence?.simulated || degraded) && (
+              <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">
+                {degraded ? 'Simulated centre metadata' : 'Simulated demo data'}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-[14px] text-[var(--kw-muted)]">{meta?.job_role || current.job_role} · {meta?.batch_id || current.batch_id}</p>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#98A2B3]">
@@ -115,6 +122,12 @@ export default function CentreOverview() {
 
       <CentreTabs centreId={id} />
 
+      {degraded && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          Live centre intelligence is unavailable. Centre identity metadata is simulated fallback data; verification states, recommendations and recent analysis are not being inferred.
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-7 py-7 shadow-[var(--kw-shadow)]">
         <div className="relative z-10 max-w-[760px]">
           <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
@@ -122,10 +135,12 @@ export default function CentreOverview() {
             KaushalAI centre brief
           </div>
           <h2 className="mt-3 text-[26px] font-semibold leading-[1.25] tracking-[-0.03em] text-[var(--kw-text)]">
-            {intelligence?.brief.headline || fallbackHeadline}
+            {loading
+              ? 'Refreshing centre intelligence…'
+              : intelligence?.brief.headline || 'Live centre intelligence is unavailable.'}
           </h2>
           <div className="mt-5 space-y-2.5">
-            {(intelligence?.brief.bullets || ['Centre intelligence is loading from the latest trusted evidence.']).slice(0, 4).map(line => (
+            {(intelligence?.brief.bullets || [loading ? 'Centre intelligence is loading from the latest trusted evidence.' : 'No verification conclusion is shown while the intelligence service is unavailable.']).slice(0, 4).map(line => (
               <div key={line} className="flex items-start gap-3 text-[13px] leading-5 text-[#475467]">
                 <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#6B8AB5]" />
                 <span>{line}</span>
@@ -187,7 +202,9 @@ export default function CentreOverview() {
               ))}
             </div>
           ) : (
-            <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-6 text-[13px] text-[#667085]">No new analysis runs were recorded in this period.</div>
+            <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-6 text-[13px] text-[#667085]">
+              {intelligence ? 'No new analysis runs were recorded in this period.' : 'Recent analysis is unavailable until centre intelligence responds.'}
+            </div>
           )}
         </section>
 
@@ -208,7 +225,9 @@ export default function CentreOverview() {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-[12px] leading-5 text-[#667085]">No immediate officer action is recommended.</p>
+              <p className="mt-3 text-[12px] leading-5 text-[#667085]">
+                {intelligence ? 'No immediate officer action is recommended.' : 'Recommendations are unavailable until centre intelligence responds.'}
+              </p>
             )}
           </section>
 
