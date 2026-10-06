@@ -31,7 +31,6 @@ html {
 
 body {
   margin: 0;
-  min-width: 960px;
   background: var(--kw-page);
   color: var(--kw-text);
   font-family: Inter, Geist, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -93,5 +92,33 @@ button { cursor: pointer; }
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+}
+
+
+.kw-skip-link {
+  position: fixed;
+  left: 12px;
+  top: 10px;
+  z-index: 100;
+  transform: translateY(-160%);
+  border-radius: 10px;
+  background: #172033;
+  color: #ffffff;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: transform 120ms ease;
+}
+
+.kw-skip-link:focus {
+  transform: translateY(0);
+  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline-offset: 2px;
+}
+
+@media (max-width: 767px) {
+  body {
+    overflow-x: hidden;
   }
 }
