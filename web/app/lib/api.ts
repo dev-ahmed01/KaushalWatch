@@ -1,4 +1,4 @@
-import type { AssistantReply, AssistantStatus, CaseRecord, Centre } from './types';
+import type { AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -6,6 +6,10 @@ async function parse<T>(response: Response): Promise<T> {
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.detail || 'KaushalWatch API request failed');
   return payload as T;
+}
+
+export async function getKaushalBrief(period = 'yesterday') {
+  return parse<KaushalBrief>(await fetch(`${API}/api/kaushalai/brief?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
 }
 
 export async function getCentres() {
