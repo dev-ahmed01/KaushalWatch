@@ -124,8 +124,14 @@ def assess_camera(
     occlusion = changed and (
         light_delta > 28 or blur_ratio > 7.0 or blur_ratio < 0.12
     )
+    # A complete viewpoint change must persist between adjacent frames;
+    # otherwise independent noisy/fast-changing foreground frames can look
+    # unlike the initial reference even when the camera never moved.
     movement = changed and not occlusion and (
-        0.35 <= blur_ratio <= 5.0 and light_delta <= 28
+        0.35 <= blur_ratio <= 5.0
+        and light_delta <= 28
+        and previous is not None
+        and _scene_correlation(previous, frame) > 0.72
     )
     obstructed = memory.persistent(
         "obstructed", occlusion, sample_seconds, 1.5,

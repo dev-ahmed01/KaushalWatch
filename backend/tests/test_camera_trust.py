@@ -78,3 +78,14 @@ def test_one_frame_occlusion_does_not_trigger_exception():
     covered = np.full_like(base, 200)
     result = _stream([base] * 5 + [covered] + [base] * 6)
     assert all(v.trusted for v in result)
+
+
+def test_independent_background_texture_frames_not_viewpoint_tamper():
+    rng = np.random.default_rng(20261004)
+    frames = [
+        rng.integers(90, 220, size=(180, 240, 3), dtype=np.uint8)
+        for _ in range(30)
+    ]
+    results = _stream(frames, seconds=0.2)
+    assert all(v.trusted for v in results)
+    assert not any(v.scene_shift for v in results)
