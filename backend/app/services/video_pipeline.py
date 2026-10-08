@@ -11,7 +11,7 @@ import numpy as np
 
 from app.models import AttendanceObservation, AttendanceOverlayBox, AttendanceOverlaySample, ComplianceCase, ProcessSummary
 from app.services.anonymous_tracker import AnonymousCentroidTracker
-from app.services.camera_trust import assess_camera
+from app.services.camera_trust import CameraTrustState, assess_camera
 from app.services.compliance_cases import build_camera_integrity_case
 from app.services.evidence import persist_evidence
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
@@ -100,6 +100,7 @@ class VideoCompliancePipeline:
         overlay_interval_seconds = max(0.8, float(sample_every_seconds))
         next_overlay_second = 0.0
         mismatch_flags: list[bool] = []
+        camera_trust_state = CameraTrustState()
         trust_flags: list[bool] = []
         trust_reason_counter: Counter[str] = Counter()
 
@@ -132,6 +133,8 @@ class VideoCompliancePipeline:
                     frame,
                     previous_frame=prev_frame,
                     reference_frame=reference_frame,
+                    state=camera_trust_state,
+                    sample_seconds=step / fps,
                 )
                 trust_flags.append(trust.trusted)
                 trust_reason_counter.update(trust.reasons)

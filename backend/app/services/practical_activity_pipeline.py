@@ -10,7 +10,7 @@ import numpy as np
 from app.models import PracticalActivitySummary, WorkCellActivity
 from app.services.activity_evidence import TemporalActivityGate, worker_motion_fraction
 from app.services.anonymous_tracker import AnonymousCentroidTracker
-from app.services.camera_trust import assess_camera
+from app.services.camera_trust import CameraTrustState, assess_camera
 from app.services.compliance_cases import (
     build_camera_integrity_case,
     build_practical_activity_case,
@@ -249,6 +249,7 @@ class PracticalActivityPipeline:
         zone_active_frames: dict[str, int] = defaultdict(int)
         active_zone_ids_seen: set[str] = set()
 
+        camera_trust_state = CameraTrustState()
         trust_flags: list[bool] = []
         trust_reason_counter: Counter[str] = Counter()
         worst_camera_evidence: tuple[float, np.ndarray, list[str]] | None = None
@@ -285,6 +286,8 @@ class PracticalActivityPipeline:
                     frame,
                     previous_frame=previous_frame,
                     reference_frame=reference_frame,
+                    state=camera_trust_state,
+                    sample_seconds=step / fps,
                 )
                 trust_flags.append(trust.trusted)
                 trust_reason_counter.update(trust.reasons)
