@@ -39,3 +39,40 @@ Limitations: frozen scene vs replay cannot be reliably proven by pixels alone;
 a camera that starts obstructed lacks a reliable initial reference; foreground
 changes can resemble a scene shift. Treat warnings as evidence-quality
 flags requiring officer review, never punitive determinations.
+
+
+## Phase 3 — development-only conservative candidate
+The complete Day 4 Camera B recording showed **52.2%** false untrusted
+samples and 5.30 false-alarm episodes per normal hour under the v2
+evidence-quality metric. The scorecard also counted alarms already active
+at event onset as detected; 37 of 70 marked detections had zero delay.
+That event-recall definition is no longer appropriate for new incidents.
+
+Candidate changes on this branch:
+- Separate low-visibility **evidence usability** from suspected camera
+  **tampering**. Dark footage can still suspend attendance without
+  automatically becoming a tamper alert.
+- Do not infer obstruction from changing brightness alone.
+- Require a coherent translated scene (phase correlation on edge maps)
+  before treating raw reference dissimilarity as camera displacement.
+- Add counters for normal scene failure reasons and separate evidence
+  quality metrics in the UHCTD evaluator.
+- Require a **fresh rising tamper alert** to count as event detection. An
+  already-active alert is reported, but no longer credited to a new event.
+
+Development inspection only: on the FOUR uploaded Day 3 clips the
+candidate flagged 0/106 normal, 90/106 covered, 90/106 defocused and
+93/106 moved post-onset frames. This is a small, selected development set,
+not a statistically valid result for 24-hour surveillance.
+
+**Do not reuse Day 4 as an untouched test of this candidate.** Its failure
+details have already influenced the design, even if its frames were not
+available for local tuning. Before promotion, find a new, truly untouched
+recording from another day/camera with full labels, evaluate under the
+frozen candidate, and inspect false alarms/hour plus new-alert
+event recall. Neither old full-recording Day 4 results nor short
+Day 3 clip scores establish deployment suitability.
+
+Camera trust based on visual evidence cannot reliably authenticate true
+stream freshness or prove malicious tampering. Human review remains
+the final decision.

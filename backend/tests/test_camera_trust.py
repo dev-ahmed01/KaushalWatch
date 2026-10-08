@@ -89,3 +89,36 @@ def test_independent_background_texture_frames_not_viewpoint_tamper():
     results = _stream(frames, seconds=0.2)
     assert all(v.trusted for v in results)
     assert not any(v.scene_shift for v in results)
+
+
+def test_natural_brightness_changes_are_not_tampering():
+    base = _scene()
+    frames = [base.copy() for _ in range(2)]
+    for amount in range(1, 61, 2):
+        frames.append(cv2.convertScaleAbs(base, alpha=1.0, beta=amount))
+    assert not any(item.tamper_suspected for item in _stream(frames))
+
+
+def test_dark_video_untrusted_for_visibility_but_not_tamper():
+    base = _scene()
+    dark = np.zeros_like(base)
+    results = _stream([base] * 3 + [dark] * 5)
+    assert not results[-1].trusted
+    assert results[-1].is_too_dark
+    # Low visibility is an evidence-quality condition, not proven sabotage.
+    assert not results[-1].tamper_suspected
+
+
+def test_scene_change_requires_geometric_evidence_of_displacement():
+    rng = np.random.default_rng(20261004)
+    frames = [
+        rng.integers(90, 220, size=(180, 240, 3), dtype=np.uint8)
+        for _ in range(30)
+    ]
+    assert not any(item.tamper_suspected for item in _stream(frames, 0.2))
+
+
+def test_shift_signal_indicates_possible_camera_tamper():
+    base = _scene()
+    displaced = np.roll(base, 60, axis=1)
+    assert _stream([base] * 3 + [displaced] * 10)[-1].tamper_suspected

@@ -21,6 +21,7 @@ class CameraTrust(BaseModel):
     is_blurry: bool = False
     is_too_dark: bool = False
     scene_shift: bool = False
+    tamper_suspected: bool = False
     reasons: list[str] = Field(default_factory=list)
 
 

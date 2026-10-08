@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate unmodified Camera Trust v2 against frame-aligned UHCTD test footage.
+"""Evaluate Camera Trust candidate: tampering alerts and video usability separately.
 
 Requires Python with opencv-python, numpy and pydantic 2 installed.
 Run from any directory; imports code from the enclosing KaushalWatch repo.
@@ -81,8 +81,11 @@ def score_recording(
         events = []
         current = None
         state = CameraTrustState()
-        normal_alarm_active = False
+        previous_tamper_alert = False
         false_alarm_episodes = 0
+        normal_quality_suspensions = 0
+        normal_reason_samples = Counter()
+        tamper_reason_samples = Counter()
         started_at = time.monotonic()
 
         with annotations.open("r", encoding="utf-8-sig", newline="") as stream:
@@ -110,6 +113,8 @@ def score_recording(
                         "start_frame": frame_number,
                         "end_frame": frame_number,
                         "detected_frame": None,
+                        "first_any_alert_frame": None,
+                        "preexisting_tamper_alert": previous_tamper_alert,
                         "flagged_samples": 0,
                     }
                 else:
@@ -127,7 +132,16 @@ def score_recording(
                 trust = assess_camera(
                     frame, state=state, sample_seconds=interval
                 )
-                alert = not trust.trusted
+                alert = bool(trust.tamper_suspected)
+                quality_alert = not trust.trusted
+                if label == 0 and quality_alert:
+                    normal_quality_suspensions += 1
+                for reason in trust.reasons:
+                    if label == 0:
+                        normal_reason_samples[reason] += 1
+                    else:
+                        tamper_reason_samples[reason] += 1
+                rising = alert and not previous_tamper_alert
                 tampered = label != 0
                 total["sampled"] += 1
                 by_label[label]["sampled"] += 1
@@ -137,7 +151,9 @@ def score_recording(
                 if tampered and alert:
                     total["tp"] += 1
                     current["flagged_samples"] += 1
-                    if current["detected_frame"] is None:
+                    if current["first_any_alert_frame"] is None:
+                        current["first_any_alert_frame"] = frame_number
+                    if rising and current["detected_frame"] is None:
                         current["detected_frame"] = frame_number
                 elif tampered:
                     total["fn"] += 1
@@ -146,9 +162,9 @@ def score_recording(
                 else:
                     total["tn"] += 1
 
-                if label == 0 and alert and not normal_alarm_active:
+                if label == 0 and rising:
                     false_alarm_episodes += 1
-                normal_alarm_active = label == 0 and alert
+                previous_tamper_alert = alert
                 if verbose and index and index % max(1, round(fps * 3600)) < step:
                     print(
                         f"Scanned {index / fps / 3600:.1f} hours "
@@ -183,6 +199,8 @@ def score_recording(
                 "end_frame": event["end_frame"],
                 "onset_seconds": round(onset, 3),
                 "detected": detection is not None,
+                "preexisting_tamper_alert": event["preexisting_tamper_alert"],
+                "any_alert_during_event": event["first_any_alert_frame"] is not None,
                 "first_alert_seconds": round(detection, 3) if detection is not None else "",
                 "detection_delay_seconds": round(detection-onset, 3) if detection is not None else "",
                 "flagged_samples": event["flagged_samples"],
@@ -196,6 +214,8 @@ def score_recording(
             event_per_class[NAMES[kind]] = {
                 "events": len(group),
                 "events_detected": len(found),
+                "events_with_preexisting_tamper_alert": sum(bool(e["preexisting_tamper_alert"]) for e in group),
+                "events_with_any_alert": sum(bool(e["any_alert_during_event"]) for e in group),
                 "event_recall": div(len(found), len(group)),
                 "mean_detection_delay_seconds": div(sum(delays), len(delays)),
                 "maximum_detection_delay_seconds": max(delays) if delays else None,
@@ -221,7 +241,8 @@ def score_recording(
             "evaluated_frames": limit,
             "sample_step_frames": step,
             "effective_sample_seconds": interval,
-            "positive_class": "any tampering (covered / defocused / moved)",
+            "positive_class": "suspected camera tampering (not poor visibility alone)",
+            "tamper_event_detection_rule": "new rising alert within annotated interval; preexisting alerts do not count",
             "negative_class": "normal",
             "important": (
                 "The detector produces trusted/untrusted, not a validated "
@@ -229,6 +250,10 @@ def score_recording(
                 "of each known tampering type, not four-class accuracy."
             ),
             "sampled_confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
+            "normal_quality_untrusted_samples": normal_quality_suspensions,
+            "normal_quality_untrusted_fraction": div(normal_quality_suspensions, by_label[0]["sampled"]),
+            "normal_untrusted_reasons": dict(normal_reason_samples),
+            "tampered_untrusted_reasons": dict(tamper_reason_samples),
             "sampled_precision": div(tp, tp+fp),
             "sampled_recall": div(tp, tp+fn),
             "sampled_specificity": div(tn, tn+fp),
@@ -272,7 +297,7 @@ def main():
         writer = csv.DictWriter(
             stream, fieldnames=[
                 "class", "start_frame", "end_frame", "onset_seconds",
-                "detected", "first_alert_seconds",
+                "detected", "preexisting_tamper_alert", "any_alert_during_event", "first_alert_seconds",
                 "detection_delay_seconds", "flagged_samples",
             ],
         )

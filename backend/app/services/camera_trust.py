@@ -49,6 +49,23 @@ def scene_shift_score(reference: np.ndarray, current: np.ndarray) -> float:
     return max(0.0, 1.0 - _scene_correlation(reference, current))
 
 
+
+def _registered_translation(reference: np.ndarray, current: np.ndarray) -> bool:
+    """Require coherent global displacement, not merely different scene pixels."""
+    size = (192, 144)
+    def edge_map(frame: np.ndarray) -> np.ndarray:
+        grayscale = cv2.resize(_gray(frame), size)
+        return cv2.Laplacian(cv2.equalizeHist(grayscale), cv2.CV_32F)
+    a = edge_map(reference)
+    b = edge_map(current)
+    if float(np.std(a)) < 5.0 or float(np.std(b)) < 5.0:
+        return False
+    (dx, dy), response = cv2.phaseCorrelate(a, b)
+    if not np.isfinite([dx, dy, response]).all():
+        return False
+    return bool(response >= 0.25 and float(np.hypot(dx, dy)) >= 3.5)
+
+
 @dataclass
 class CameraTrustState:
     """Temporal state scoped to ONE video-processing run."""
@@ -57,6 +74,9 @@ class CameraTrustState:
     reference_blur: float | None = None
     reference_light: float | None = None
     consecutive_seconds: dict[str, float] = field(default_factory=dict)
+    elapsed_seconds: float = 0.0
+    registration_checked_at: float = -999.0
+    registration_shift: bool = False
 
     def persistent(self, key: str, active: bool, seconds: float, minimum: float) -> bool:
         self.consecutive_seconds[key] = (
@@ -77,13 +97,13 @@ def assess_camera(
     state: CameraTrustState | None = None,
     sample_seconds: float = 1.0,
 ) -> CameraTrust:
-    """Determine whether visual evidence remains usable.
+    """Separate evidence quality from *suspected* tamper events.
 
-    Legacy numeric arguments remain for API compatibility. The relative
-    v2 checks require separate calibration and an explicit candidate profile.
+    Legacy parameters remain API-compatible. Relative v3 settings require
+    their own vision profile and must not silently replace frozen v1.
     """
     if frame is None or frame.size == 0:
-        raise ValueError("camera frame must be non-empty")
+        raise ValueError("camera frame must be nonempty")
     if sample_seconds <= 0:
         raise ValueError("sample_seconds must be positive")
     memory = state if state is not None else CameraTrustState()
@@ -94,50 +114,58 @@ def assess_camera(
         memory.reference_blur = blur_score(memory.reference_frame)
         memory.reference_light = luminance(memory.reference_frame)
 
+    reference = memory.reference_frame
     gray = _gray(frame)
-    b = blur_score(frame)
-    light = float(gray.mean())
+    image_light = float(gray.mean())
+    blur = blur_score(frame)
     base_blur = max(0.001, float(memory.reference_blur))
-    blur_ratio = b / base_blur
-    corr = _scene_correlation(memory.reference_frame, frame)
-    light_delta = abs(light - float(memory.reference_light))
+    blur_ratio = blur / base_blur
+    brightness_delta = abs(image_light - float(memory.reference_light))
+    corr = _scene_correlation(reference, frame)
 
-    # Compression noise and tiny foreground changes must not create a
-    # frozen-stream alarm; exact identical decoded frames must persist.
     previous = memory.previous_gray
     if previous is None and previous_frame is not None:
         previous = _gray(previous_frame)
     identical = previous is not None and np.array_equal(gray, previous)
     memory.previous_gray = gray.copy()
-    frozen = memory.persistent("frozen", identical, sample_seconds, 3.0)
+    memory.elapsed_seconds += sample_seconds
 
-    # Baseline-relative blur is essential for naturally low-texture CCTV.
+    frozen = memory.persistent("frozen", identical, sample_seconds, 3.0)
+    dark = memory.persistent(
+        "dark", image_light < dark_threshold, sample_seconds, 1.0,
+    )
     blurry = memory.persistent(
-        "blur", base_blur >= 3.0 and blur_ratio < 0.27 and corr > 0.73,
+        "blur", base_blur >= 3.0 and blur_ratio < 0.27
+        and corr > 0.73 and brightness_delta < 35.0,
         sample_seconds, 1.5,
     )
-    dark = memory.persistent(
-        "dark", light < dark_threshold, sample_seconds, 1.0,
+
+    # Brightness changes alone are not proof of obstruction, especially in
+    # outdoor day/night video. Significant texture changes are also needed.
+    candidate_obstruction = (
+        corr < 0.66 and (blur_ratio < 0.12 or blur_ratio > 7.0)
+        and image_light >= dark_threshold
+    )
+    obstructed = memory.persistent(
+        "obstructed", candidate_obstruction, sample_seconds, 1.5,
     )
 
-    changed = corr < 0.66
-    occlusion = changed and (
-        light_delta > 28 or blur_ratio > 7.0 or blur_ratio < 0.12
-    )
-    # A complete viewpoint change must persist between adjacent frames;
-    # otherwise independent noisy/fast-changing foreground frames can look
-    # unlike the initial reference even when the camera never moved.
-    movement = changed and not occlusion and (
-        0.35 <= blur_ratio <= 5.0
-        and light_delta <= 28
+    # Change in raw appearance is not sufficient for camera displacement.
+    # Compare spatially coherent registration while controlling CPU usage.
+    candidate_shift = (
+        corr < 0.66 and not candidate_obstruction
+        and 0.35 <= blur_ratio <= 5.0 and brightness_delta <= 50.0
         and previous is not None
         and _scene_correlation(previous, frame) > 0.72
     )
-    obstructed = memory.persistent(
-        "obstructed", occlusion, sample_seconds, 1.5,
-    )
+    if not candidate_shift:
+        memory.registration_shift = False
+    elif memory.elapsed_seconds - memory.registration_checked_at >= 1.0:
+        memory.registration_checked_at = memory.elapsed_seconds
+        memory.registration_shift = _registered_translation(reference, frame)
     shifted = memory.persistent(
-        "shift", movement, sample_seconds, 1.5,
+        "shift", candidate_shift and memory.registration_shift,
+        sample_seconds, 1.5,
     )
 
     reasons: list[str] = []
@@ -152,14 +180,16 @@ def assess_camera(
     if shifted:
         reasons.append("camera viewpoint may have shifted")
 
-    unusable = frozen or blurry or dark or obstructed or shifted
-    penalty = (
-        (60 if frozen else 0)
-        + (60 if blurry else 0)
-        + (60 if dark else 0)
-        + (65 if obstructed else 0)
-        + (60 if shifted else 0)
-    )
+    # Dark footage can be unusable evidence without being a tampering alert.
+    suspected_tamper = frozen or blurry or obstructed or shifted
+    unusable = suspected_tamper or dark
+    penalty = sum((
+        60 if frozen else 0,
+        60 if blurry else 0,
+        60 if dark else 0,
+        65 if obstructed else 0,
+        60 if shifted else 0,
+    ))
     return CameraTrust(
         trusted=not unusable,
         score=float(max(0, 100 - penalty)),
@@ -167,5 +197,6 @@ def assess_camera(
         is_blurry=blurry,
         is_too_dark=dark,
         scene_shift=shifted,
+        tamper_suspected=suspected_tamper,
         reasons=reasons,
     )
