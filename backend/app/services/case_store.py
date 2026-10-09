@@ -70,6 +70,19 @@ class CaseStore:
                     temporary_path.unlink(missing_ok=True)
             return case
 
+    def save_if_absent(self, case: ComplianceCase) -> bool:
+        """Atomically accept a new edge case only if the ID is not present.
+
+        Uses the same lock as update_status: an edge replay cannot overwrite
+        an officer's transition even if both requests race in this worker.
+        This is NOT a cross-process uniqueness guarantee.
+        """
+        with self._lock:
+            if any(row.get("case_id") == case.case_id for row in self._load()):
+                return False
+            self.save(case)
+            return True
+
     def get(self, case_id: str) -> ComplianceCase | None:
         return next((c for c in self.list() if c.case_id == case_id), None)
 
