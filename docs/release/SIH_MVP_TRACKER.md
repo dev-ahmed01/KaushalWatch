@@ -17,10 +17,10 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 - [x] Inspect Camera Trust draft PR #54 and isolate its unvalidated detection changes from release baseline.
 - [x] Audit `README.md`, `STATUS.md`, build workflow and available runtime modules for claim boundaries.
 - [x] Catalogue current UI-to-API route contracts; introduce a fail-fast, read-only route/method drift check.
-- [ ] Get the **new release branch CI** passing (backend, static contract gate, frontend build, browser E2E). Baseline PR #53 CI passed; the new branch is not certified until its own checks finish.
+- [x] Get the **new release branch CI** passing (backend, static contract gate, frontend build, browser E2E). Release branch PR #55 had a full successful CI run at commit `7acbd329`; subsequent CI for the new isolated release tests must also pass before these are certified.
 - [ ] Complete an exact clean-environment operator bootstrap, including required model/runtime preparation.
 - [ ] Verify full officer roles/permissions and all negative-state transitions on a running candidate; an optional server-mapped reviewer write key is now implemented, but complete RBAC and sensitive read protection remain pending.
-- [ ] Trace actual video -> analysis -> persisted evidence -> case -> officer action -> audit -> assistant in one integrated run with labelled data provenance.
+- [ ] Trace an **actual selected stage video** -> analysis -> persisted evidence -> case -> officer action -> audit -> assistant. A separate synthetic-video API-level integration test now covers this path using generated black camera footage and no external model accuracy claims; exact stage media remain pending.
 
 **Exit gate:** all 8 items checked; no critical officer-path blocker, and the release base remains unmerged.
 
@@ -84,7 +84,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 | Apparent operability | Motion proxy, not machinery-health proof | Annotated ROI/window measurement |
 | Camera Trust | Basic checks included in baseline; experimental v2 isolated | Conservative insufficient-evidence/officer handling |
 | AEBAS / SIDH | Simulated | Do not claim government live integration |
-| Edge queue and sync | Implemented and previously E2E tested | Offline reconnection + exact bandwidth measurement |
+| Edge queue and sync | Implemented; new tests verify same-event replay, different-event same-case suppression and non-overwrite of officer audit | Offline reconnection + exact bandwidth measurement |
 | KaushalAI text/voice | Mocked contract tests and UI path | Real provider credentials/connectivity on presentation environment |
 | Evaluation and demo utilities | Scripts exist and synthetic smoke runs documented | Final ground truth, exact assets and real outputs |
 
@@ -97,6 +97,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
 6. **Privacy/authority:** automated visual findings are review inputs; unknown visibility cannot become a healthy or punitive conclusion.
 7. **Officer identity:** `docs/release/officer-review-access.md` documents a server-side bearer-key write safeguard and actor attribution. The default local SIH mode is explicitly simulated, while pilot/staging/production settings fail closed without token mode. Sensitive read APIs and other writes are not RBAC-protected, so government or real-centre deployment remains out of scope.
+8. **Durable case status:** an edge event with an existing case ID no longer overwrites that case (even under a different event ID); untrusted edge source statuses are never treated as human decisions. `CaseStore` writes now use in-process locking and atomic file replacement. These controls do **not** provide multi-process transactions, signed edge event provenance, or a production audit ledger.
 
 ## Release checks
 
@@ -111,7 +112,7 @@ pytest -q backend/tests
 cd web && npm ci && npm run build && npm run test:e2e
 ```
 
-The **route contract gate** verifies 22 required frontend helper ↔ FastAPI route/method pairs without starting a model or API. It does not validate JSON schemas, permissions, HTTP behavior, provider readiness or vision accuracy. The existing CI includes backend and Playwright testing for those supported integration paths.
+The **route contract gate** verifies 22 required frontend helper ↔ FastAPI route/method pairs without starting a model or API. It does not validate JSON schemas, permissions, HTTP behavior, provider readiness or vision accuracy. The existing CI includes backend and Playwright testing for those supported integration paths. New backend tests now also exercise a **synthetic** camera-upload → privacy evidence → persisted camera-review → actor-audited officer action → Insights/report/non-provider assistant path. See `docs/release/officer-journey-smoke.md`. This is integration verification, not an accuracy evaluation.
 
 On the judge machine, after safely configuring local assets and provider credentials, also run:
 
