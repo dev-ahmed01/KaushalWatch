@@ -19,7 +19,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 - [x] Catalogue current UI-to-API route contracts; introduce a fail-fast, read-only route/method drift check.
 - [ ] Get the **new release branch CI** passing (backend, static contract gate, frontend build, browser E2E). Baseline PR #53 CI passed; the new branch is not certified until its own checks finish.
 - [ ] Complete an exact clean-environment operator bootstrap, including required model/runtime preparation.
-- [ ] Verify officer roles/permissions and all negative-state transitions on a running release candidate, not just by reading code.
+- [ ] Verify full officer roles/permissions and all negative-state transitions on a running candidate; an optional server-mapped reviewer write key is now implemented, but complete RBAC and sensitive read protection remain pending.
 - [ ] Trace actual video -> analysis -> persisted evidence -> case -> officer action -> audit -> assistant in one integrated run with labelled data provenance.
 
 **Exit gate:** all 8 items checked; no critical officer-path blocker, and the release base remains unmerged.
@@ -77,7 +77,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 | Feature | Source-audited state | Required final verification |
 | --- | --- | --- |
 | AI-first shell, five centres, Insights, Actions | Implemented with responsive browser E2E on PR #53 | Candidate browser run |
-| FastAPI, analysis history, case/evidence persistence, officer review | Implemented; tests documented as passing in `STATUS.md` | Real officer vertical slice; negative paths |
+| FastAPI, analysis history, case/evidence persistence, officer review | Implemented; optional token-mode reviewer write restriction and server-derived audit actor added on release branch | Real officer vertical slice, full permissions and negative paths |
 | Frozen OpenVINO attendance profile | Benchmarked on *limited* EPFL Camera 0 sequence | Exact demo clip and held-out counts |
 | Practical activity | Development held-out unauthorized example in `STATUS.md` | Stage clip/zone labels and independent benchmark |
 | Infrastructure presence | Reviewed DOD cache with SHA-256-bound source | Source availability, exact hash, formal per-class evaluation |
@@ -96,6 +96,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 4. **Camera Trust experimental PR #54 is not promotion-ready.** It includes promising selected-event results alongside previously observed severe false alarms; do not merge based solely on CI.
 5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
 6. **Privacy/authority:** automated visual findings are review inputs; unknown visibility cannot become a healthy or punitive conclusion.
+7. **Officer identity:** `docs/release/officer-review-access.md` documents a server-side bearer-key write safeguard and actor attribution. The default local SIH mode is explicitly simulated, while pilot/staging/production settings fail closed without token mode. Sensitive read APIs and other writes are not RBAC-protected, so government or real-centre deployment remains out of scope.
 
 ## Release checks
 
@@ -110,7 +111,7 @@ pytest -q backend/tests
 cd web && npm ci && npm run build && npm run test:e2e
 ```
 
-The **route contract gate** verifies 21 required frontend helper ↔ FastAPI route/method pairs without starting a model or API. It does not validate JSON schemas, permissions, HTTP behavior, provider readiness or vision accuracy. The existing CI includes backend and Playwright testing for those supported integration paths.
+The **route contract gate** verifies 22 required frontend helper ↔ FastAPI route/method pairs without starting a model or API. It does not validate JSON schemas, permissions, HTTP behavior, provider readiness or vision accuracy. The existing CI includes backend and Playwright testing for those supported integration paths.
 
 On the judge machine, after safely configuring local assets and provider credentials, also run:
 
