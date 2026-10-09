@@ -47,7 +47,7 @@ Record at least one **negative case opportunity** for the case types you want to
 2. Precompute GroundingDINO equipment observations with automatic in-bounds timestamps and inspect every generated review image before promoting the cache.
 3. Annotate attendance/equipment/operability ground truth.
 4. Annotate compliance-case opportunities in `data/annotations/final-demo-cases.csv` using `evaluation/final_demo_cases.example.csv` as the schema.
-5. Run `evaluation/evaluate_final_demo.py` with all four annotation files.
+5. Once the final sources qualify, run `evaluation/evaluate_final_demo.py --final --asset-manifest demo/release-assets.local.json` with all four **exact, manifest-listed** annotation files. See `docs/release/frozen-scorecards.md`. Save the actual model inference provenance separately; the scorer cannot infer it from prediction CSV columns.
 6. Run `evaluation/measure_bandwidth.py` on the exact clip/events.
 7. Keep generated outputs under `evaluation/output/` (gitignored).
 8. Copy only verified metric summaries into the SIH deck and `docs/benchmarks.md`.
