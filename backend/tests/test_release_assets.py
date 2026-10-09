@@ -1122,3 +1122,189 @@ def test_case_selected_sample_must_match_whole_video_timeline(tmp_path, monkeypa
         verify_attendance_case_opportunity(
             manifest, tmp_path / "attendance.csv", cases, receipt, _hash(manifest), "C2"
         )
+
+
+def _equipment_trace_fixture(tmp_path, *, basis="model_proposal", predicted=2):
+    from evaluation.equipment_cache_trace import capture_equipment_cache_trace
+
+    manifest = _build_manifest(tmp_path)
+    csv_path = tmp_path / "equipment.csv"
+    _write_csv(
+        csv_path,
+        ["sample_id", "item_id", "second", "true_count", "pred_count"],
+        [{"sample_id": "E1", "item_id": "training_panel",
+          "second": "0.0", "true_count": "1", "pred_count": str(predicted)}],
+    )
+    cache = tmp_path / "reviewed-cache.json"
+    rows = json.loads(cache.read_text())
+    rows[0]["source"] = "groundingdino_human_reviewed"
+    rows[0]["detections"][0].update({
+        "model_count": 2, "count": 1, "review_status": "accepted",
+        "verification_confidence": 1.0,
+    })
+    cache.write_text(json.dumps(rows))
+    meta = tmp_path / "reviewed-cache.meta.json"
+    metadata = json.loads(meta.read_text())
+    metadata["model_id"] = "synthetic-proposal-model-CI-only"
+    meta.write_text(json.dumps(metadata))
+    frozen = json.loads(manifest.read_text())
+    frozen["equipment_cache"]["sha256"] = _hash(cache)
+    frozen["equipment_cache"]["metadata"]["sha256"] = _hash(meta)
+    next(x for x in frozen["annotations"] if x["kind"] == "equipment")["sha256"] = _hash(csv_path)
+    manifest.write_text(json.dumps(frozen))
+    return manifest, csv_path, cache, meta
+
+
+def test_equipment_trace_distinguishes_model_proposals_and_human_review(tmp_path):
+    from evaluation.equipment_cache_trace import (
+        capture_equipment_cache_trace, verify_equipment_cache_receipt,
+    )
+
+    manifest, equipment, cache, _ = _equipment_trace_fixture(tmp_path)
+    proposal = capture_equipment_cache_trace(manifest, equipment, basis="model_proposal")
+    assert proposal["basis"] == "model_proposal"
+    assert proposal["observations"][0]["model_proposal_count"] == 2
+    assert proposal["observations"][0]["reviewed_count"] == 1
+    assert proposal["model_inference_execution_verified"] is False
+    assert proposal["model_weights_sha256"] is None
+
+    receipt_path = tmp_path / "equipment-trace.json"
+    receipt_path.write_text(json.dumps(proposal))
+    verified = verify_equipment_cache_receipt(manifest, equipment, receipt_path, _hash(manifest))
+    assert verified["sample_item_opportunities"] == 1
+    assert verified["model_only_metric_claim_allowed"] is False
+
+    # A reviewer-corrected value must not be silently credited to the model.
+    import pytest
+    with pytest.raises(ValueError, match="human_reviewed cache"):
+        capture_equipment_cache_trace(manifest, equipment, basis="human_reviewed")
+
+    # Reviewed basis becomes valid only after the frozen pred_count is 1.
+    _write_csv(
+        equipment,
+        ["sample_id", "item_id", "second", "true_count", "pred_count"],
+        [{"sample_id": "E1", "item_id": "training_panel",
+          "second": "0.0", "true_count": "1", "pred_count": "1"}],
+    )
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "equipment")["sha256"] = _hash(equipment)
+    manifest.write_text(json.dumps(frozen))
+    reviewed = capture_equipment_cache_trace(manifest, equipment, basis="human_reviewed")
+    assert reviewed["observations"][0]["scored_prediction"] == 1
+
+
+def test_equipment_trace_fails_for_changed_cache_missing_review_or_wrong_time(tmp_path):
+    import pytest
+    from evaluation.equipment_cache_trace import capture_equipment_cache_trace
+
+    manifest, equipment, cache, metadata = _equipment_trace_fixture(tmp_path)
+    cache.write_text(cache.read_text() + " ")
+    with pytest.raises(ValueError, match="not qualified"):
+        capture_equipment_cache_trace(manifest, equipment)
+
+    # Re-pin changed cache to test semantic validation.
+    frozen = json.loads(manifest.read_text())
+    frozen["equipment_cache"]["sha256"] = _hash(cache)
+    manifest.write_text(json.dumps(frozen))
+    data = json.loads(cache.read_text())
+    data[0]["detections"][0].pop("review_status")
+    cache.write_text(json.dumps(data))
+    frozen = json.loads(manifest.read_text())
+    frozen["equipment_cache"]["sha256"] = _hash(cache)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="review status"):
+        capture_equipment_cache_trace(manifest, equipment)
+
+    data[0]["detections"][0]["review_status"] = "accepted"
+    cache.write_text(json.dumps(data))
+    frozen = json.loads(manifest.read_text())
+    frozen["equipment_cache"]["sha256"] = _hash(cache)
+    manifest.write_text(json.dumps(frozen))
+    _write_csv(
+        equipment,
+        ["sample_id", "item_id", "second", "true_count", "pred_count"],
+        [{"sample_id": "E1", "item_id": "training_panel",
+          "second": "1.0", "true_count": "1", "pred_count": "2"}],
+    )
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "equipment")["sha256"] = _hash(equipment)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="No exact equipment cache time/item"):
+        capture_equipment_cache_trace(manifest, equipment)
+
+
+def test_equipment_trace_rejects_duplicate_cache_items_and_ambiguous_sample_seconds(tmp_path):
+    import pytest
+    from evaluation.equipment_cache_trace import capture_equipment_cache_trace
+
+    manifest, equipment, cache, _ = _equipment_trace_fixture(tmp_path)
+    data = json.loads(cache.read_text())
+    data[0]["detections"].append(dict(data[0]["detections"][0]))
+    cache.write_text(json.dumps(data))
+    frozen = json.loads(manifest.read_text())
+    frozen["equipment_cache"]["sha256"] = _hash(cache)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="duplicate equipment cache"):
+        capture_equipment_cache_trace(manifest, equipment)
+
+
+def test_equipment_trace_receipt_tampering_or_wrong_manifest_blocks_before_report(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.equipment_cache_trace import (
+        capture_equipment_cache_trace, verify_equipment_cache_receipt,
+    )
+    from evaluation import evaluate_final_demo
+
+    manifest, equipment, _, _ = _equipment_trace_fixture(tmp_path)
+    receipt = capture_equipment_cache_trace(manifest, equipment)
+    path = tmp_path / "equipment-receipt.json"
+    path.write_text(json.dumps(receipt))
+    report_dir = tmp_path / "scorecard"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--equipment-receipt", str(path),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(equipment),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(report_dir),
+    ])
+    evaluate_final_demo.main()
+    report = json.loads((report_dir / "final_demo_report.json").read_text())
+    assert report["equipment_cache_trace"]["basis"] == "model_proposal"
+    assert report["equipment_cache_trace"]["model_inference_execution_verified"] is False
+    assert report["prediction_source_verified"] is False
+
+    receipt["observations"][0]["reviewed_count"] = 99
+    path.write_text(json.dumps(receipt))
+    bad_output = tmp_path / "rejected-report"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--equipment-receipt", str(path),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(equipment),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(bad_output),
+    ])
+    with pytest.raises(ValueError, match="receipt differs"):
+        evaluate_final_demo.main()
+    assert not bad_output.exists()
+
+    receipt["observations"][0]["reviewed_count"] = 1
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="different frozen manifest"):
+        verify_equipment_cache_receipt(manifest, equipment, path, "0" * 64)
+
+
+def test_equipment_trace_requires_explicit_scoring_basis_and_frozen_file(tmp_path):
+    import pytest
+    from evaluation.equipment_cache_trace import capture_equipment_cache_trace
+
+    manifest, equipment, _, _ = _equipment_trace_fixture(tmp_path)
+    with pytest.raises(ValueError, match="basis"):
+        capture_equipment_cache_trace(manifest, equipment, basis="detector_verified")
+    replacement = tmp_path / "alternative.csv"
+    replacement.write_bytes(equipment.read_bytes())
+    with pytest.raises(ValueError, match="Equipment CSV path or SHA"):
+        capture_equipment_cache_trace(manifest, replacement)
