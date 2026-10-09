@@ -36,6 +36,7 @@ def _fake_state(alert):
     return SimpleNamespace(
         trusted=not alert,
         tamper_suspected=alert,
+        quality_status="SUFFICIENT",
         reasons=["camera viewpoint may have shifted"] if alert else [],
     )
 
