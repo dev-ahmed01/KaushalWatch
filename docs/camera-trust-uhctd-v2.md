@@ -110,3 +110,50 @@ production baseline automatically: doing so could allow slow obstruction
 or camera movement to become the new 'trusted' reference. This is a
 targeted normal-only diagnostic, not a full-day scoring run or new
 held-out test. Day 4 is contaminated for independent v3/v4 validation.
+
+
+## Phase 4 counterfactual: reference-regime mismatch
+
+This is an **experimental, unpromoted** safeguard. From 12 annotated-normal
+windows on UHCTD Day 4, Camera B:
+
+- 5,400 sampled frames per reference mode (90 seconds × 12 at 5 Hz).
+- Fixed first-frame reference: 2,428 / 5,400 false obstruction flags.
+- Window-local reference: 0 / 5,400 flags; this is a *diagnostic
+  counterfactual*, not proof that blindly updating references is safe.
+- Each of the 2,428 false alarms was associated with sharpness ratio
+  below 0.12, reduced luminance relative to the first frame, and low
+  reference-scene correlation. None of the selected samples triggered
+  the high-texture branch.
+- Absolute median sharpness in falsely flagged samples: approximately
+  6.89; first-frame sharpness approximately 188.
+- A counterfactual rule that avoids obstruction accusations when both
+  luminance has fallen by at least 25% versus the fixed reference and
+  the texture ratio is under 0.15 would suppress all 2,428 of these
+  particular normal-window flags. This DOES NOT establish full-day
+  precision or tampering recall.
+
+Candidate implementation intentionally excludes such dimmed low-detail
+frames from *suspected lens obstruction*. Separate low-luminance and
+defocus evidence-quality checks still run, and an entirely dark camera
+continues to be unusable. The candidate does NOT automatically trust
+unknown camera positions or authenticate a live feed.
+
+Critical trade-off: **a dark translucent lens obstruction may satisfy
+the very same dimming signature and be missed by this safeguard**.
+Some camera mode switches are not due to ambient light at all.
+This is why a second independent cue (stream metadata, officer-confirmed
+baseline, or verified structural landmarks) is necessary before promotion.
+
+On the three selected Day 3 positive onset clips, the safeguard does
+not activate during covered/defocused/moved intervals because their
+post-onset brightness does not fall by 25% relative to each clip's
+first frame; this is narrow development-only negative-regression
+evidence, not cross-camera validation.
+
+Do NOT merge or promote based on the targeted 12-window counterfactual.
+When comparing variants, report separately: normal tamper-alert
+frequency, normal evidence-untrusted fraction, event onset recall,
+false alarm duration, and dark-obstruction misses. Day 4 has already
+been used for diagnosis and must not be called untouched held-out
+evidence for this candidate.

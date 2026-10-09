@@ -122,3 +122,29 @@ def test_shift_signal_indicates_possible_camera_tamper():
     base = _scene()
     displaced = np.roll(base, 60, axis=1)
     assert _stream([base] * 3 + [displaced] * 10)[-1].tamper_suspected
+
+
+def test_low_illumination_reference_regime_not_called_obstruction():
+    """A dim, low-texture scene must not become an automatic tamper case."""
+    base = _scene()
+    dim = np.full_like(base, 65)
+    cv2.circle(dim, (160, 100), 22, (75, 75, 75), 2)
+    results = _stream([base] * 3 + [dim] * 20)
+    assert all(not item.tamper_suspected for item in results)
+    assert all(item.trusted for item in results)
+
+
+def test_dark_occlusion_still_disables_visual_evidence():
+    base = _scene()
+    frame = np.zeros_like(base)
+    results = _stream([base] * 3 + [frame] * 20)
+    assert not results[-1].trusted
+    assert results[-1].is_too_dark
+
+
+def test_bright_opaque_obstruction_remains_tamper_suspect():
+    base = _scene()
+    covered = np.full_like(base, 165)
+    results = _stream([base] * 3 + [covered] * 20)
+    assert not results[-1].trusted
+    assert results[-1].tamper_suspected

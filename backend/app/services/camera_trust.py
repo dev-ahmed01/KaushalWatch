@@ -140,11 +140,20 @@ def assess_camera(
         sample_seconds, 1.5,
     )
 
-    # Brightness changes alone are not proof of obstruction, especially in
-    # outdoor day/night video. Significant texture changes are also needed.
+    # A global dimming + loss of texture can be a normal camera
+    # illumination/imaging regime change. It is NOT independent evidence
+    # that the lens is covered. This is a candidate safeguard, not a
+    # validated guarantee: a dark translucent obstruction may resemble it.
+    dimmed_reference_regime = (
+        image_light >= dark_threshold
+        and image_light <= 0.75 * float(memory.reference_light)
+        and blur_ratio < 0.15
+    )
     candidate_obstruction = (
-        corr < 0.66 and (blur_ratio < 0.12 or blur_ratio > 7.0)
+        corr < 0.66
+        and (blur_ratio < 0.12 or blur_ratio > 7.0)
         and image_light >= dark_threshold
+        and not dimmed_reference_regime
     )
     obstructed = memory.persistent(
         "obstructed", candidate_obstruction, sample_seconds, 1.5,
