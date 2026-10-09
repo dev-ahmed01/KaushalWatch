@@ -322,3 +322,60 @@ def test_edge_agent_uses_environment_credential_without_printing_secret(
     assert queue.pending() == []
     assert captured_headers == [f"Bearer {token}"]
     assert token not in capsys.readouterr().out
+
+
+
+def test_edge_history_retry_does_not_duplicate_after_receipt_ledger_crash(tmp_path, monkeypatch):
+    import app.services.edge_event_ledger as ledger_module
+
+    client = _client(tmp_path, monkeypatch)
+    event = _summary_event(
+        "EDGE-SYNTHETIC-Crash-01", decision="camera_evidence_insufficient",
+        trust=0.05, claimed="compliant",
+    )
+    original = ledger_module.EdgeEventLedger.save
+
+    def simulated_crash(self, rows):
+        raise OSError("simulated failure after history append")
+
+    monkeypatch.setattr(ledger_module.EdgeEventLedger, "save", simulated_crash)
+    with pytest.raises(OSError, match="after history append"):
+        client.post("/api/edge/sync", json={"events": [event]})
+    assert not (tmp_path / "edge_events.json").exists()
+    first = app_main.HISTORY.list(centre_id="DEMO-KA-207")
+    assert len(first) == 1
+    assert first[0]["outcome"] == "blocked"
+
+    monkeypatch.setattr(ledger_module.EdgeEventLedger, "save", original)
+    retry = client.post("/api/edge/sync", json={"events": [event]})
+    assert retry.status_code == 200
+    assert retry.json()["accepted_count"] == 1
+    assert len(app_main.HISTORY.list(centre_id="DEMO-KA-207")) == 1
+    duplicate = client.post("/api/edge/sync", json={"events": [event]})
+    assert duplicate.status_code == 200
+    assert duplicate.json()["accepted_count"] == 0
+    assert len(app_main.HISTORY.list(centre_id="DEMO-KA-207")) == 1
+
+
+def test_history_atomic_replace_failure_keeps_original_synthetic_ledger(tmp_path, monkeypatch):
+    from app.services.analysis_history import AnalysisHistoryStore
+    import app.services.analysis_history as history_module
+
+    store = AnalysisHistoryStore(tmp_path / "history.json")
+    store.append(centre_id="DEMO-KA-104", batch_id="TEST",
+                 analysis_type="attendance", outcome="blocked",
+                 summary="Synthetic camera review", details={"simulated": True})
+    previous = store.path.read_bytes()
+    def fail_write(_src, _dst):
+        raise OSError("history atomic replacement interrupted")
+    monkeypatch.setattr(history_module.os, "replace", fail_write)
+    with pytest.raises(OSError, match="replacement interrupted"):
+        store.append_edge_once(
+            edge_event_id="EDGE-CI-HISTORY-001",
+            centre_id="DEMO-KA-104", batch_id="TEST",
+            analysis_type="attendance", outcome="compliant",
+            summary="Untrusted synthetic edge history",
+        )
+    assert store.path.read_bytes() == previous
+    assert len(store.list()) == 1
+    assert not list(tmp_path.glob(".history.json.*.tmp"))
