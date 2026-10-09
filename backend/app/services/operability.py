@@ -109,10 +109,17 @@ def trace_apparent_motion(
     finally:
         cap.release()
 
-    state, score = apparent_motion_state(frames, roi, threshold=threshold)
+    distinct_frames = len({sample["frame_index"] for sample in samples})
+    # A very short time window can seek to the same decoded frame three times.
+    # Repeated copies of one image are not independent motion evidence.
+    if distinct_frames < 3:
+        state, score = "UNCERTAIN", 0.0
+    else:
+        state, score = apparent_motion_state(frames, roi, threshold=threshold)
     return {
         "state": state,
         "activity_score": round(score, 4),
+        "unique_decoded_frames": distinct_frames,
         "method": "roi_motion_proxy",
         "frames_sampled": len(frames),
         "analysis_window": analysis_window,
