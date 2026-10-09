@@ -119,7 +119,10 @@
         "start_sec": 13.3,
         "end_sec": 13.7
       }
-    ]
+    ],
+    "item_id": "training_panel",
+    "motion_threshold": 0.8,
+    "max_frames": 30
   },
   "practical": {
     "asset_id": "practical",
