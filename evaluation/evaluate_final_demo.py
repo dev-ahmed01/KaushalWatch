@@ -16,6 +16,7 @@ from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
 from evaluation.attendance_inference_verification import verify_attendance_receipt
 from evaluation.operational_attendance_verification import verify_operational_attendance_receipt
 from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+from evaluation.equipment_cache_trace import verify_equipment_cache_receipt
 
 
 def read_csv(path: str) -> list[dict[str, str]]:
@@ -254,6 +255,8 @@ def main() -> None:
     parser.add_argument("--attendance-receipt", help="Optional local OpenVINO frame-count trace; requires --final.")
     parser.add_argument("--operational-attendance-receipt",
                         help="Optional tracked/registered/smoothed attendance receipt; requires --final.")
+    parser.add_argument("--equipment-receipt",
+                        help="SHA-frozen cache proposal/review count receipt (not a live detector inference receipt).")
     parser.add_argument("--attendance-case-sample-id",
                         help="Verify exactly one attendance_discrepancy row against a complete operational decision timeline.")
     args = parser.parse_args()
@@ -268,6 +271,9 @@ def main() -> None:
     attendance_trace = None
     operational_trace = None
     case_trace = None
+    equipment_trace = None
+    if args.equipment_receipt and not args.final:
+        parser.error("--equipment-receipt requires --final")
     if args.attendance_case_sample_id and not args.operational_attendance_receipt:
         parser.error("--attendance-case-sample-id requires --operational-attendance-receipt")
     if args.operational_attendance_receipt and args.attendance_receipt:
@@ -296,6 +302,11 @@ def main() -> None:
                 Path(args.operational_attendance_receipt),
                 provenance["manifest_sha256"],
             )
+        if args.equipment_receipt:
+            equipment_trace = verify_equipment_cache_receipt(
+                Path(args.asset_manifest), Path(args.equipment), Path(args.equipment_receipt),
+                provenance["manifest_sha256"],
+            )
         if args.attendance_case_sample_id:
             case_trace = verify_attendance_case_opportunity(
                 Path(args.asset_manifest), Path(args.attendance), Path(args.cases),
@@ -312,6 +323,7 @@ def main() -> None:
         "attendance_raw_frame_trace": attendance_trace,
         "attendance_pipeline_trace": operational_trace,
         "attendance_case_trace": case_trace,
+        "equipment_cache_trace": equipment_trace,
         "attendance": attendance_metrics(read_csv(args.attendance)),
         "equipment": equipment_metrics(read_csv(args.equipment)),
         "apparent_operability": operability_metrics(read_csv(args.operability)),
@@ -321,6 +333,7 @@ def main() -> None:
             "Do not extrapolate these metrics to all PMKVY centres.",
             "CSV predictions are accepted inputs, not evidence that a particular model produced them.",
             "An optional raw OpenVINO receipt traces detector counts only; an operational receipt traces tracked/smoothed samples. Explicit case mapping can verify ONE final attendance decision, not entire case detection accuracy or other modalities.",
+            "A SHA-matched equipment cache receipt distinguishes raw proposals from human-reviewed corrections but does NOT prove a live model run or model-only accuracy.",
             "Never claim a zero false-positive rate without independently observed negative opportunities.",
             "Report UNCERTAIN operability outputs as abstentions and disclose coverage.",
             "Apparent operability is visual activity evidence, not mechanical/electrical diagnosis.",
