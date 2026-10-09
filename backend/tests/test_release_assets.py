@@ -637,3 +637,242 @@ def test_final_evaluator_rejects_missing_attendance_receipt_before_writing(tmp_p
     with pytest.raises(FileNotFoundError):
         evaluate_final_demo.main()
     assert not report_dir.exists()
+
+
+def _operational_fixture(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from app.services import video_pipeline
+    from app.services.person_detector import DetectorInfo
+    from evaluation.capture_operational_attendance import capture_operational_attendance
+
+    manifest = _build_manifest(tmp_path)
+    attendance = tmp_path / "attendance.csv"
+    _write_csv(
+        attendance,
+        ["sample_id", "frame_index", "true_count", "pred_count", "true_issue", "pred_issue"],
+        [
+            {"sample_id": "OP-20", "frame_index": "20", "true_count": "0",
+             "pred_count": "0", "true_issue": "false", "pred_issue": "false"},
+            {"sample_id": "OP-24", "frame_index": "24", "true_count": "0",
+             "pred_count": "0", "true_issue": "false", "pred_issue": "false"},
+        ],
+    )
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "attendance")["sha256"] = _hash(attendance)
+    manifest.write_text(json.dumps(frozen))
+    monkeypatch.setattr(
+        video_pipeline, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=True, score=100.0, reasons=[],
+        ),
+    )
+
+    class SyntheticDetector:
+        info = DetectorInfo(
+            backend="synthetic-integration-only", mode="primary", authoritative=True,
+            message="Non-real detector for deterministic operational test",
+        )
+
+        def detect(self, frame):
+            return []
+
+    receipt = capture_operational_attendance(
+        manifest, attendance,
+        reported_attendance=0,
+        sample_every_seconds=0.2,
+        count_source="registered",
+        smoother_window=5,
+        detector=SyntheticDetector(),
+        test_fixture=True,
+    )
+    return manifest, receipt
+
+
+def _local_test_model_artifacts(tmp_path, receipt):
+    """Only for unit-testing validation; fake artifacts never establish model validity."""
+    xml = tmp_path / "simulated-detector.xml"
+    weights = tmp_path / "simulated-detector.bin"
+    profile = tmp_path / "simulated-profile.json"
+    for path, text in ((xml, "CI Fake XML"), (weights, "CI Fake BIN"),
+                       (profile, '{"status":"synthetic_ci"}')):
+        path.write_text(text)
+    receipt["mode"] = "authoritative_openvino_pipeline"
+    receipt["detector_backend"] = "openvino"
+    receipt["model_artifacts"] = {
+        "xml_path": str(xml), "xml_sha256": _hash(xml),
+        "bin_path": str(weights), "bin_sha256": _hash(weights),
+    }
+    receipt["vision_profile"] = {
+        "path": str(profile), "sha256": _hash(profile),
+    }
+    return weights
+
+
+def test_operational_capture_contains_real_pipeline_temporal_fields(tmp_path, monkeypatch):
+    manifest, receipt = _operational_fixture(tmp_path, monkeypatch)
+    assert receipt["mode"] == "synthetic_test_only"
+    assert receipt["receipt_type"] == "operational_attendance_pipeline"
+    assert receipt["eligible_samples"] == 2
+    assert receipt["withheld_samples"] == 0
+    assert [s["frame_index"] for s in receipt["samples"]] == [20, 24]
+    assert all(s["smoothed_count"] == 0 and s["sample_mismatch"] is False
+               for s in receipt["samples"])
+    assert all(s["candidate_count"] == s["confirmed_count"] == s["registered_count"] == 0
+               for s in receipt["samples"])
+    assert all("boxes" not in s and "track_id" not in s and "image" not in s
+               for s in receipt["samples"])
+    assert receipt["pipeline_result"]["decision"] == "compliant"
+    assert receipt["pipeline_result"]["detector_authoritative"] is True
+
+
+def test_operational_capture_withholds_cameras_and_synthetic_receipts_fail_final(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from types import SimpleNamespace
+    from app.services import video_pipeline
+    from evaluation.capture_operational_attendance import capture_operational_attendance
+    from evaluation.operational_attendance_verification import verify_operational_attendance_receipt
+
+    manifest, valid = _operational_fixture(tmp_path, monkeypatch)
+    path = tmp_path / "synthetic-operational.json"
+    path.write_text(json.dumps(valid))
+    with pytest.raises(ValueError, match="Synthetic/fallback"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+    monkeypatch.setattr(
+        video_pipeline, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=False, score=0.0, reasons=["insufficient light"],
+        ),
+    )
+    from app.services.person_detector import DetectorInfo
+
+    class DetectorThatMustNotBeCalled:
+        info = DetectorInfo(backend="ci", mode="primary", authoritative=True,
+                            message="CI no-detection on untrusted view")
+
+        def detect(self, frame):
+            raise AssertionError("Detector must not run on untrusted video")
+
+    withheld = capture_operational_attendance(
+        manifest, tmp_path / "attendance.csv", reported_attendance=0,
+        detector=DetectorThatMustNotBeCalled(), test_fixture=True,
+    )
+    assert withheld["eligible_samples"] == 0
+    assert withheld["withheld_samples"] == 2
+    assert all(row["smoothed_count"] is None and row["sample_mismatch"] is None
+               for row in withheld["samples"])
+
+
+def test_operational_receipt_attests_count_flag_frames_and_model_file_digests(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.operational_attendance_verification import verify_operational_attendance_receipt
+    from evaluation import evaluate_final_demo
+
+    manifest, receipt = _operational_fixture(tmp_path, monkeypatch)
+    weights = _local_test_model_artifacts(tmp_path, receipt)
+    path = tmp_path / "operational-receipt.json"
+    path.write_text(json.dumps(receipt))
+    checked = verify_operational_attendance_receipt(
+        manifest, tmp_path / "attendance.csv", path, _hash(manifest),
+    )
+    assert checked["sample_count"] == 2
+    assert checked["status"] == "local_openvino_operational_attendance_receipt_matched"
+    assert checked["authenticity"].startswith("unsigned_local_")
+
+    # Integration: a correctly matched *test* trace reaches the scorecard.
+    # Never cite synthetic stand-in models as actual field validation.
+    out = tmp_path / "matched-operational-output"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--operational-attendance-receipt", str(path),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"), "--out-dir", str(out),
+    ])
+    evaluate_final_demo.main()
+    report = json.loads((out / "final_demo_report.json").read_text())
+    assert report["attendance_pipeline_trace"]["sample_count"] == 2
+    assert report["attendance_raw_frame_trace"] is None
+    assert report["prediction_source_verified"] is False
+
+    receipt["samples"][0]["smoothed_count"] = 4
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="pred_count differs"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+    receipt["samples"][0]["smoothed_count"] = 0
+
+    receipt["samples"][0]["sample_mismatch"] = True
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="pred_issue differs"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+    receipt["samples"][0]["sample_mismatch"] = False
+
+    receipt["samples"][0]["decoded_frame_sha256"] = "0" * 64
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="decoded-frame SHA"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+    receipt["samples"][0]["decoded_frame_sha256"] = checked_frame_sha = (
+        receipt["samples"][1]["decoded_frame_sha256"]
+    )
+    path.write_text(json.dumps(receipt))
+    # Even reusing a valid hash from a different source frame must fail.
+    with pytest.raises(ValueError, match="decoded-frame SHA"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+    # Restore using a new deterministic isolated pipeline run.
+    _, fresh = _operational_fixture(tmp_path, monkeypatch)
+    _local_test_model_artifacts(tmp_path, fresh)
+    path.write_text(json.dumps(fresh))
+    weights.write_text("changed after scoring")
+    with pytest.raises(ValueError, match="model weights no longer matches"):
+        verify_operational_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+
+def test_operational_receipt_blocks_warmup_and_unsampled_annotation(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.capture_operational_attendance import capture_operational_attendance
+    from app.services.person_detector import DetectorInfo
+
+    manifest, receipt = _operational_fixture(tmp_path, monkeypatch)
+    data = json.loads(manifest.read_text())
+    attendance = tmp_path / "attendance.csv"
+    _write_csv(
+        attendance,
+        ["sample_id", "frame_index", "true_count", "pred_count", "true_issue", "pred_issue"],
+        [{"sample_id": "UNSAMPLED", "frame_index": "21", "true_count": "0",
+          "pred_count": "0", "true_issue": "false", "pred_issue": "false"}],
+    )
+    next(x for x in data["annotations"] if x["kind"] == "attendance")["sha256"] = _hash(attendance)
+    manifest.write_text(json.dumps(data))
+
+    class Fake:
+        info = DetectorInfo(backend="ci", mode="primary", authoritative=True, message="CI")
+
+        def detect(self, frame):
+            return []
+
+    with pytest.raises(ValueError, match="does not coincide"):
+        capture_operational_attendance(
+            manifest, attendance, reported_attendance=0, test_fixture=True, detector=Fake(),
+        )
+
+    # Frame zero is sampled, but its registration warmup is incomplete.
+    _write_csv(
+        attendance,
+        ["sample_id", "frame_index", "true_count", "pred_count", "true_issue", "pred_issue"],
+        [{"sample_id": "WARMUP", "frame_index": "0", "true_count": "0",
+          "pred_count": "0", "true_issue": "false", "pred_issue": "false"}],
+    )
+    data = json.loads(manifest.read_text())
+    next(x for x in data["annotations"] if x["kind"] == "attendance")["sha256"] = _hash(attendance)
+    manifest.write_text(json.dumps(data))
+    warmup = capture_operational_attendance(
+        manifest, attendance, reported_attendance=0, test_fixture=True, detector=Fake(),
+    )
+    assert warmup["samples"][0]["detector_eligible"] is False
+    assert warmup["samples"][0]["smoothed_count"] is None
