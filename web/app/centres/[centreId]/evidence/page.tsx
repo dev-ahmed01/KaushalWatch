@@ -182,7 +182,7 @@ export default function EvidencePage() {
                 unavailable={!evidence.length}
               />
               <IntegrityRow
-                ok={cameraTrust === true}
+                ok={false}
                 label={centreDegraded ? 'Camera trust unavailable' : cameraTrust === false ? 'Camera trust needs verification' : 'Camera trust not independently verified'}
                 unavailable={cameraTrust === undefined}
               />
