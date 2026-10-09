@@ -156,7 +156,9 @@ export default function CaseDetailPage() {
           <EvidenceFrame
             src={src}
             timestamp={evidence?.created_at ? new Date(evidence.created_at).toLocaleString() : undefined}
-            trusted={record.camera_trust?.trusted !== false}
+            trusted={record.case_type === 'camera_integrity'
+              ? (record.camera_trust?.trusted === false ? false : undefined)
+              : record.camera_trust?.trusted}
             emptyText={simulated ? 'Simulated case · no retained frame bundled' : 'No retained evidence preview available'}
           />
 
