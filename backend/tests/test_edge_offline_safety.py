@@ -242,3 +242,19 @@ def test_server_blocks_claimed_compliance_after_detector_failure(tmp_path, monke
     assert response.status_code == 200
     assert response.json()["accepted_count"] == 1
     assert app_main.HISTORY.list()[0]["outcome"] == "blocked"
+
+
+
+def test_agent_rejects_ack_for_a_different_unsent_event(tmp_path, monkeypatch):
+    from edge import agent
+    queue_path = tmp_path / "queue.json"
+    queue = EdgeEventQueue(queue_path)
+    queue.enqueue("analysis_summary", {"centre_id": "DEMO-KA-207"})
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self): return b'{"accepted_event_ids":["EDGE-NOT-SENT-0001"]}'
+    monkeypatch.setattr(agent, "urlopen", lambda request, timeout: Response())
+    args = SimpleNamespace(queue=str(queue_path), url="http://127.0.0.1:8000", timeout=10)
+    assert agent.sync(args) == 2
+    assert len(queue.pending()) == 1
