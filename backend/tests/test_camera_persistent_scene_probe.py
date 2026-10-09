@@ -72,11 +72,11 @@ def test_shadow_survey_outputs_without_private_frames(tmp_path):
     assert writer.isOpened()
     base = scene()
     changed = np.roll(base, 40, axis=1)
-    # Four moved episodes, each with preceding 80 seconds of clean context,
-    # plus 12 normal runs long enough to select across the recording.
+    # Selector requires all three tampering classes, even though the
+    # shadow survey only reports moved events and normal controls.
     segments = []
-    for _ in range(12):
-        segments.extend([(0, 270), (3, 150)])
+    for kind in (1, 2, 3) * 4:
+        segments.extend([(0, 270), (kind, 150)])
     frame_no = 0
     with labels.open("w", newline="") as output:
         csv_writer = csv.writer(output)
