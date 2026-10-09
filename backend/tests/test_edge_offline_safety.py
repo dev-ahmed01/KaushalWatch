@@ -258,3 +258,67 @@ def test_agent_rejects_ack_for_a_different_unsent_event(tmp_path, monkeypatch):
     args = SimpleNamespace(queue=str(queue_path), url="http://127.0.0.1:8000", timeout=10)
     assert agent.sync(args) == 2
     assert len(queue.pending()) == 1
+
+
+
+def test_edge_sync_protected_environment_rejects_demo_or_missing_auth(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "demo")
+    case = _case_event("EDGE-PROTECTED-AUTH-01")
+    denied_demo = client.post("/api/edge/sync", json={"events": [case]})
+    assert denied_demo.status_code == 503
+    assert not (tmp_path / "edge_events.json").exists()
+
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "token")
+    monkeypatch.delenv("KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON", raising=False)
+    denied_unconfigured = client.post("/api/edge/sync", json={"events": [case]})
+    assert denied_unconfigured.status_code == 503
+
+    token = "SyntheticOnly_DeviceToken_0123456789abcdef_987"
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON",
+                       json.dumps({"workshop-edge-01": token}))
+    denied_missing = client.post("/api/edge/sync", json={"events": [case]})
+    assert denied_missing.status_code == 401
+    denied_wrong = client.post("/api/edge/sync", json={"events": [case]},
+                               headers={"Authorization": "Bearer incorrect"})
+    assert denied_wrong.status_code == 401
+    authenticated = client.post("/api/edge/sync", json={"events": [case]},
+                                headers={"Authorization": f"Bearer {token}"})
+    assert authenticated.status_code == 200
+    assert authenticated.json()["accepted_count"] == 1
+    stored = json.loads((tmp_path / "edge_events.json").read_text())
+    assert stored[0]["server_resolved_edge_actor"] == "workshop-edge-01"
+    imported = app_main.STORE.get("CASE-EDGE-SAFETY-01")
+    assert imported.details["edge_actor"] == "workshop-edge-01"
+    assert imported.details["edge_receipt_unverified"] is True
+    assert token not in (tmp_path / "edge_events.json").read_text()
+
+
+def test_edge_agent_uses_environment_credential_without_printing_secret(
+    tmp_path, monkeypatch, capsys
+):
+    from edge import agent
+    queue_path = tmp_path / "queue.json"
+    queue = EdgeEventQueue(queue_path)
+    queued = queue.enqueue("analysis_summary", {"centre_id": "DEMO-KA-207"})
+    token = "SyntheticOnly_DeviceToken_0123456789abcdef_987"
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_TOKEN", token)
+    captured_headers = []
+
+    class Response:
+        def __enter__(self): return self
+        def __exit__(self, *_): return False
+        def read(self):
+            return json.dumps({"accepted_event_ids": [queued["event_id"]]}).encode()
+
+    def fake_urlopen(request, timeout):
+        captured_headers.append(request.get_header("Authorization"))
+        return Response()
+
+    monkeypatch.setattr(agent, "urlopen", fake_urlopen)
+    args = SimpleNamespace(queue=str(queue_path), url="http://127.0.0.1:8000", timeout=10)
+    assert agent.sync(args) == 0
+    assert queue.pending() == []
+    assert captured_headers == [f"Bearer {token}"]
+    assert token not in capsys.readouterr().out
