@@ -1041,6 +1041,18 @@ def test_case_verifier_refuses_unqualified_or_ambiguous_case_rows(tmp_path, monk
     manifest.write_text(json.dumps(frozen))
     record["manifest_sha256"] = _hash(manifest)
     receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Exactly one attendance_discrepancy"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+    # Distinct IDs do not make two independent decisions from the same video.
+    rows[0]["sample_id"] = "C1"
+    _write_csv(cases, list(rows[0]), rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    record["manifest_sha256"] = _hash(manifest)
+    receipt.write_text(json.dumps(record))
     with pytest.raises(ValueError, match="One attendance video"):
         verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
                                            cases, receipt, _hash(manifest), "C2")
