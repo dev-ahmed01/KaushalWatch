@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from app.services.camera_feature_geometry import landmark_displacement  # noqa: E402
 from app.services.camera_trust import (  # noqa: E402
     CameraTrustState, _scene_correlation, assess_camera, blur_score, luminance
 )
@@ -117,6 +118,9 @@ def inspect_span(cap, original: np.ndarray, span: dict, fps: float,
     observed = Counter()
     reason_counts = Counter()
     offsets = {"original": [], "local": []}
+    # Feature matching is slower than legacy scalar probes. Run it once
+    # every ~2 seconds while preserving the original frame-level report.
+    landmark_stride_frames = max(step, round(fps * 2 / step) * step)
     for frame1 in range(span["start"], span["end"] + 1):
         if (frame1 - span["start"]) % step:
             if not cap.grab():
@@ -150,6 +154,16 @@ def inspect_span(cap, original: np.ndarray, span: dict, fps: float,
         for name, ref in (("original", original), ("local", local)):
             diagnostic = gate_metrics(ref, frame, previous)
             row.update({f"{name}_{key}": value for key, value in diagnostic.items()})
+            if (frame1 - span["start"]) % landmark_stride_frames == 0:
+                features = landmark_displacement(ref, frame)
+                row.update({
+                    f"{name}_landmark_{key}": value
+                    for key, value in features.items()
+                })
+                if positive or span["kind"] == 0:
+                    observed[f"{name}_landmark_samples"] += 1
+                    observed[f"{name}_landmark_confident"] += int(features["confidence"])
+                    observed[f"{name}_landmark_shift"] += int(features["geometric_shift"])
             if positive or span["kind"] == 0:
                 observed[f"{name}_geometry_pass"] += int(diagnostic["geometry_pass"])
                 observed[f"{name}_legacy_gate_pass"] += int(diagnostic["all_legacy_gates"])
@@ -201,6 +215,9 @@ def diagnose(video: Path, annotations: Path, out: Path,
         gate_names = list(gate_metrics(first, first, None))
         names += [f"{ref}_{key}" for ref in ("original", "local")
                   for key in gate_names]
+        feature_names = list(landmark_displacement(first, first))
+        names += [f"{ref}_landmark_{key}" for ref in ("original", "local")
+                  for key in feature_names]
         findings = []
         with raw.open("w", newline="", encoding="utf-8") as stream:
             writer = csv.DictWriter(stream, fieldnames=names)
@@ -229,6 +246,9 @@ def diagnose(video: Path, annotations: Path, out: Path,
                 "Span state resets; results are not continuous 24-hour operational scores.",
                 "Survey fourth moved event extent parameter equals 0; verify visual motion.",
                 "Some stationary foreground objects can imitate displacement.",
+                "ORB+RANSAC landmark evidence is diagnostic, not a deployed detector.",
+                "Large phase-correlation offsets with low response are not reliable motion proof.",
+                "Landmark matches have an unknown/insufficient confidence state.",
                 "The script does not export video frames.",
             ],
         }
