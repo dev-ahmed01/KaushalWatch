@@ -57,10 +57,19 @@ export async function getEvidencePack(caseId: string) {
   );
 }
 
-export async function reviewCase(caseId: string, action: string, note?: string) {
+export type ReviewAccessStatus = { mode: 'demo' | 'token'; required: boolean; prototype_only: boolean };
+
+export async function getReviewAccess() {
+  return parse<ReviewAccessStatus>(await fetch(`${API}/api/review-access`, { cache: 'no-store' }));
+}
+
+export async function reviewCase(caseId: string, action: string, note?: string, officerAccessKey?: string) {
   return parse<CaseRecord>(await fetch(`${API}/api/cases/${encodeURIComponent(caseId)}/review`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(officerAccessKey ? { Authorization: `Bearer ${officerAccessKey}` } : {}),
+    },
     body: JSON.stringify({ action, note: note || null }),
   }));
 }
