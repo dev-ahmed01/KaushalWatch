@@ -125,7 +125,7 @@ def test_new_edge_event_id_cannot_erase_an_existing_officer_decision(tmp_path, m
     pack = client.get(f"/api/cases/{CASE_ID}/evidence-pack")
     assert pack.status_code == 200
     assert pack.json()["review"]["terminal"] is True
-    assert pack.json()["review"]["history"] == expected_history
+    assert pack.json()["review"]["history"] == list(reversed(expected_history))
 
     action_queue = client.get("/api/actions")
     assert action_queue.status_code == 200
