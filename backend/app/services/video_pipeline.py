@@ -367,6 +367,16 @@ class VideoCompliancePipeline:
                 reasons=common_reasons,
                 trust_score=round(score, 2),
             )
+            case.details.update({
+                "camera_reference_status": (
+                    "REVIEWED_REFERENCE" if camera_trust_state.reference_reviewed
+                    else "UNVERIFIED_INITIAL_FRAME"
+                ),
+                "camera_reference_id": camera_trust_state.reference_id,
+                "tamper_flagged_samples": sum(tamper_flags),
+                "untrusted_samples": sum(not value for value in trust_flags),
+                "human_review_required": True,
+            })
             evidence_id = f"EV-{uuid.uuid4().hex[:10].upper()}"
             private_frame = full_frame_privacy_blur(frame)
             case.evidence.append(
