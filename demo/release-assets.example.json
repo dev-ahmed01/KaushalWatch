@@ -2,7 +2,7 @@
   "schema_version": 1,
   "status": "example_not_frozen",
   "scenario": {
-    "path": "scenarios/final-demo.example.json",
+    "path": "scenarios/final-demo.local.json",
     "sha256": "REPLACE_WITH_64_CHARACTER_SCENARIO_SHA256",
     "primary_asset_id": "infrastructure"
   },
