@@ -1308,6 +1308,7 @@ def edge_sync(request: EdgeSyncRequest):
     events_path = DATA / "edge_events.json"
     rows = json.loads(events_path.read_text()) if events_path.exists() else []
     accepted = []
+    skipped_existing_case_ids: list[str] = []
     existing = {row.get("event_id") for row in rows}
 
     for event in request.events:
@@ -1348,12 +1349,25 @@ def edge_sync(request: EdgeSyncRequest):
                 "summary",
             }
             if required.issubset(payload):
+                incoming_case_id = str(payload["case_id"])
+                # Each edge event may have its own event_id. Do not replace a
+                # persisted case (especially its officer review/audit history)
+                # just because the same case_id appears in a later sync.
+                if STORE.get(incoming_case_id) is not None:
+                    skipped_existing_case_ids.append(incoming_case_id)
+                    rows.append(event)
+                    existing.add(event_id)
+                    accepted.append(event_id)
+                    continue
+
                 case = ComplianceCase(
-                    case_id=str(payload["case_id"]),
+                    case_id=incoming_case_id,
                     centre_id=str(payload["centre_id"]),
                     batch_id=str(payload["batch_id"]),
                     case_type=str(payload["case_type"]),
-                    status=str(payload.get("status") or "open"),
+                    # Edge inference is never an officer decision. Imported
+                    # cases must start open regardless of any source status.
+                    status="open",
                     severity=str(payload["severity"]),
                     summary=str(payload["summary"]),
                     reported_attendance=payload.get("reported_attendance"),
@@ -1366,6 +1380,7 @@ def edge_sync(request: EdgeSyncRequest):
                         "edge_synced": True,
                         "raw_video_uploaded": False,
                         "edge_event_id": event_id,
+                        "edge_reported_status_unverified": str(payload.get("status") or "open"),
                         "edge_evidence_integrity": payload.get("evidence_integrity") or [],
                     },
                     created_at=str(payload.get("created_at") or event.get("created_at") or datetime.now(timezone.utc).isoformat()),
@@ -1381,6 +1396,7 @@ def edge_sync(request: EdgeSyncRequest):
     return {
         "accepted_event_ids": accepted,
         "accepted_count": len(accepted),
+        "skipped_existing_case_ids": skipped_existing_case_ids,
         "received_payload_bytes": json_payload_bytes(request.events),
         "raw_video_required": False,
     }
