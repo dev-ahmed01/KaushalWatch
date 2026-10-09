@@ -56,6 +56,45 @@ def _source(root: Path, text: str) -> Path:
     return (path if path.is_absolute() else root / path).resolve()
 
 
+def _authorization_record(manifest_path: Path, config: dict, asset: dict) -> dict:
+    """Verify the identity of a locally reviewed *external* authorization record.
+
+    This proves file consistency, not that an external government system
+    actually issued or verified the claimed authorization.
+    """
+    from datetime import datetime
+
+    spec = config.get("authorization_evidence")
+    if not isinstance(spec, dict) or not isinstance(spec.get("path"), str) or not isinstance(spec.get("sha256"), str):
+        raise ValueError("Frozen practical authorization_evidence path and SHA are required")
+    path = _source(manifest_path.parent, spec["path"])
+    if not path.is_file() or _sha(path) != spec["sha256"].lower():
+        raise ValueError("Practical external authorization record differs from frozen SHA")
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise ValueError("Practical external authorization record must be an object")
+    if record.get("status") != config["authorization"]:
+        raise ValueError("Practical external authorization record status disagrees with manifest")
+    if record.get("centre_id") != asset["centre_id"] or record.get("batch_id") != asset["batch_id"]:
+        raise ValueError("Practical external authorization record centre/batch mismatches clip")
+    for key in ("record_id", "source", "reviewed_at"):
+        text = record.get(key)
+        if not isinstance(text, str) or not text.strip() or text.strip().lower() in {"unknown", "tbd", "replace", "example"}:
+            raise ValueError(f"Practical authorization {key} must be explicit")
+    try:
+        parsed = datetime.fromisoformat(record["reviewed_at"])
+    except ValueError as exc:
+        raise ValueError("Practical authorization review date must be ISO-8601") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("Practical authorization review date must have a timezone")
+    return {
+        "sha256": _sha(path),
+        "record_id": record["record_id"],
+        "source": record["source"],
+        "assertion": "operator_recorded_external_input_not_officially_authenticated",
+    }
+
+
 def _frozen_context(manifest_path: Path) -> tuple[dict, dict, dict, Path, Path, list[dict], tuple[int, int] | None, dict]:
     qualification = qualify_release_assets(manifest_path)
     if not qualification["ready"]:
@@ -114,6 +153,7 @@ def _frozen_context(manifest_path: Path) -> tuple[dict, dict, dict, Path, Path, 
             raise ValueError(f"Practical {name} must be positive")
         elif value < 0:
             raise ValueError(f"Practical {name} cannot be negative")
+    _authorization_record(manifest_path, config, asset)
     return qualification, frozen, asset, video_path, zones_path, zones, reference, params
 
 
@@ -121,6 +161,7 @@ def capture_practical_trace(manifest_path: Path, *, detector=None, test_fixture:
     manifest_path = Path(manifest_path).expanduser().resolve()
     qualified, frozen, asset, video, zones_file, zones, reference, params = _frozen_context(manifest_path)
     config = frozen["practical"]
+    external_authorization = _authorization_record(manifest_path, config, asset)
     if test_fixture:
         if detector is None:
             raise ValueError("Synthetic practical test capture requires injected detector")
@@ -173,6 +214,7 @@ def capture_practical_trace(manifest_path: Path, *, detector=None, test_fixture:
         "zone_profile": config["zone_profile"],
         "authorization": config["authorization"],
         "authorization_basis": "external_input_not_inferred_from_video",
+        "authorization_record": external_authorization,
         "pipeline_parameters": params,
         "model_artifacts": model,
         "vision_profile": profile,
@@ -223,6 +265,8 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
         raise ValueError("Practical thresholds or sampling settings differ from frozen parameters")
     if stored.get("authorization") != frozen["practical"]["authorization"]:
         raise ValueError("Practical receipt authorization differs from frozen external state")
+    if stored.get("authorization_record") != _authorization_record(manifest_path, frozen["practical"], asset):
+        raise ValueError("Practical receipt external authorization evidence has changed")
     model, profile = stored.get("model_artifacts"), stored.get("vision_profile")
     if not isinstance(model, dict) or not isinstance(profile, dict):
         raise ValueError("Practical OpenVINO model and profile evidence missing")
@@ -246,6 +290,7 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
     if not cap.isOpened():
         raise ValueError("Could not decode frozen practical clip")
     fps = float(cap.get(cv2.CAP_PROP_FPS) or 0)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
     if fps <= 0:
         cap.release()
         raise ValueError("Frozen practical video has invalid FPS")
@@ -268,6 +313,10 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
                 raise ValueError("Practical decoded frame SHA differs from frozen source")
     finally:
         cap.release()
+    step = max(1, int(round(fps * max(0.05, params["sample_every_seconds"]))))
+    expected_positions = list(range(0, total_frames, step))
+    if [row["frame_index"] for row in sample_rows] != expected_positions:
+        raise ValueError("Practical timeline omitted or inserted sampled video frames")
     result = stored.get("result")
     if not isinstance(result, dict) or result.get("frames_processed") != len(sample_rows):
         raise ValueError("Practical timeline not complete for reported result")
@@ -344,6 +393,7 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
         "authorization": authorization,
         "source_video_sha256": asset["sha256"].lower(),
         "zone_config_sha256": stored["zone_config_sha256"],
+        "authorization_record_sha256": stored["authorization_record"]["sha256"],
         "model_xml_sha256": model["xml_sha256"],
         "model_bin_sha256": model["bin_sha256"],
         "frames_processed": len(sample_rows),
