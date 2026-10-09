@@ -95,3 +95,53 @@ def test_competing_officer_decisions_do_not_lose_or_rewrite_audit(tmp_path):
     assert final.review_history[1]["from_status"] == "under_review"
     assert final.review_history[1]["to_status"] == final.status.value
     assert json.loads(path.read_text())[0]["status"] == final.status.value
+
+
+
+def test_edge_insert_if_absent_never_overwrites_concurrent_officer_resolution(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    original = _case()
+    store.save(original)
+    store.update_status("CASE-ATOMIC-1", CaseStatus.under_review,
+                        note="synthetic officer has started", actor="officer-one")
+    barrier = Barrier(2)
+
+    def resolve_officer():
+        barrier.wait()
+        return store.update_status("CASE-ATOMIC-1", CaseStatus.resolved,
+                                   note="feed restored and verified", actor="officer-one")
+
+    def stale_edge_replay():
+        barrier.wait()
+        stale = _case()
+        stale.summary = "Untrusted stale edge telemetry"
+        return store.save_if_absent(stale)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        actions = [pool.submit(resolve_officer), pool.submit(stale_edge_replay)]
+        officer, inserted = [result.result() for result in actions]
+
+    assert inserted is False
+    final = CaseStore(tmp_path / "cases.json").get("CASE-ATOMIC-1")
+    assert final.status == CaseStatus.resolved
+    assert final.summary == original.summary
+    assert len(final.review_history) == 2
+    assert final.review_history[-1]["actor"] == "officer-one"
+    assert officer.status == CaseStatus.resolved
+
+
+def test_edge_duplicate_creation_cannot_replace_initial_case_in_parallel(tmp_path):
+    store = CaseStore(tmp_path / "cases.json")
+    barrier = Barrier(12)
+
+    def insert(index):
+        candidate = _case()
+        candidate.summary = f"Concurrent synthetic edge report {index}"
+        barrier.wait()
+        return store.save_if_absent(candidate)
+
+    with ThreadPoolExecutor(max_workers=12) as pool:
+        accepted = list(pool.map(insert, range(12)))
+    assert sum(accepted) == 1
+    assert len(store.list()) == 1
+    assert store.get("CASE-ATOMIC-1").status == CaseStatus.open
