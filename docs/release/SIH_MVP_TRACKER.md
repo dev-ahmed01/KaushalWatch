@@ -1,0 +1,129 @@
+# KaushalWatch — SIH MVP Release Tracker
+
+**Baseline:** `restructure/kaushalai-first-v1` at `c66a4eb447d682cfd85ad0b2ccec18267ba912eb` (PR #53, not merged to main).  
+**Release branch:** `release/kaushalwatch-sih-mvp` (integration work only).  
+**Excluded research branch:** `fix/uhctd-camera-trust-v2` (draft PR #54, not merged).  
+**Release objective:** one reproducible, privacy-preserving and evidence-backed officer workflow. Five primary demo centres. No punitive or identity-level conclusions from unsupported visual evidence.
+
+## How progress is measured
+
+Five release milestones, with checkboxes for **evidence-backed acceptance criteria**, not percentages inferred from commit count. The earlier 85% demo / 55% pilot / 35% government estimates are historical planning opinions, not independently measured completion percentages.
+
+A task is DONE only if its acceptance evidence is recorded and applicable tests pass. CI and the synthetic demo are necessary but not sufficient for the final-stage-video gate.
+
+### Milestone 1/5 — Scope freeze, contracts, integration
+
+- [x] Confirm main and AI-first branch relationship; PR #53 is unmerged and 143 commits ahead of main.
+- [x] Inspect Camera Trust draft PR #54 and isolate its unvalidated detection changes from release baseline.
+- [x] Audit `README.md`, `STATUS.md`, build workflow and available runtime modules for claim boundaries.
+- [x] Catalogue current UI-to-API route contracts; introduce a fail-fast, read-only route/method drift check.
+- [ ] Get the **new release branch CI** passing (backend, static contract gate, frontend build, browser E2E). Baseline PR #53 CI passed; the new branch is not certified until its own checks finish.
+- [ ] Complete an exact clean-environment operator bootstrap, including required model/runtime preparation.
+- [ ] Verify officer roles/permissions and all negative-state transitions on a running release candidate, not just by reading code.
+- [ ] Trace actual video -> analysis -> persisted evidence -> case -> officer action -> audit -> assistant in one integrated run with labelled data provenance.
+
+**Exit gate:** all 8 items checked; no critical officer-path blocker, and the release base remains unmerged.
+
+### Milestone 2/5 — Final demo assets and annotation
+
+- [ ] Freeze exact attendance clip and its annotated reported/observed counts.
+- [ ] Freeze practical-work clip, zones, authorization inputs, and held-out labels.
+- [ ] Freeze infrastructure source clip; verify SHA-bound reviewed DOD cache and equipment manifest align to the same footage.
+- [ ] Freeze apparently-operating equipment ROI/time window, excluding any camera cuts.
+- [ ] Select a conservative degraded-camera review clip without claiming unvalidated tamper recall.
+- [ ] Record clip licenses, source URLs, immutable digests, privacy basis and scenario-to-centre mappings.
+- [ ] Confirm all referenced video files are available **locally**, not committed to Git.
+
+**Exit gate:** reproducible scenario, hash-matched reviewed data and independent annotations for every claimed metric.
+
+### Milestone 3/5 — Defensible final evaluation
+
+- [ ] Run frozen OpenVINO profile on exact target/hold-out clips; record occupancy MAE, count agreement and evidence trust.
+- [ ] Evaluate practical-work case outputs against pre-labelled, independent ground truth.
+- [ ] Evaluate equipment per-class TP/FP/FN and report coverage, including classes absent from the clip.
+- [ ] Evaluate apparent-operability visual proxy as ACTIVE/INACTIVE/UNCERTAIN, not machinery health.
+- [ ] Evaluate compliance case TP/FP/FN/TN including **negative case opportunities**.
+- [ ] Measure camera visibility/insufficient-evidence outcomes without promoting experimental displacement metrics.
+- [ ] Measure offline payload/bandwidth against the exact video; verify duplicate delivery is idempotent.
+- [ ] Publish observed results, reproducible commands and known limits; leave unsupported claims pending.
+
+**Exit gate:** every presented metric has a labelled source, exact configuration and reproducible result.
+
+### Milestone 4/5 — End-to-end officer journey
+
+- [ ] Browser test: select centre -> monitor -> analyze/inspect -> discrepancy -> anonymized evidence.
+- [ ] Browser test: officer reviews -> decision persisted -> audit trail -> escalation if warranted.
+- [ ] Browser test: Insights, report export, history and evidence-grounded KaushalAI answer.
+- [ ] Failure matrix: no clip, unreadable clip, low confidence, provider unavailable, backend failure, duplicate evidence, permission denied, offline sync failure.
+- [ ] Ensure simulated vs measured vs unavailable is always visibly distinct across the journey.
+- [ ] Confirm responsive/mobile and keyboard navigation without blocking overlays or silent dead ends.
+
+**Exit gate:** recorded E2E passing run on the candidate and no unresolved critical failures.
+
+### Milestone 5/5 — Reproducible release/rehearsal
+
+- [ ] Clean checkout installation instructions and environment template work on the demo machine.
+- [ ] One-command model/profile preparation and readiness outcome are recorded.
+- [ ] Seed preparation is deterministic, reversible and visibly simulated.
+- [ ] Final video, scenario, manifest, annotation and evidence checks pass.
+- [ ] Full judge walk-through and recovery/fallback rehearsal passes.
+- [ ] Record tag/commit, startup commands, limitations, metrics and operator guide.
+- [ ] Leave PR open for human approval; do not merge main automatically.
+
+**Exit gate:** a reviewer can reproduce the demo from documented assets and commands.
+
+## Source-audited feature status (not full system certification)
+
+| Feature | Source-audited state | Required final verification |
+| --- | --- | --- |
+| AI-first shell, five centres, Insights, Actions | Implemented with responsive browser E2E on PR #53 | Candidate browser run |
+| FastAPI, analysis history, case/evidence persistence, officer review | Implemented; tests documented as passing in `STATUS.md` | Real officer vertical slice; negative paths |
+| Frozen OpenVINO attendance profile | Benchmarked on *limited* EPFL Camera 0 sequence | Exact demo clip and held-out counts |
+| Practical activity | Development held-out unauthorized example in `STATUS.md` | Stage clip/zone labels and independent benchmark |
+| Infrastructure presence | Reviewed DOD cache with SHA-256-bound source | Source availability, exact hash, formal per-class evaluation |
+| Apparent operability | Motion proxy, not machinery-health proof | Annotated ROI/window measurement |
+| Camera Trust | Basic checks included in baseline; experimental v2 isolated | Conservative insufficient-evidence/officer handling |
+| AEBAS / SIDH | Simulated | Do not claim government live integration |
+| Edge queue and sync | Implemented and previously E2E tested | Offline reconnection + exact bandwidth measurement |
+| KaushalAI text/voice | Mocked contract tests and UI path | Real provider credentials/connectivity on presentation environment |
+| Evaluation and demo utilities | Scripts exist and synthetic smoke runs documented | Final ground truth, exact assets and real outputs |
+
+## Critical boundaries and known blockers
+
+1. **Final media are not shipped in Git.** The repository has a reviewed DOD equipment cache and example annotations, not a complete versioned set of real demonstration videos.
+2. **Equipment quantities are simulated.** Source documentation covers job-role equipment types, not validated per-item sanctioned quantities.
+3. **Formal equipment and overall case metrics are pending.** A synthetic example CSV is not a model accuracy benchmark.
+4. **Camera Trust experimental PR #54 is not promotion-ready.** It includes promising selected-event results alongside previously observed severe false alarms; do not merge based solely on CI.
+5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
+6. **Privacy/authority:** automated visual findings are review inputs; unknown visibility cannot become a healthy or punitive conclusion.
+
+## Release checks
+
+From repository root:
+
+```bash
+python scripts/check_repo_hygiene.py
+python scripts/validate_vision_profile.py
+python scripts/check_release_readiness.py
+python scripts/check_frontend_api_contracts.py
+pytest -q backend/tests
+cd web && npm ci && npm run build && npm run test:e2e
+```
+
+The **route contract gate** verifies 21 required frontend helper ↔ FastAPI route/method pairs without starting a model or API. It does not validate JSON schemas, permissions, HTTP behavior, provider readiness or vision accuracy. The existing CI includes backend and Playwright testing for those supported integration paths.
+
+On the judge machine, after safely configuring local assets and provider credentials, also run:
+
+```bash
+python scripts/prepare_demo_vision.py --install
+python scripts/check_demo_readiness.py --video <exact-source-clip> --final
+python scripts/run_final_demo_rehearsal.py --video <exact-source-clip>
+```
+
+Do **not** execute `prepare_demo_state.py --yes` on a runtime with unsaved officer work: that action resets the mutable demo seed. Keep actual footage, local model binaries, generated evaluation reports and credentials out of source control.
+
+## Officer journey to sign off
+
+**KaushalAI -> Centres -> Centre intelligence -> Analyze/inspect -> Evidential discrepancy -> Anonymized proof -> Officer case review -> Persistent audit -> Actions/escalation -> Insights/report -> Grounded assistant follow-up.**
+
+The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. This records historical baseline verification only. The release branch needs its **own** successful CI, plus the final-media and live-environment gates above before it can be called SIH-ready.
