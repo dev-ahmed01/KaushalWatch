@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from collections import Counter
+import hashlib
 import logging
 import os
 from pathlib import Path
+from typing import Any, Callable
 import uuid
 
 import cv2
@@ -49,6 +51,7 @@ class VideoCompliancePipeline:
         track_grace_seconds: float = 0.8,
         occupancy_count_source: str | None = None,
         occupancy_smoother_window: int | None = None,
+        observation_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> ProcessSummary:
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
@@ -266,6 +269,32 @@ class VideoCompliancePipeline:
                     )
                 )
                 mismatch_flags.append(is_mismatch)
+                if observation_sink is not None:
+                    # Opt-in evaluation trace, drawn from THIS operational
+                    # pipeline pass, not a parallel detector or hand-entered
+                    # CSV. No pixels, boxes, identities or track IDs are
+                    # exported. Non-authoritative/occluded/warmup counts are
+                    # withheld rather than turned into measured occupancy.
+                    eligible = bool(
+                        detector_info.authoritative
+                        and detector_failures == 0
+                        and trust.trusted
+                        and warmup_complete
+                    )
+                    observation_sink({
+                        "frame_index": frame_index,
+                        "second": round(sec, 4),
+                        "decoded_frame_sha256": hashlib.sha256(frame.tobytes()).hexdigest(),
+                        "camera_trusted": bool(trust.trusted),
+                        "camera_reasons": list(trust.reasons),
+                        "detector_eligible": eligible,
+                        "raw_count": raw_count if eligible else None,
+                        "candidate_count": candidate_count if eligible else None,
+                        "confirmed_count": confirmed_count if eligible else None,
+                        "registered_count": registered_count if eligible else None,
+                        "smoothed_count": smooth if eligible else None,
+                        "sample_mismatch": bool(is_mismatch) if eligible else None,
+                    })
 
                 if is_mismatch and (
                     best_evidence is None or d_pct > best_evidence[0]
