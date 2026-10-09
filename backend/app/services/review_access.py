@@ -16,6 +16,7 @@ from fastapi import HTTPException, Request
 
 OFFICER_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 PROTECTED_ENVS = {"production", "prod", "pilot", "staging"}
+LOCAL_ENVS = {"development", "dev", "local", "test"}
 
 
 def _unavailable() -> HTTPException:
@@ -29,7 +30,7 @@ def _configuration() -> tuple[str, dict[str, str]]:
     mode = os.getenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "demo").strip().lower()
     environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     if mode == "demo":
-        if environment in PROTECTED_ENVS:
+        if environment not in LOCAL_ENVS:
             raise _unavailable()
         return mode, {}
     if mode != "token":
