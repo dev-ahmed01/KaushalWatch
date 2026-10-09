@@ -47,7 +47,8 @@ def _configuration() -> tuple[str, dict[str, str]]:
     for actor, token in tokens.items():
         if not isinstance(actor, str) or not OFFICER_ID.fullmatch(actor):
             raise _unavailable()
-        if not isinstance(token, str) or len(token) < 32 or token != token.strip():
+        if (not isinstance(token, str) or len(token) < 32
+                or not token.isascii() or any(char.isspace() for char in token)):
             raise _unavailable()
         if token in seen:
             raise _unavailable()
@@ -78,6 +79,7 @@ def resolve_review_actor(request: Request) -> str:
         or not supplied
         or supplied != supplied.strip()
         or len(supplied) > 1024
+        or not supplied.isascii()
     ):
         raise HTTPException(
             status_code=401,
