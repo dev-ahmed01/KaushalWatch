@@ -133,3 +133,27 @@ def test_development_preserves_clearly_marked_simulated_read_only_walkthrough(tm
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "demo")
     assert client.get("/api/cases").status_code == 200
     assert client.get("/api/centres").status_code == 200
+
+
+@pytest.mark.parametrize("typo", ["producton", "stagin", "unknown", ""])
+def test_unknown_deployment_environment_fails_closed_instead_of_becoming_demo(
+    tmp_path, monkeypatch, typo
+):
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setenv("KAUSHALWATCH_ENV", typo)
+    monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "demo")
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "demo")
+    assert client.get("/api/cases").status_code == 503
+    assert client.get("/api/review-access").status_code == 503
+    assert client.post("/api/edge/sync", json={"events": []}).status_code == 503
+    assert client.get("/api/health").status_code == 200
+
+
+def test_explicit_demo_local_environments_are_allowed(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "demo")
+    monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "demo")
+    for local in ("development", "dev", "local", "test"):
+        monkeypatch.setenv("KAUSHALWATCH_ENV", local)
+        assert client.get("/api/cases").status_code == 200
+        assert client.get("/api/review-access").status_code == 200
