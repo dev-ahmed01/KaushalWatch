@@ -379,3 +379,20 @@ def test_history_atomic_replace_failure_keeps_original_synthetic_ledger(tmp_path
     assert store.path.read_bytes() == previous
     assert len(store.list()) == 1
     assert not list(tmp_path.glob(".history.json.*.tmp"))
+
+
+
+def test_corrupted_history_never_turns_into_an_empty_successful_ledger(tmp_path):
+    from app.services.analysis_history import AnalysisHistoryStore
+
+    store = AnalysisHistoryStore(tmp_path / "history.json")
+    store.path.write_text("{partially written audit ledger", encoding="utf-8")
+    before = store.path.read_bytes()
+    with pytest.raises(ValueError, match="refusing unsafe overwrite"):
+        store.append_edge_once(
+            edge_event_id="EDGE-CORRUPTED-HISTORY-001",
+            centre_id="DEMO-KA-207", batch_id="TEST",
+            analysis_type="attendance", outcome="blocked",
+            summary="Synthetic history integrity failure",
+        )
+    assert store.path.read_bytes() == before
