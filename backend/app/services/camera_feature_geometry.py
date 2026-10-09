@@ -28,6 +28,10 @@ def landmark_displacement(reference: np.ndarray, current: np.ndarray) -> dict:
         "matches": 0, "inliers": 0, "inlier_ratio": 0.0,
         "landmark_tiles": 0, "landmark_width_fraction": 0.0,
         "landmark_height_fraction": 0.0,
+        "destination_tiles": 0,
+        "destination_width_fraction": 0.0,
+        "destination_height_fraction": 0.0,
+        "transform_plausible": False,
         "centre_displacement_px": 0.0, "rotation_deg": 0.0,
         "scale": 1.0, "geometric_shift": False, "confidence": False,
     }
@@ -48,32 +52,53 @@ def landmark_displacement(reference: np.ndarray, current: np.ndarray) -> dict:
     if affine is None or mask is None:
         result["match_status"] = "NO_CONSISTENT_TRANSFORM"
         return result
-    inliers = src[mask.ravel().astype(bool)]
+    included = mask.ravel().astype(bool)
+    inliers = src[included]
+    dst_inliers = dst[included]
     count = len(inliers)
     ratio = count / len(good)
     tiles = len({(min(2, int(x / 160)), min(2, int(y / 120)))
                  for x, y in inliers})
     width_fraction = float(np.ptp(inliers[:, 0]) / 480) if count else 0.
     height_fraction = float(np.ptp(inliers[:, 1]) / 360) if count else 0.
+    dst_tiles = len({(min(2, int(x / 160)), min(2, int(y / 120)))
+                     for x, y in dst_inliers})
+    dst_width = float(np.ptp(dst_inliers[:, 0]) / 480) if count else 0.
+    dst_height = float(np.ptp(dst_inliers[:, 1]) / 360) if count else 0.
+    scale = float(np.hypot(affine[0, 0], affine[1, 0]))
+    rotation = float(np.degrees(np.arctan2(affine[1, 0], affine[0, 0])))
+    centre = np.array([240., 180., 1.])
+    movement = float(np.linalg.norm(affine @ centre - centre[:2]))
+    plausible = bool(
+        np.isfinite(affine).all()
+        and np.isfinite([scale, rotation, movement]).all()
+        and 0.70 <= scale <= 1.40
+        and abs(rotation) <= 30.0
+    )
     result.update({
         "inliers": count, "inlier_ratio": round(float(ratio), 4),
         "landmark_tiles": tiles,
         "landmark_width_fraction": round(width_fraction, 4),
         "landmark_height_fraction": round(height_fraction, 4),
+        "destination_tiles": dst_tiles,
+        "destination_width_fraction": round(dst_width, 4),
+        "destination_height_fraction": round(dst_height, 4),
+        "transform_plausible": plausible,
+        "scale": round(scale, 4) if np.isfinite(scale) else None,
     })
-    confident = (
-        count >= 12 and ratio >= .30 and tiles >= 3
+    if not plausible:
+        result["match_status"] = "IMPLAUSIBLE_AFFINE_TRANSFORM"
+        return result
+    confident = bool(
+        count >= 12 and ratio >= .30
+        and tiles >= 3 and dst_tiles >= 3
         and width_fraction >= .25 and height_fraction >= .25
+        and dst_width >= .20 and dst_height >= .20
     )
     result["confidence"] = confident
     if not confident:
         result["match_status"] = "SPARSE_OR_UNRELIABLE_LANDMARKS"
         return result
-    centre = np.array([240., 180., 1.])
-    mapped = affine @ centre
-    movement = float(np.linalg.norm(mapped - centre[:2]))
-    rotation = float(np.degrees(np.arctan2(affine[1, 0], affine[0, 0])))
-    scale = float(np.hypot(affine[0, 0], affine[1, 0]))
     shift = movement >= 8. or abs(rotation) >= 2. or abs(scale - 1) >= .05
     result.update({
         "match_status": "MATCHED_GEOMETRY",
