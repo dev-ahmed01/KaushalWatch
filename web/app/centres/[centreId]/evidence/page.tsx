@@ -68,7 +68,10 @@ export default function EvidencePage() {
   const duplicateCount = evidence.filter(item => item.duplicate_of).length;
   const reviewCases = cases.filter(item => !TERMINAL.has(item.status));
   const integrityState = casesError ? 'unavailable' : duplicateCount ? 'review' : evidence.length ? 'verified' : 'unavailable';
-  const cameraTrusted = !centreDegraded && !['attention', 'blocked'].includes(String(current.camera_status).toLowerCase());
+  // A centre with no active camera alarm is NOT proof of a trusted stream.
+  // Only an explicit blocker supports an untrusted label; otherwise abstain.
+  const cameraTrust: boolean | undefined = centreDegraded ? undefined
+    : ['attention', 'blocked'].includes(String(current.camera_status).toLowerCase()) ? false : undefined;
   const src = chosen?.evidence_id ? API + '/evidence/' + chosen.evidence_id + '.jpg' : undefined;
   const simulated = Boolean(chosen?.metadata?.simulated);
 
@@ -119,7 +122,7 @@ export default function EvidencePage() {
           <EvidenceFrame
             src={src}
             timestamp={chosen?.created_at ? new Date(chosen.created_at).toLocaleString() : undefined}
-            trusted={centreDegraded ? undefined : cameraTrusted}
+            trusted={cameraTrust}
             emptyText={casesError ? 'Evidence records unavailable' : 'Evidence preview appears after analysis'}
           />
 
@@ -179,9 +182,9 @@ export default function EvidencePage() {
                 unavailable={!evidence.length}
               />
               <IntegrityRow
-                ok={cameraTrusted}
-                label={centreDegraded ? 'Camera trust unavailable' : cameraTrusted ? 'Camera trusted' : 'Camera trust needs verification'}
-                unavailable={centreDegraded}
+                ok={cameraTrust === true}
+                label={centreDegraded ? 'Camera trust unavailable' : cameraTrust === false ? 'Camera trust needs verification' : 'Camera trust not independently verified'}
+                unavailable={cameraTrust === undefined}
               />
               <IntegrityRow
                 ok={true}
