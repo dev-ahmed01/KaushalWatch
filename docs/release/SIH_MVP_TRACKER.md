@@ -71,6 +71,8 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 **Exit gate:** every presented metric has a labelled source, exact configuration and reproducible result.
 
+**Camera-insufficient + offline sync release safety (implemented, synthetic CI only):** Edge attendance summaries now report `blocked` when camera trust or detector evidence is insufficient; the central ingestion layer independently normalizes unverified `compliant` claims against the declared decision, trusted ratio, authoritative detector and failure count. Incoming events are normalized to bounded aggregate fields and sanitized evidence SHA digests; raw-video/identity payloads and unsupported event types are rejected. Protected environments require a server-configured device token; local demo mode is development-only. Edge queues and receipt ledger use atomic replace plus per-process locks, and duplicate sync cannot overwrite an officer-reviewed case. Test cases cover privacy, race/replay, interrupted writes, invalid acknowledgements and staging authentication. **Not** a cryptographically authenticated model or a multi-process exactly-once event stream. See `edge/README.md`.
+
 ### Milestone 4/5 — End-to-end officer journey
 
 - [ ] Browser test: select centre -> monitor -> analyze/inspect -> discrepancy -> anonymized evidence.
