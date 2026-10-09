@@ -420,3 +420,193 @@ def test_unqualified_example_mode_is_explicitly_marked(tmp_path, monkeypatch):
     report = json.loads((report_dir / "final_demo_report.json").read_text())
     assert report["evaluation_mode"] == "development_inputs_not_release_qualified"
     assert report["input_provenance"] is None
+
+
+def _with_attendance_frame_indices(manifest: Path, tmp_path: Path, predicted_count: int = 2) -> None:
+    data = json.loads(manifest.read_text())
+    attendance = tmp_path / "attendance.csv"
+    _write_csv(
+        attendance,
+        ["sample_id", "frame_index", "true_count", "pred_count", "true_issue", "pred_issue"],
+        [
+            {"sample_id": "A1", "frame_index": "0", "true_count": "2",
+             "pred_count": str(predicted_count), "true_issue": "false", "pred_issue": "false"},
+            {"sample_id": "A2", "frame_index": "10", "true_count": "2",
+             "pred_count": str(predicted_count), "true_issue": "false", "pred_issue": "false"},
+        ],
+    )
+    next(item for item in data["annotations"] if item["kind"] == "attendance")["sha256"] = _hash(attendance)
+    manifest.write_text(json.dumps(data))
+
+
+def test_frame_capture_uses_frozen_frame_indices_and_does_not_store_identifying_boxes(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from evaluation import capture_attendance_inference as capture
+
+    manifest = _build_manifest(tmp_path)
+    _with_attendance_frame_indices(manifest, tmp_path)
+    monkeypatch.setattr(
+        capture, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=True, reasons=[],
+        ),
+    )
+
+    class FakeDetector:
+        info = SimpleNamespace(backend="synthetic", message="CI fixture", authoritative=False)
+
+        def detect(self, frame):
+            return [object(), object()]
+
+    receipt = capture.capture_attendance_trace(
+        manifest, tmp_path / "attendance.csv", detector=FakeDetector(), test_fixture=True
+    )
+    assert receipt["mode"] == "synthetic_test_only"
+    assert receipt["trusted_samples"] == 2
+    assert receipt["withheld_samples"] == 0
+    assert [item["frame_index"] for item in receipt["samples"]] == [0, 10]
+    assert [item["raw_person_detection_count"] for item in receipt["samples"]] == [2, 2]
+    assert all(len(item["decoded_frame_sha256"]) == 64 for item in receipt["samples"])
+    assert all("boxes" not in item and "identity" not in item for item in receipt["samples"])
+
+
+def test_frame_capture_rejects_untrusted_camera_without_inventing_zero_count(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from evaluation import capture_attendance_inference as capture
+
+    manifest = _build_manifest(tmp_path)
+    _with_attendance_frame_indices(manifest, tmp_path)
+    monkeypatch.setattr(
+        capture, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=False, reasons=["camera_visibility_untrusted"],
+        ),
+    )
+
+    class FakeDetector:
+        info = SimpleNamespace(backend="synthetic", message="CI fixture", authoritative=False)
+
+        def detect(self, frame):
+            raise AssertionError("Detection on untrusted camera should not run")
+
+    receipt = capture.capture_attendance_trace(
+        manifest, tmp_path / "attendance.csv", detector=FakeDetector(), test_fixture=True
+    )
+    assert receipt["trusted_samples"] == 0
+    assert receipt["withheld_samples"] == 2
+    assert all(item["raw_person_detection_count"] is None for item in receipt["samples"])
+
+
+def test_final_scorecard_rejects_unsigned_synthetic_attendance_receipt(tmp_path, monkeypatch):
+    import pytest
+    from types import SimpleNamespace
+    from evaluation import capture_attendance_inference as capture
+    from evaluation.attendance_inference_verification import verify_attendance_receipt
+
+    manifest = _build_manifest(tmp_path)
+    _with_attendance_frame_indices(manifest, tmp_path)
+    monkeypatch.setattr(
+        capture, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=True, reasons=[],
+        ),
+    )
+
+    class FakeDetector:
+        info = SimpleNamespace(backend="synthetic", message="CI fixture", authoritative=False)
+
+        def detect(self, frame):
+            return [object(), object()]
+
+    record = capture.capture_attendance_trace(
+        manifest, tmp_path / "attendance.csv", detector=FakeDetector(), test_fixture=True
+    )
+    path = tmp_path / "synthetic-attendance-receipt.json"
+    path.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="not from the explicit OpenVINO"):
+        verify_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+
+def test_receipt_matching_requires_exact_model_files_and_predicted_count(tmp_path, monkeypatch):
+    import pytest
+    from types import SimpleNamespace
+    from evaluation import capture_attendance_inference as capture
+    from evaluation.attendance_inference_verification import verify_attendance_receipt
+
+    manifest = _build_manifest(tmp_path)
+    _with_attendance_frame_indices(manifest, tmp_path, predicted_count=1)
+    monkeypatch.setattr(
+        capture, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=True, reasons=[],
+        ),
+    )
+
+    class FakeDetector:
+        info = SimpleNamespace(backend="synthetic", message="CI fixture", authoritative=False)
+
+        def detect(self, frame):
+            return [object(), object()]
+
+    record = capture.capture_attendance_trace(
+        manifest, tmp_path / "attendance.csv", detector=FakeDetector(), test_fixture=True
+    )
+    # Fabricated fields here are TEST FIXTURES for receipt-validation behavior;
+    # they deliberately do not establish real model provenance.
+    xml = tmp_path / "model.xml"
+    weights = tmp_path / "model.bin"
+    profile = tmp_path / "frozen-profile.json"
+    for path, contents in ((xml, "fake-xml"), (weights, "fake-weights"),
+                           (profile, '{"profile_id":"CI-only"}')):
+        path.write_text(contents)
+    record["mode"] = "authoritative_openvino"
+    record["detector_backend"] = "openvino"
+    record["model_artifacts"] = {
+        "xml_path": str(xml), "xml_sha256": _hash(xml),
+        "bin_path": str(weights), "bin_sha256": _hash(weights),
+    }
+    record["vision_profile"] = {"path": str(profile), "sha256": _hash(profile)}
+    path = tmp_path / "attendance-receipt.json"
+    path.write_text(json.dumps(record))
+
+    with pytest.raises(ValueError, match="differs from recorded OpenVINO output"):
+        verify_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+    _with_attendance_frame_indices(manifest, tmp_path, predicted_count=2)
+    with pytest.raises(ValueError, match="different frozen manifest"):
+        verify_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+    # A new internally consistent synthetic test record tests the verifier
+    # independently of live OpenVINO hardware/runtime availability.
+    record["manifest_sha256"] = _hash(manifest)
+    record["attendance_csv_sha256"] = _hash(tmp_path / "attendance.csv")
+    path.write_text(json.dumps(record))
+    matched = verify_attendance_receipt(
+        manifest, tmp_path / "attendance.csv", path, _hash(manifest),
+    )
+    assert matched["sample_count"] == 2
+    assert matched["scope"] == "raw_frame_detector_counts_only"
+    assert "not_cryptographically_authenticated" in matched["authenticity"]
+
+    weights.write_text("model weights changed after evaluation")
+    with pytest.raises(ValueError, match="model weights no longer matches"):
+        verify_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+
+
+def test_final_evaluator_rejects_missing_attendance_receipt_before_writing(tmp_path, monkeypatch):
+    import pytest
+    from evaluation import evaluate_final_demo
+
+    manifest = _build_manifest(tmp_path)
+    report_dir = tmp_path / "missing-receipt-output"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--attendance-receipt", str(tmp_path / "absent.json"),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"), "--out-dir", str(report_dir),
+    ])
+    with pytest.raises(FileNotFoundError):
+        evaluate_final_demo.main()
+    assert not report_dir.exists()
