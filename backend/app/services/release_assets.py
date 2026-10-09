@@ -207,7 +207,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
                     columns = set(reader.fieldnames or [])
                     samples = list(reader)
                 valid = (
-                    kind in REQUIRED_ANNOTATIONS
+                    isinstance(kind, str) and kind in REQUIRED_ANNOTATIONS
                     and REQUIRED_ANNOTATIONS[kind].issubset(columns)
                     and bool(samples)
                     and all(all(str(row.get(name) or "").strip() for name in REQUIRED_ANNOTATIONS[kind])
