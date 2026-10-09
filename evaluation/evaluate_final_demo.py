@@ -3,19 +3,29 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 from collections import defaultdict
+
+from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
 from pathlib import Path
 
 
 def read_csv(path: str) -> list[dict[str, str]]:
-    rows = list(csv.DictReader(Path(path).open()))
+    with Path(path).open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle, strict=True)
+        if not reader.fieldnames or len(reader.fieldnames) != len(set(reader.fieldnames)):
+            raise ValueError(f"Missing or duplicate column names in {path}")
+        rows = list(reader)
     if not rows:
         raise ValueError(f"No rows in {path}")
     return rows
 
 
 def to_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes", "y"}
+    normalized = str(value).strip().lower()
+    if normalized not in {"0", "1", "true", "false", "yes", "no", "y", "n"}:
+        raise ValueError(f"Invalid case truth/prediction label: {value!r}")
+    return normalized in {"1", "true", "yes", "y"}
 
 
 def safe_div(a: float, b: float) -> float:
@@ -70,6 +80,8 @@ def attendance_metrics(rows: list[dict[str, str]]) -> dict:
     for row in rows:
         true_count = int(row["true_count"])
         pred_count = int(row["pred_count"])
+        if true_count < 0 or pred_count < 0:
+            raise ValueError("Attendance counts cannot be negative")
         errors.append(abs(true_count - pred_count))
         bump_confusion(
             counts,
@@ -184,6 +196,10 @@ def operability_metrics(rows: list[dict[str, str]]) -> dict:
     for row in rows:
         truth = row["true_state"].strip().upper()
         pred = row["pred_state"].strip().upper()
+        if truth not in {"APPARENTLY_ACTIVE", "APPARENTLY_INACTIVE"}:
+            raise ValueError("Operability truth must be APPARENTLY_ACTIVE or APPARENTLY_INACTIVE")
+        if pred not in {"APPARENTLY_ACTIVE", "APPARENTLY_INACTIVE", "UNCERTAIN"}:
+            raise ValueError("Invalid operability prediction")
         if pred == "UNCERTAIN":
             uncertain += 1
             continue
@@ -195,7 +211,7 @@ def operability_metrics(rows: list[dict[str, str]]) -> dict:
         "evaluated_samples": evaluated,
         "uncertain_samples": uncertain,
         "coverage": evaluated / len(rows),
-        "accuracy_when_decided": safe_div(correct, evaluated),
+        "accuracy_when_decided": safe_div(correct, evaluated) if evaluated else None,
         "note": (
             "UNCERTAIN is treated as abstention, not a wrong operating-state claim. "
             "Coverage must be reported alongside decided-sample accuracy."
@@ -216,9 +232,31 @@ def main() -> None:
         help="CSV of independently annotated compliance-case opportunities",
     )
     parser.add_argument("--out-dir", default="evaluation/output/final-demo")
+    parser.add_argument("--final", action="store_true",
+                        help="Require qualified frozen media and exact input CSV identity.")
+    parser.add_argument("--asset-manifest", default=os.getenv("KAUSHALWATCH_RELEASE_ASSET_MANIFEST"))
     args = parser.parse_args()
 
+    input_paths = {
+        "attendance": args.attendance,
+        "equipment": args.equipment,
+        "operability": args.operability,
+        "cases": args.cases,
+    }
+    provenance = None
+    if args.final:
+        if not args.asset_manifest:
+            parser.error("--final requires --asset-manifest or KAUSHALWATCH_RELEASE_ASSET_MANIFEST")
+        # Fail before writing any output if media, source digest, annotation row
+        # domain, or source-to-manifest binding is invalid.
+        provenance = verify_frozen_scorecard_inputs(Path(args.asset_manifest), input_paths)
+
     report = {
+        "evaluation_mode": (
+            "frozen_input_scorecard" if args.final else "development_inputs_not_release_qualified"
+        ),
+        "input_provenance": provenance,
+        "prediction_source_verified": False,
         "attendance": attendance_metrics(read_csv(args.attendance)),
         "equipment": equipment_metrics(read_csv(args.equipment)),
         "apparent_operability": operability_metrics(read_csv(args.operability)),
@@ -226,6 +264,8 @@ def main() -> None:
         "reporting_rules": [
             "Use only annotations from the exact demonstration dataset.",
             "Do not extrapolate these metrics to all PMKVY centres.",
+            "CSV predictions are accepted inputs, not evidence that a particular model produced them.",
+            "Never claim a zero false-positive rate without independently observed negative opportunities.",
             "Report UNCERTAIN operability outputs as abstentions and disclose coverage.",
             "Apparent operability is visual activity evidence, not mechanical/electrical diagnosis.",
             (
