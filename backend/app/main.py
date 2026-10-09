@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 import cv2
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -49,6 +49,7 @@ from app.services.activity_intelligence import build_activity_intelligence, acti
 from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
+from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
@@ -1009,8 +1010,17 @@ def get_evidence_pack(case_id: str):
     )
 
 
+@app.get("/api/review-access")
+def get_review_access():
+    return review_access_status()
+
+
 @app.post("/api/cases/{case_id}/review")
-def review_case(case_id: str, request: ReviewRequest):
+def review_case(
+    case_id: str,
+    request: ReviewRequest,
+    officer_actor: str = Depends(resolve_review_actor),
+):
     terminal_actions = {"confirmed", "false_positive", "resolved"}
     note = (request.note or "").strip()
     if request.action.value in terminal_actions and not note:
@@ -1024,6 +1034,7 @@ def review_case(case_id: str, request: ReviewRequest):
             case_id,
             request.action,
             note=note or None,
+            actor=officer_actor,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
