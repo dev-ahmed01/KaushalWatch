@@ -1403,7 +1403,11 @@ def _edge_sync_locked(request: EdgeSyncRequest, edge_actor: str):
                     },
                     created_at=str(payload.get("created_at") or event.get("created_at") or datetime.now(timezone.utc).isoformat()),
                 )
-                STORE.save(case)
+                # Atomic against officer review in the same process. The
+                # earlier existence check is only a fast path, never a
+                # substitute for this compare-and-insert critical section.
+                if not STORE.save_if_absent(case):
+                    skipped_existing_case_ids.append(incoming_case_id)
 
         rows.append(event)
         existing.add(event_id)
