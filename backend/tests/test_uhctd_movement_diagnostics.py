@@ -83,6 +83,11 @@ def test_one_synthetic_span_produces_frame_level_gate_diagnostics(tmp_path):
         assert result["samples"] == 30
         assert result["positive_samples"] == 20
         assert result["original_geometry_pass"] > 0
+        assert result["original_landmark_samples"] > 0
+        with path.open(newline="") as source:
+            rows = list(csv.DictReader(source))
+        assert "original_landmark_confidence" in rows[0]
+        assert any(row["original_landmark_match_status"] for row in rows)
         assert path.stat().st_size > 200
     finally:
         cap.release()
