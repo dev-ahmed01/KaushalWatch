@@ -209,9 +209,18 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
         raise ValueError("Practical synthetic/fallback receipt cannot qualify")
     if _sha(manifest_path) != manifest_sha256 or stored.get("manifest_sha256") != manifest_sha256:
         raise ValueError("Practical receipt is for a different frozen manifest")
-    _, frozen, asset, video, _, zones, _, _ = _frozen_context(manifest_path)
+    _, frozen, asset, video, zone_file, zones, _, params = _frozen_context(manifest_path)
     if stored.get("source_video_sha256") != asset["sha256"].lower():
         raise ValueError("Practical source SHA differs")
+    if (stored.get("source_asset_id") != asset["id"]
+            or stored.get("centre_id") != asset["centre_id"]
+            or stored.get("batch_id") != asset["batch_id"]):
+        raise ValueError("Practical source identity/centre/batch differs from frozen file")
+    if (stored.get("zone_config_sha256") != _sha(zone_file)
+            or stored.get("zone_profile") != frozen["practical"]["zone_profile"]):
+        raise ValueError("Practical zone geometry/profile differs from frozen file")
+    if stored.get("pipeline_parameters") != params:
+        raise ValueError("Practical thresholds or sampling settings differ from frozen parameters")
     if stored.get("authorization") != frozen["practical"]["authorization"]:
         raise ValueError("Practical receipt authorization differs from frozen external state")
     model, profile = stored.get("model_artifacts"), stored.get("vision_profile")
@@ -313,7 +322,7 @@ def verify_practical_trace(manifest_path: Path, receipt_path: Path, manifest_sha
     expected_first = round(first_activity, 3) if first_activity is not None else None
     if result.get("first_practical_activity_time_sec") != expected_first:
         raise ValueError("Practical first activity time differs from timeline")
-    if trusted_ratio < stored["pipeline_parameters"]["minimum_trusted_ratio"]:
+    if trusted_ratio < params["minimum_trusted_ratio"]:
         raise ValueError("Insufficient camera trust; do not score an absent-activity negative")
     authorization = stored["authorization"]
     expected_decision = "no_persistent_practical_activity"
