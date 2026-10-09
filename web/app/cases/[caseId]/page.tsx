@@ -84,9 +84,8 @@ export default function CaseDetailPage() {
     setBusy(action);
     setError('');
     try {
-      if (record.status === 'open' && action !== 'virtual_verification') {
-        await reviewCase(record.case_id, 'under_review', 'Officer opened the evidence review.', officerAccessKey.trim());
-      }
+      // One API action now atomically records an open -> under review ->
+      // final audit chain, so network interruption cannot strand a case.
       await reviewCase(
         record.case_id,
         action,
