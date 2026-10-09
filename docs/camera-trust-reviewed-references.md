@@ -108,3 +108,36 @@ candidate revisions and are not v5 accuracy claims.
   for promotion-level metrics.
 - Integration/UI review for the visibility case_type and reference state.
 - No changing the frozen fixed-camera-v1 profile without explicit review.
+
+
+## Phase 6: Partial edge obstruction candidate (development only)
+
+Inspecting UHCTD Day 3 gentle-onset and gentle-recovery clips showed a
+**fixed-pattern rectangular overlay at the upper-left of the camera view**
+while the grass, path and pedestrians remained visible. The earlier
+whole-frame engine missed the first covered-camera event entirely.
+
+Added a conservative 8x6 regional cue:
+- Downsample to 192x144 grayscale and compensate global additive exposure
+  differences using the median pixel shift.
+- Require at least six connected tiles with a large change versus the
+  initial scene, low temporal movement, and 1.5 seconds persistence.
+- At least 26/48 tiles must still resemble the original background, so
+  widespread lighting regime changes are not called partial obstruction.
+- For now the cluster must occupy multiple rows and columns and touch a
+  frame edge. Interior-only partial covers are not handled by this cue.
+
+Local prototype replay of supplied clips using the original clean
+reference: first regional alert at cropped onset frame 43 (cover appears
+at frame 36), approximately 2.3 seconds later. No alerts in the clean
+pre-onset period. Recovery was no longer flagged once the overlay cleared.
+This is NOT independent or full application-level validation. The original
+footage is not committed. Synthetic tests cover partial patterned covers,
+foreground motion, uniform lighting shifts, night scenes and removal.
+
+Risks: stationary edge objects may trigger, full or similar-texture
+obstructions need different evidence, and an initially obstructed reference
+could mistake restoration for new tampering. This is only a **suspected**
+integrity signal requiring human review. Do not merge or promote before
+a different untouched camera/day dataset confirms low false-alarm rates
+and coverage of strong and mild obstructions.
