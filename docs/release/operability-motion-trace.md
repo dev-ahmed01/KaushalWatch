@@ -8,7 +8,7 @@
 
 The tool validates the manifest SHA, operability video digest, centred/batch-linked annotation file, bounded ROI, stable start/end times, known camera cuts, detection item ID, numeric threshold, and frame cap. The pixel-frame contents are never written to the receipt; only actual decoded frame SHA-256 values, frame indices, requested sampling times, ROI bounds, score, and final `APPARENTLY_ACTIVE`, `APPARENTLY_INACTIVE`, or `UNCERTAIN` state are retained.
 
-The frame sampler mirrors the product: for a configured stable time window, evenly request `min(max_frames, max(3, int(duration * 2) + 1))` frames; score median of mean Gaussian-blurred grayscale differences between consecutive ROI crops. Fewer than three readable frames abstains as `UNCERTAIN`. It does **not** infer operability from training panel presence alone.
+The frame sampler mirrors the product: for a configured stable time window, evenly request `min(max_frames, max(3, int(duration * 2) + 1))` frames; score median of mean Gaussian-blurred grayscale differences between consecutive ROI crops. Fewer than three **distinct decoded frames** abstains as `UNCERTAIN` (including when a very short stable window repeatedly seeks to the same frame). The receipt also exposes `unique_decoded_frames`. It does **not** infer operability from training panel presence alone.
 
 ## Freeze one labelled opportunity per ROI/window
 
