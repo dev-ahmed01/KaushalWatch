@@ -102,7 +102,8 @@ def evaluate_span(cap, reference, span, fps, step, writer):
 
 
 def run(video, annotations, out, *,
-        events_per_class=4, normal_windows=12, sample_seconds=1/3):
+        events_per_class=4, normal_windows=12, sample_seconds=1/3,
+        normal_seconds=90.0):
     if not math.isfinite(sample_seconds) or sample_seconds <= 0:
         raise ValueError("Sample interval must be positive")
     cap = cv2.VideoCapture(str(video))
@@ -118,7 +119,8 @@ def run(video, annotations, out, *,
             raise ValueError("Video and labels do not align")
         all_spans = select_spans(
             runs, fps, events_per_class, normal_windows,
-            event_seconds=120, context_seconds=20, control_seconds=90
+            event_seconds=120, context_seconds=20,
+            control_seconds=normal_seconds
         )
         spans = [s for s in all_spans if s["kind"] in (0, 3)]
         cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
