@@ -86,6 +86,48 @@ class CaseStore:
     def get(self, case_id: str) -> ComplianceCase | None:
         return next((c for c in self.list() if c.case_id == case_id), None)
 
+    def apply_review_action(
+        self,
+        case_id: str,
+        status: CaseStatus,
+        note: str | None = None,
+        actor: str = "prototype_officer",
+    ) -> ComplianceCase | None:
+        """Persist an open-to-final review as ONE atomic case replacement.
+
+        Preserve both audit events (open -> under_review -> final), but never
+        expose a half-finished officer decision if the disk operation fails.
+        Under-review/virtual transitions follow the existing state machine.
+        """
+        final_actions = {
+            CaseStatus.confirmed, CaseStatus.false_positive, CaseStatus.resolved,
+        }
+        with self._lock:
+            case = self.get(case_id)
+            if case is None:
+                return None
+            if status in final_actions and (not note or not note.strip()):
+                raise ValueError("Final case decisions require an officer review note")
+            if case.status == CaseStatus.open and status in final_actions:
+                first_at = datetime.now(timezone.utc).isoformat()
+                case.review_history.append({
+                    "timestamp": first_at,
+                    "actor": actor,
+                    "from_status": CaseStatus.open.value,
+                    "to_status": CaseStatus.under_review.value,
+                    "note": "Officer opened the evidence review.",
+                })
+                case.review_history.append({
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "actor": actor,
+                    "from_status": CaseStatus.under_review.value,
+                    "to_status": status.value,
+                    "note": note.strip(),
+                })
+                case.status = status
+                return self.save(case)
+            return self.update_status(case_id, status, note=note, actor=actor)
+
     def update_status(
         self,
         case_id: str,
