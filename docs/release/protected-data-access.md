@@ -10,6 +10,7 @@ KaushalWatch is a **synthetic SIH demo**, not a government-ready identity platfo
 - `POST /api/edge/sync`: uses its **separate device-token authorization**. An edge token does not grant read access; an officer token does not authorize edge sync.
 - An authenticated officer bearer key, resolved by `KAUSHALWATCH_REVIEW_TOKENS_JSON`, allows the protected API request. Missing/malformed credentials return **401**; missing/insecure officer key configuration returns **503**. Protected responses include `Cache-Control: private, no-store`; denied responses use `no-store`.
 - Development remains open **only for local synthetic walkthroughs**, unchanged for the existing Chromium E2E and five-centre UI.
+- API case, dashboard, review and analysis responses strip local evidence `frame_path` and raw-video path fields recursively. The server keeps those paths in its internal state for integrity checks and synthetic recovery, while browsers use opaque `evidence_id` values to access frames. Tests assert the private path does not leak in HTTP JSON.
 
 Example test-only protected server setup (generate unique high-entropy tokens in your real environment):
 
@@ -38,4 +39,4 @@ pytest -q backend/tests/test_protected_data_boundary.py
 pytest -q backend/tests/test_review_access.py backend/tests/test_edge_offline_safety.py
 ```
 
-The regression suite checks reports, settings, case evidence, runtime data, upload writes, assistant, protected API docs, static evidence, key failures and role separation. It also confirms that local demo endpoints are unaffected. Tests contain synthetic credentials and no real recordings.
+The regression suite checks reports, settings, case evidence, runtime data, upload writes, assistant, protected API docs, static evidence, key failures and role separation. `backend/tests/test_api_evidence_redaction.py` additionally checks that filesystem paths are never returned from the supported case/review/dashboard JSON endpoints. It also confirms that local demo endpoints are unaffected. Tests contain synthetic credentials and no real recordings.
