@@ -12,6 +12,7 @@ import os
 import re
 
 from fastapi import HTTPException, Request
+from app.services.review_access import LOCAL_ENVS
 
 AGENT_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$")
 PROTECTED_ENVS = {"production", "prod", "pilot", "staging"}
@@ -21,7 +22,7 @@ def _config() -> tuple[str, dict[str, str]]:
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     mode = os.getenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "demo").strip().lower()
     if mode == "demo":
-        if env in PROTECTED_ENVS:
+        if env not in LOCAL_ENVS:
             raise HTTPException(503, "Edge sync must be configured with device tokens.")
         return "demo", {}
     if mode != "token":
