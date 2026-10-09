@@ -1491,3 +1491,259 @@ def test_operability_trace_requires_unique_window_opportunity_and_valid_threshol
     manifest.write_text(json.dumps(frozen))
     with pytest.raises(ValueError, match="threshold must"):
         capture_operability_trace(manifest, csv_path)
+
+
+def _practical_trace_fixture(tmp_path, monkeypatch, *, authorization="absent", active=True):
+    from types import SimpleNamespace
+    from app.services import practical_activity_pipeline
+    from app.services.person_detector import Detection, DetectorInfo
+    from evaluation.practical_activity_trace import capture_practical_trace
+
+    manifest = _build_manifest(tmp_path)
+    zones = tmp_path / "frozen-work-zones.json"
+    zones.write_text(json.dumps({
+        "_reference": {"width": 96, "height": 72},
+        "default": [{"zone_id": "workbench", "x": 0, "y": 0, "w": 95, "h": 71}],
+    }))
+    frozen = json.loads(manifest.read_text())
+    frozen["practical"].update({
+        "authorization": authorization,
+        "zone_profile": "default",
+        "zone_config": {"path": zones.name, "sha256": _hash(zones)},
+        "pipeline_parameters": {
+            "confirmation_seconds": 0.0,
+            "registration_seconds": 0.0,
+            "sample_every_seconds": 0.1,
+            "activity_window_seconds": 0.2,
+            "activity_required_ratio": 0.25,
+            "motion_threshold": 0.001,
+            "minimum_trusted_ratio": 0.5,
+        },
+    })
+    manifest.write_text(json.dumps(frozen))
+
+    monkeypatch.setattr(
+        practical_activity_pipeline, "assess_camera",
+        lambda frame, previous_frame, reference_frame: SimpleNamespace(
+            trusted=True, score=100.0, reasons=[]
+        ),
+    )
+    monkeypatch.setattr(
+        practical_activity_pipeline,
+        "worker_motion_fraction",
+        lambda previous_frame, frame, worker_boxes, pixel_delta_threshold: (
+            0.5 if previous_frame is not None and worker_boxes and active else 0.0
+        ),
+    )
+
+    class _Detector:
+        info = DetectorInfo(backend="ci-synthetic", mode="primary", authoritative=True,
+                            message="CI-only fake detector")
+
+        def detect(self, frame):
+            return [Detection(x1=15, y1=10, x2=55, y2=60, confidence=0.99)]
+
+    receipt = capture_practical_trace(manifest, detector=_Detector(), test_fixture=True)
+    return manifest, receipt
+
+
+def _fake_practical_model_receipt(tmp_path, receipt):
+    xml = tmp_path / "ci-openvino.xml"
+    binary = tmp_path / "ci-openvino.bin"
+    profile = tmp_path / "ci-vision.json"
+    for path, data in ((xml, "CI-XML"), (binary, "CI-BIN"), (profile, "CI-VISION")):
+        path.write_text(data)
+    # Schema-level verifier exercise only. These are fabricated CI artifacts
+    # and do not represent a real OpenVINO or official stage-video run.
+    receipt["mode"] = "authoritative_openvino_practical_pipeline"
+    receipt["model_artifacts"] = {
+        "xml_path": str(xml), "xml_sha256": _hash(xml),
+        "bin_path": str(binary), "bin_sha256": _hash(binary),
+    }
+    receipt["vision_profile"] = {"path": str(profile), "sha256": _hash(profile)}
+    return binary
+
+
+def _freeze_practical_case_rows(tmp_path, manifest, *, predicted="true", authorization="absent"):
+    cases_path = tmp_path / "cases.csv"
+    cols = [
+        "sample_id", "case_type", "true_issue", "pred_issue",
+        "source_asset_id", "centre_id", "batch_id", "authorization",
+    ]
+    rows = [
+        {
+            "sample_id": "PRACTICAL-01", "case_type": "practical_activity_authorization",
+            "true_issue": predicted, "pred_issue": predicted,
+            "source_asset_id": "practical", "centre_id": "DEMO-KA-104",
+            "batch_id": "TEST-BATCH", "authorization": authorization,
+        },
+        {
+            "sample_id": "CAMERA-01", "case_type": "camera_integrity",
+            "true_issue": "false" if predicted == "true" else "true",
+            "pred_issue": "false",
+            "source_asset_id": "camera_degraded", "centre_id": "DEMO-KA-104",
+            "batch_id": "TEST-BATCH", "authorization": authorization,
+        },
+    ]
+    _write_csv(cases_path, cols, rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases_path)
+    manifest.write_text(json.dumps(frozen))
+    return cases_path
+
+
+def test_practical_pipeline_receipt_records_anonymous_activity_without_boxes(tmp_path, monkeypatch):
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    assert receipt["mode"] == "synthetic_test_only"
+    assert receipt["authorization_basis"] == "external_input_not_inferred_from_video"
+    assert receipt["result"]["decision"] == "unauthorized_practical_activity"
+    assert receipt["result"]["case_type"] == "practical_activity_authorization"
+    assert receipt["result"]["practical_activity_fraction"] > 0
+    assert receipt["result"]["peak_stable_workers"] >= 1
+    assert receipt["result"]["active_work_cells"] == 1
+    assert receipt["result"]["frames_processed"] == len(receipt["timeline"]) == 30
+    assert all(len(row["decoded_frame_sha256"]) == 64 for row in receipt["timeline"])
+    assert all("bbox" not in row and "track_id" not in row and "image" not in row
+               for row in receipt["timeline"])
+
+
+def test_practical_authorization_is_external_and_does_not_create_case_when_valid(tmp_path, monkeypatch):
+    manifest, receipt = _practical_trace_fixture(
+        tmp_path, monkeypatch, authorization="valid",
+    )
+    assert receipt["result"]["decision"] == "authorized_practical_activity"
+    assert receipt["result"]["case_type"] is None
+    assert receipt["result"]["practical_activity_fraction"] > 0
+
+
+def test_practical_no_motion_does_not_infer_unauthorized_activity(tmp_path, monkeypatch):
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch, active=False)
+    assert receipt["result"]["decision"] == "no_persistent_practical_activity"
+    assert receipt["result"]["practical_activity_fraction"] == 0
+    assert receipt["result"]["case_type"] is None
+
+
+def test_practical_trace_blocks_synthetic_qualifier_and_wrong_model_weights(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    path = tmp_path / "practical-receipt.json"
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="synthetic/fallback"):
+        verify_practical_trace(manifest, path, _hash(manifest))
+    binary = _fake_practical_model_receipt(tmp_path, receipt)
+    path.write_text(json.dumps(receipt))
+    matched = verify_practical_trace(manifest, path, _hash(manifest))
+    assert matched["decision"] == "unauthorized_practical_activity"
+    assert matched["frames_processed"] == 30
+    assert "not_cryptographically_authenticated" in matched["authenticity"]
+    binary.write_text("changed after receipt was saved")
+    with pytest.raises(ValueError, match="model BIN changed"):
+        verify_practical_trace(manifest, path, _hash(manifest))
+
+
+def test_practical_trace_rejects_changed_zone_or_threshold_configuration(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    _fake_practical_model_receipt(tmp_path, receipt)
+    path = tmp_path / "practical-receipt.json"
+    path.write_text(json.dumps(receipt))
+    receipt["pipeline_parameters"]["minimum_trusted_ratio"] = 0.01
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="thresholds or sampling settings"):
+        verify_practical_trace(manifest, path, _hash(manifest))
+    receipt["pipeline_parameters"]["minimum_trusted_ratio"] = 0.5
+    path.write_text(json.dumps(receipt))
+    frozen = json.loads(manifest.read_text())
+    frozen["practical"]["zone_profile"] = "unauthorized"
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError):
+        verify_practical_trace(manifest, path, _hash(manifest))
+
+
+def test_practical_trace_rejects_modified_decoded_frame_and_activity_fraction(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    _fake_practical_model_receipt(tmp_path, receipt)
+    path = tmp_path / "practical-receipt.json"
+    receipt["timeline"][4]["decoded_frame_sha256"] = "0" * 64
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="decoded frame SHA"):
+        verify_practical_trace(manifest, path, _hash(manifest))
+    receipt["timeline"][4]["decoded_frame_sha256"] = _hash_video_frame(tmp_path / "synthetic.avi", 4)
+    receipt["result"]["practical_activity_fraction"] = 0.01
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="persistence disagrees"):
+        verify_practical_trace(manifest, path, _hash(manifest))
+
+
+def _hash_video_frame(path, index):
+    video = cv2.VideoCapture(str(path))
+    try:
+        assert video.set(cv2.CAP_PROP_POS_FRAMES, index)
+        ok, frame = video.read()
+        assert ok
+        return hashlib.sha256(frame.tobytes()).hexdigest()
+    finally:
+        video.release()
+
+
+def test_practical_case_matching_accepts_exact_video_and_rejects_bad_prediction(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_case, verify_practical_trace
+    from evaluation import evaluate_final_demo
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    _fake_practical_model_receipt(tmp_path, receipt)
+    cases = _freeze_practical_case_rows(tmp_path, manifest, predicted="true")
+    receipt["manifest_sha256"] = _hash(manifest)
+    path = tmp_path / "practical-receipt.json"
+    path.write_text(json.dumps(receipt))
+    qualified = verify_practical_case(manifest, cases, path, _hash(manifest), "PRACTICAL-01")
+    assert qualified["predicted_issue"] is True
+    assert qualified["independent_truth_verified"] is False
+    report_dir = tmp_path / "final-practical-report"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--practical-receipt", str(path), "--practical-case-sample-id", "PRACTICAL-01",
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(cases), "--out-dir", str(report_dir),
+    ])
+    evaluate_final_demo.main()
+    report = json.loads((report_dir / "final_demo_report.json").read_text())
+    assert report["practical_pipeline_trace"]["decision"] == "unauthorized_practical_activity"
+    assert report["practical_case_trace"]["case_sample_id"] == "PRACTICAL-01"
+    assert report["prediction_source_verified"] is False
+
+    rows = list(csv.DictReader(cases.open(newline="")))
+    rows[0]["pred_issue"] = "false"
+    _write_csv(cases, list(rows[0]), rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    receipt["manifest_sha256"] = _hash(manifest)
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="prediction differs"):
+        verify_practical_case(manifest, cases, path, _hash(manifest), "PRACTICAL-01")
+
+
+def test_practical_trace_refuses_unknown_authorization_binary_case(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_case
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch, authorization="unknown")
+    assert receipt["result"]["decision"] == "authorization_review_required"
+    _fake_practical_model_receipt(tmp_path, receipt)
+    cases = _freeze_practical_case_rows(tmp_path, manifest, authorization="unknown")
+    receipt["manifest_sha256"] = _hash(manifest)
+    path = tmp_path / "practical-receipt.json"
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="Unknown authorization requires officer review"):
+        verify_practical_case(manifest, cases, path, _hash(manifest), "PRACTICAL-01")
