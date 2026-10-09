@@ -46,6 +46,9 @@ def test_visibility_case_preempts_attendance_on_unusable_black_feed(tmp_path):
 
     assert result.case is not None
     assert result.case.case_type == "camera_visibility"
+    assert result.decision == "camera_visibility_insufficient"
+    assert result.estimated_occupancy is None
+    assert result.discrepancy_pct is None
     assert "suspended" in result.case.summary.lower()
     assert len(result.case.evidence) == 1
     assert result.case.evidence[0].metadata["case_type"] == "camera_visibility"
