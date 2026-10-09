@@ -15,6 +15,7 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.services.offline_queue import EdgeEventQueue, json_payload_bytes
+from app.services.edge_ingest import _safe_details
 from app.services.video_pipeline import VideoCompliancePipeline
 
 
@@ -38,7 +39,7 @@ def case_to_edge_payload(case) -> dict:
         "visual_occupancy": case.visual_occupancy,
         "discrepancy_pct": case.discrepancy_pct,
         "persistence_ratio": case.persistence_ratio,
-        "details": case.details,
+        "details": _safe_details(case.details),
         "created_at": case.created_at,
         "evidence_integrity": [
             {
@@ -60,15 +61,25 @@ def case_to_edge_payload(case) -> dict:
 
 
 def analysis_to_edge_payload(result, *, centre_id: str, batch_id: str) -> dict:
-    if not result.detector_authoritative:
+    # A camera-insufficient run is not compliant, even if the person detector
+    # itself is authoritative or no attendance-discrepancy case exists.
+    trustworthy = (
+        result.detector_authoritative
+        and result.detector_failures == 0
+        and result.trusted_sample_ratio >= 0.5
+    )
+    if not trustworthy or result.decision in {"camera_evidence_insufficient", "detector_unavailable"}:
         outcome = "blocked"
-        summary = result.detector_message
+        summary = "Attendance inference blocked: camera or detector evidence is insufficient."
     elif result.case:
         outcome = "attention"
         summary = result.case.summary
-    else:
+    elif result.decision == "compliant":
         outcome = "compliant"
         summary = "Attendance matched the reported record."
+    else:
+        outcome = "blocked"
+        summary = "Attendance inference could not establish a compliant result."
 
     return {
         "centre_id": centre_id,
@@ -83,6 +94,8 @@ def analysis_to_edge_payload(result, *, centre_id: str, batch_id: str) -> dict:
             "decision": result.decision,
             "detector_backend": result.detector_backend,
             "detector_authoritative": result.detector_authoritative,
+            "detector_failures": result.detector_failures,
+            "trusted_sample_ratio": result.trusted_sample_ratio,
         },
         "privacy": {
             "raw_video_included": False,
@@ -171,6 +184,12 @@ def sync(args) -> int:
         return 2
 
     accepted = payload.get("accepted_event_ids", [])
+    if not isinstance(accepted, list) or any(not isinstance(item, str) for item in accepted):
+        print(json.dumps({"synced": 0, "remaining": len(events),
+                          "error": "Invalid server event acknowledgement"}, indent=2))
+        return 2
+    # The central server may reject unsafe/corrupt events. Such events stay
+    # on disk for explicit operator review; never silently discard them.
     removed = queue.acknowledge(accepted)
     print(json.dumps({
         "synced": removed,
