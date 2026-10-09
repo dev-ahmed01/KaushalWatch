@@ -141,3 +141,32 @@ could mistake restoration for new tampering. This is only a **suspected**
 integrity signal requiring human review. Do not merge or promote before
 a different untouched camera/day dataset confirms low false-alarm rates
 and coverage of strong and mild obstructions.
+
+## Phase 7 — stratified event survey (development only)
+
+Use the new evaluator at scripts/survey_uhctd_events.py before another
+full 24-hour evaluation. It selects the first distinct annotation
+extent settings for each tamper class (4 covered, 4 defocused, 4 moved
+by default), plus 12 healthy windows spread over the day. Each event
+includes 20 seconds of verified normal context; the default positive
+interval is the first 120 seconds after onset. Windows reset temporal
+state while preserving the original first-frame reference.
+
+Example Windows PowerShell:
+
+    python scripts/survey_uhctd_events.py --video "C:/Users/Admin/Desktop/MEVA/video.avi" --annotations "C:/Users/Admin/Desktop/MEVA/annotations-1.csv" --out "C:/Users/Admin/Desktop/MEVA/phase7_survey"
+
+Outputs:
+- sampled_event_summary.json: per-class suspicion and visual unusability
+  rates, normal-window false alert rates, model revision, annotation SHA.
+- sampled_event_results.csv: one row per selected event or normal interval
+  with event onset, annotation parameters, independent alert rising edge,
+  delay, and evidence-quality failures.
+
+Caveats: This is not continuous 24-hour state reconstruction. Selecting
+particular extents or segments means results do not represent event
+frequency, camera-wide prevalence, precision or false alarms per full
+normal hour. Entire 5-minute events may continue beyond the 120-second
+sample. The annotation extent is a dataset control parameter, not
+necessarily a literal percent of the field of view. Day 3 and Day 4
+are both development/diagnostic inputs, NOT untouched promotion tests.
