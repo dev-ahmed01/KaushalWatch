@@ -805,17 +805,36 @@ def process_video(
         if result.case:
             result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
+        # A detector being installed is not sufficient to assert attendance
+        # compliance. The full temporal pipeline must explicitly decide that
+        # the video is compliant and contain no detector failures or trust gap.
+        attendance_verified = (
+            result.decision == "compliant"
+            and result.case is None
+            and result.detector_authoritative
+            and result.detector_failures == 0
+            and result.trusted_sample_ratio >= 0.5
+        )
+        attendance_blocked = (
+            result.decision in {"camera_integrity_exception", "camera_evidence_insufficient", "detector_unavailable"}
+            or not result.detector_authoritative
+            or result.detector_failures > 0
+            or result.trusted_sample_ratio < 0.5
+        )
         HISTORY.append(
             centre_id=centre_id,
             batch_id=batch_id,
             analysis_type="attendance",
-            outcome="compliant" if result.case is None and result.detector_authoritative else (
-                "blocked" if not result.detector_authoritative else "attention"
+            outcome="compliant" if attendance_verified else (
+                "blocked" if attendance_blocked or result.case is None else "attention"
             ),
             summary=(
                 "Attendance matched the reported record."
-                if result.case is None and result.detector_authoritative
-                else result.case.summary if result.case else result.detector_message
+                if attendance_verified
+                else "Attendance verification blocked by insufficient camera or detector evidence."
+                if attendance_blocked
+                else result.case.summary if result.case else
+                "Attendance verification remains unresolved and requires review."
             ),
             details={
                 "reported_attendance": result.reported_attendance,
