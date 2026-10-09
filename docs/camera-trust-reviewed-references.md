@@ -351,3 +351,51 @@ large lighting changes, camera image-mode transitions and localized
 covers can produce similar apparent scene changes. Normal intervals
 outside the 12 samples and untouched cameras must be tested before
 any production integrity classification or reference-adaptation logic.
+
+## Phase 10 shadow evaluation (Day 3 development, NOT held out)
+
+Full uploaded shadow CSV: four selected moved events produced a new
+persistent-scene-change **review cue** after annotated onset (delays
+7.333s, 11.667s, 11.667s and 11.667s). The existing Camera Trust
+production engine produced no movement integrity signal in them.
+
+Across 12 selected 90-second normal windows, two emitted shadow false
+reviews: normal_control_1 had 43 flagged samples (two episodes) and
+normal_control_10 had one sample (one episode). Total 44/3,240 normal
+samples (1.36%) and 3 separate warning episodes, corresponding to
+14.67 seconds of sampled warning time. DO NOT extrapolate to real
+false-alarm rates per day/hour.
+
+The old production candidate still reported 181/270 suspect tampering
+samples for normal_control_8, while the shadow review cue reported 0.
+Both are from this contaminated Day 3 development sequence.
+
+A controlled post-hoc threshold sensitivity analysis of the SAME
+per-sample numerical traces (no new video replay):
+- 12-second confirmation: 4/4 moved events flagged, 2/12 healthy
+  windows wrongly flagged. Median moved detection delay 11.67s.
+- 20-second confirmation: 4/4 moved flagged, 1/12 healthy flagged.
+- 22-second confirmation: 4/4 moved flagged, 0/12 healthy flagged,
+  detection delays ~17.3–21.7s.
+- This apparent advantage is **overfitted**; it is NOT evidence
+  that 22s is the correct operating threshold. Do not promote it.
+- Moved event 1 had 4.333s of pre-annotation low scene correlation,
+  which artificially shortens its post-onset detection delay.
+- Normal control 1's longest uninterrupted low-similarity run was
+  approximately 21.0 seconds; normal control 10 was 12.0 seconds.
+  These are not short single-frame glitches.
+
+Added scripts/triage_uhctd_persistent_results.py, an OFFLINE-only
+numeric sensitivity analysis of Phase10 JSON/CSV outputs. It can
+OPTIONALLY export five-frame? No: **six-frame** annotated contact
+sheets only for false-review normal controls, using the locally held
+original video. Output is shadow_false_review_triage.json plus
+normal_control_1_trigger_review.jpg and
+normal_control_10_trigger_review.jpg when video is provided.
+No personal/video content is committed.
+
+Pending: inspect the actual two healthy false-warning windows visually,
+test candidate robustness to stationary foreground occlusion, dawn/dusk
+mode changes and sustained weather/lighting effects, then seek a
+different untouched camera/day for independent confirmation. Continuous
+production camera-integrity rules and fixed profile are UNCHANGED.
