@@ -48,6 +48,7 @@ def _summary_event(event_id, *, decision="camera_evidence_insufficient",
             "details": {
                 "decision": decision, "trusted_sample_ratio": trust,
                 "detector_authoritative": authoritative,
+                "detector_failures": 0,
                 "detector_backend": "openvino",
                 "raw_video_path": "/sensitive/local/camera-frame.jpg",
                 "face_image": "UNTRUSTED_IDENTIFYING_BYTES",
@@ -230,3 +231,14 @@ def test_agent_keeps_unsent_events_if_central_acknowledgement_is_invalid(tmp_pat
     args = SimpleNamespace(queue=str(queue_path), url="http://127.0.0.1:8000", timeout=10)
     assert agent.sync(args) == 2
     assert len(queue.pending()) == 1
+
+
+
+def test_server_blocks_claimed_compliance_after_detector_failure(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    event = _summary_event("EDGE-DETECT-FAILURE-04", decision="compliant", trust=0.95)
+    event["payload"]["details"]["detector_failures"] = 1
+    response = client.post("/api/edge/sync", json={"events": [event]})
+    assert response.status_code == 200
+    assert response.json()["accepted_count"] == 1
+    assert app_main.HISTORY.list()[0]["outcome"] == "blocked"
