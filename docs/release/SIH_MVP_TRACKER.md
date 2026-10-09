@@ -41,6 +41,9 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 ### Milestone 3/5 — Defensible final evaluation
 
+**Apparent-operability motion replay implemented (not a physical-health test):** `backend/app/services/operability.py:trace_apparent_motion` is now the single shared ROI sampling/measurement function for the infrastructure case and independent evaluator. `evaluation/operability_motion_trace.py` runs it against the exact frozen operability clip, ROI, window, item, threshold and frame cap; it retains decoded-frame SHA-256 values but no pixels. The `--operability-receipt` option on the final scorecard re-decodes the video and verifies the complete receipt and the sole bound annotation row before writing. Synthetic CI covers case-path parity, changed videos/labels/windows and receipt tampering. `equipment_mechanical_health_verified=false` is explicit, and independent real-footage labels and representative active/inactive/uncertain coverage remain pending. See `docs/release/operability-motion-trace.md`.
+
+
 **Equipment reviewed-cache prediction trace implemented (NOT live detector validation):** `evaluation/equipment_cache_trace.py` binds equipment scoring opportunities to exact second/item entries of the SHA-frozen GroundingDINO review cache, its reviewed metadata and the exact DOD source hash. It explicitly separates `model_count` original proposals from human-corrected `count`, refusing ambiguous timestamps, missing review attestations or blended scoring bases. `evaluation/evaluate_final_demo.py --final --equipment-receipt ...` revalidates the receipt before writing a report. `model_inference_execution_verified=false` by design: we have **not** rerun the source GroundingDINO model or proved those cached proposals came from the recorded weights. Independent annotations, final video presence and any box-localization scores remain outstanding. See `docs/release/equipment-cache-trace.md`.
 
 
