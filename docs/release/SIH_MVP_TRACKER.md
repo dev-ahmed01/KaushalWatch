@@ -75,6 +75,9 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 ### Milestone 4/5 — End-to-end officer journey
 
+**Atomic officer outcomes + browser failure states implemented (synthetic CI):** the case store and review API can now process an open-to-final decision with *one* atomic JSON replacement while preserving both audit transitions. The case page sends a single POST, preventing a failed final request from leaving a half-updated officer review. Concurrency, disk-interruption and key-denial tests are in `backend/tests/test_atomic_review_action.py`. Browser tests in `web/e2e/offline-integrity.spec.ts` exercise one-click confirmation/audit reload, network failures, offline action-queue recovery and camera-trust uncertainty. Evidence screens no longer interpret missing camera-trust measurement as a positive trust observation. Note: this is a **single-process prototype atomicity guarantee**, not pilot-grade distributed audit storage.
+
+
 - [ ] Browser test: select centre -> monitor -> analyze/inspect -> discrepancy -> anonymized evidence.
 - [ ] Browser test: officer reviews -> decision persisted -> audit trail -> escalation if warranted.
 - [ ] Browser test: Insights, report export, history and evidence-grounded KaushalAI answer.
@@ -85,6 +88,9 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 **Exit gate:** recorded E2E passing run on the candidate and no unresolved critical failures.
 
 ### Milestone 5/5 — Reproducible release/rehearsal
+
+**Synthetic recovery rehearsal tooling implemented (not judge-machine acceptance):** `scripts/demo_recovery.py` snapshots only clearly simulated cases, histories, approved evidence images and offline queue/settings with an allowlisted ZIP manifest and SHA-256 digests, excluding raw footage. Restore requires a *new* directory, checks every archive entry and rebases verified evidence paths. `backend/tests/test_demo_recovery.py` checks restored audit/event/evidence continuity, archive tampering, path traversal and non-simulated input refusal. See `docs/release/demo-recovery-runbook.md`. The release still requires a real clean-environment operator rehearsal and real-footage validation before final signoff.
+
 
 - [ ] Clean checkout installation instructions and environment template work on the demo machine.
 - [ ] One-command model/profile preparation and readiness outcome are recorded.
