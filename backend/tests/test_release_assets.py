@@ -581,12 +581,20 @@ def test_receipt_matching_requires_exact_model_files_and_predicted_count(tmp_pat
     record["manifest_sha256"] = _hash(manifest)
     record["attendance_csv_sha256"] = _hash(tmp_path / "attendance.csv")
     path.write_text(json.dumps(record))
+    matched_frame_hash = record["samples"][0]["decoded_frame_sha256"]
     matched = verify_attendance_receipt(
         manifest, tmp_path / "attendance.csv", path, _hash(manifest),
     )
     assert matched["sample_count"] == 2
     assert matched["scope"] == "raw_frame_detector_counts_only"
     assert "not_cryptographically_authenticated" in matched["authenticity"]
+
+    record["samples"][0]["decoded_frame_sha256"] = "a" * 64
+    path.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Decoded video frame differs"):
+        verify_attendance_receipt(manifest, tmp_path / "attendance.csv", path, _hash(manifest))
+    record["samples"][0]["decoded_frame_sha256"] = matched_frame_hash
+    path.write_text(json.dumps(record))
 
     weights.write_text("model weights changed after evaluation")
     with pytest.raises(ValueError, match="model weights no longer matches"):
