@@ -287,6 +287,8 @@ class VideoCompliancePipeline:
                         "decoded_frame_sha256": hashlib.sha256(frame.tobytes()).hexdigest(),
                         "camera_trusted": bool(trust.trusted),
                         "camera_reasons": list(trust.reasons),
+                        "warmup_complete": bool(warmup_complete),
+                        "mismatch_for_persistence": bool(is_mismatch),
                         "detector_eligible": eligible,
                         "raw_count": raw_count if eligible else None,
                         "candidate_count": candidate_count if eligible else None,
