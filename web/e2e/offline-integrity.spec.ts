@@ -109,7 +109,7 @@ test('offline action API is unavailable, not an empty healthy queue', async ({ p
 
 test('missing camera measurement never appears as a trusted video on officer screens', async ({ page }) => {
   await page.goto('/cases/SIM-KA-207-CAM');
-  await expect(page.getByRole('heading', { name: 'Camera integrity', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Camera integrity review', exact: true })).toBeVisible();
   await expect(page.getByText('Camera trust unavailable').first()).toBeVisible();
   await expect(page.getByText('Camera trusted', { exact: true })).toHaveCount(0);
 
