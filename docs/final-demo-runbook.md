@@ -101,12 +101,13 @@ The prepared seed includes synthetic integrity evidence only for demonstrating S
 
 ### Strict real-video gate
 
-Preparing the UI seed and passing the release-readiness check do **not** validate the final camera footage or create accuracy claims.
+Preparing the UI seed and passing the release-readiness check do **not** validate the final camera footage or create accuracy claims. Start by freezing every actual clip, all four independently labelled CSVs, equipment-cache/source SHA, camera-cut-safe ROI, copyright/privacy basis and centre/batch mappings using `docs/release/final-media-freeze.md`.
 
 When the authoritative OpenVINO runtime and exact reviewed demo video are present, run:
 
 ```bash
-python scripts/check_demo_readiness.py --video <exact-video> --final
+python scripts/verify_release_assets.py --manifest demo/release-assets.local.json
+python scripts/check_demo_readiness.py --video <exact-video> --final --asset-manifest demo/release-assets.local.json
 ```
 
 For the reviewed DOD infrastructure clip, the SHA-bound equipment cache must continue to match the exact source video.
