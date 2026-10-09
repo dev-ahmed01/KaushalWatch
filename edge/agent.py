@@ -183,13 +183,17 @@ def sync(args) -> int:
         }, indent=2))
         return 2
 
-    accepted = payload.get("accepted_event_ids", [])
-    if not isinstance(accepted, list) or any(not isinstance(item, str) for item in accepted):
+    accepted = payload.get("accepted_event_ids", []) if isinstance(payload, dict) else None
+    sent = {event.get("event_id") for event in events}
+    if (not isinstance(accepted, list) or any(
+            not isinstance(item, str) or item not in sent for item in accepted)):
         print(json.dumps({"synced": 0, "remaining": len(events),
                           "error": "Invalid server event acknowledgement"}, indent=2))
         return 2
-    # The central server may reject unsafe/corrupt events. Such events stay
-    # on disk for explicit operator review; never silently discard them.
+    # The server may reject unsafe/corrupt events. Rejected items remain on
+    # disk for explicit operator repair; never silently discard them.
+    # A malicious/incorrect response also cannot acknowledge unrelated events
+    # appended by a second local producer after this request started.
     removed = queue.acknowledge(accepted)
     print(json.dumps({
         "synced": removed,
