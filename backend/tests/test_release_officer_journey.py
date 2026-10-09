@@ -95,14 +95,16 @@ def test_uploaded_unusable_camera_evidence_is_reviewed_not_attendance_truth(
     assert evidence["metadata"]["privacy_transform"] == (
         "full_frame_blur_due_untrusted_camera"
     )
-    evidence_path = Path(evidence["frame_path"])
-    assert evidence_path.is_file()
-    assert hashlib.sha256(evidence_path.read_bytes()).hexdigest() == evidence["sha256"]
-    assert evidence_path.is_relative_to(tmp_path / "evidence")
-
+    assert "frame_path" not in evidence
     case_id = case["case_id"]
     saved = store.get(case_id)
     assert saved is not None
+    # The server retains its private local path for integrity and recovery,
+    # but must never send that filesystem location to a browser/client.
+    evidence_path = Path(saved.evidence[0].frame_path)
+    assert evidence_path.is_file()
+    assert hashlib.sha256(evidence_path.read_bytes()).hexdigest() == evidence["sha256"]
+    assert evidence_path.is_relative_to(tmp_path / "evidence")
     assert saved.case_type == "camera_integrity"
 
     rows = client.get("/api/analysis-history?centre_id=DEMO-KA-207")
