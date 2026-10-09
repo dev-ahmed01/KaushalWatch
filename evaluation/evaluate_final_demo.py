@@ -14,6 +14,7 @@ if str(ROOT) not in sys.path:
 
 from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
 from evaluation.attendance_inference_verification import verify_attendance_receipt
+from evaluation.operational_attendance_verification import verify_operational_attendance_receipt
 
 
 def read_csv(path: str) -> list[dict[str, str]]:
@@ -250,6 +251,8 @@ def main() -> None:
                         help="Require qualified frozen media and exact input CSV identity.")
     parser.add_argument("--asset-manifest", default=os.getenv("KAUSHALWATCH_RELEASE_ASSET_MANIFEST"))
     parser.add_argument("--attendance-receipt", help="Optional local OpenVINO frame-count trace; requires --final.")
+    parser.add_argument("--operational-attendance-receipt",
+                        help="Optional tracked/registered/smoothed attendance receipt; requires --final.")
     args = parser.parse_args()
 
     input_paths = {
@@ -260,6 +263,11 @@ def main() -> None:
     }
     provenance = None
     attendance_trace = None
+    operational_trace = None
+    if args.operational_attendance_receipt and args.attendance_receipt:
+        parser.error("Use only one attendance receipt for a given scorecard")
+    if args.operational_attendance_receipt and not args.final:
+        parser.error("--operational-attendance-receipt requires --final")
     if args.attendance_receipt and not args.final:
         parser.error("--attendance-receipt requires --final")
     if args.final:
@@ -275,6 +283,13 @@ def main() -> None:
                 Path(args.attendance_receipt),
                 provenance["manifest_sha256"],
             )
+        if args.operational_attendance_receipt:
+            operational_trace = verify_operational_attendance_receipt(
+                Path(args.asset_manifest),
+                Path(args.attendance),
+                Path(args.operational_attendance_receipt),
+                provenance["manifest_sha256"],
+            )
 
     report = {
         "evaluation_mode": (
@@ -283,6 +298,7 @@ def main() -> None:
         "input_provenance": provenance,
         "prediction_source_verified": False,
         "attendance_raw_frame_trace": attendance_trace,
+        "attendance_pipeline_trace": operational_trace,
         "attendance": attendance_metrics(read_csv(args.attendance)),
         "equipment": equipment_metrics(read_csv(args.equipment)),
         "apparent_operability": operability_metrics(read_csv(args.operability)),
@@ -291,7 +307,7 @@ def main() -> None:
             "Use only annotations from the exact demonstration dataset.",
             "Do not extrapolate these metrics to all PMKVY centres.",
             "CSV predictions are accepted inputs, not evidence that a particular model produced them.",
-            "An optional OpenVINO receipt only traces raw per-frame counts; registered attendance and other prediction columns are not validated by it.",
+            "An optional raw OpenVINO receipt traces detector counts only; the operational receipt traces eligible tracked/smoothed sample counts and per-sample mismatch flags but not final case accuracy or other modalities.",
             "Never claim a zero false-positive rate without independently observed negative opportunities.",
             "Report UNCERTAIN operability outputs as abstentions and disclose coverage.",
             "Apparent operability is visual activity evidence, not mechanical/electrical diagnosis.",
