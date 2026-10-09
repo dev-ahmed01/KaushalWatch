@@ -19,7 +19,8 @@ import {
 } from '../../components/CalmUi';
 import Toast from '../../components/Toast';
 import { Button } from '../../components/ui/button';
-import { API, getEvidencePack, reviewCase } from '../../lib/api';
+import { API, getEvidencePack, getReviewAccess, reviewCase } from '../../lib/api';
+import type { ReviewAccessStatus } from '../../lib/api';
 import { caseUiState, plainCaseType } from '../../lib/presentation';
 import type { EvidenceReviewPack } from '../../lib/types';
 
@@ -30,6 +31,9 @@ export default function CaseDetailPage() {
   const id = String(caseId);
   const [pack, setPack] = useState<EvidenceReviewPack | null>(null);
   const [note, setNote] = useState('');
+  const [reviewAccess, setReviewAccess] = useState<ReviewAccessStatus | null>(null);
+  const [reviewAccessError, setReviewAccessError] = useState('');
+  const [officerAccessKey, setOfficerAccessKey] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
@@ -47,6 +51,16 @@ export default function CaseDetailPage() {
     void load();
   }, [id]);
 
+  useEffect(() => {
+    let active = true;
+    getReviewAccess()
+      .then(status => { if (active) setReviewAccess(status); })
+      .catch(() => {
+        if (active) setReviewAccessError('Officer review access is unavailable. Decisions are disabled.');
+      });
+    return () => { active = false; };
+  }, []);
+
   const record = pack?.case;
   const evidence = record?.evidence?.[0];
   const src = evidence?.evidence_id ? API + '/evidence/' + evidence.evidence_id + '.jpg' : undefined;
@@ -58,17 +72,26 @@ export default function CaseDetailPage() {
       setError('Add a short review note before a final decision.');
       return;
     }
+    if (!reviewAccess) {
+      setError('Officer review access is unavailable. No decision was recorded.');
+      return;
+    }
+    if (reviewAccess.required && !officerAccessKey.trim()) {
+      setError('Enter your officer access key before recording a decision.');
+      return;
+    }
 
     setBusy(action);
     setError('');
     try {
       if (record.status === 'open' && action !== 'virtual_verification') {
-        await reviewCase(record.case_id, 'under_review', 'Officer opened the evidence review.');
+        await reviewCase(record.case_id, 'under_review', 'Officer opened the evidence review.', officerAccessKey.trim());
       }
       await reviewCase(
         record.case_id,
         action,
         note.trim() || 'Virtual verification requested.',
+        officerAccessKey.trim(),
       );
       await load();
       setToast(
@@ -167,9 +190,29 @@ export default function CaseDetailPage() {
           <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
             <div className="text-[16px] font-semibold text-[var(--kw-text)]">Officer review</div>
             <p className="mt-1 text-[12px] text-[#98A2B3]">Review the evidence before recording a decision.</p>
+            {reviewAccess?.mode === 'demo' && (
+              <p className="mt-2 text-[11px] leading-5 text-[#667085]">Local demonstration mode · decisions are attributed to a prototype officer, not an authenticated identity.</p>
+            )}
+            {reviewAccessError && <div role="alert" className="mt-3 text-[12px] text-[#B42318]">{reviewAccessError}</div>}
 
             {!terminal ? (
               <>
+                {reviewAccess?.required && (
+                  <div className="mt-4">
+                    <label htmlFor="officer-review-key" className="block text-[12px] font-medium text-[#475467]">Officer access key</label>
+                    <input
+                      id="officer-review-key"
+                      type="password"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={officerAccessKey}
+                      onChange={event => setOfficerAccessKey(event.target.value)}
+                      placeholder="Enter your assigned access key"
+                      className="mt-2 w-full rounded-xl border border-[#D7DCE3] bg-white px-4 py-3 text-[13px] text-[#344054] outline-none focus:border-[#93B4F6]"
+                    />
+                    <p className="mt-1 text-[11px] text-[#667085]">Used only for officer decisions; not saved in browser storage.</p>
+                  </div>
+                )}
                 <label htmlFor="officer-review-note" className="mt-4 block text-[12px] font-medium text-[#475467]">Decision note</label>
                 <textarea
                   id="officer-review-note"
@@ -276,6 +319,7 @@ export default function CaseDetailPage() {
               <span className="text-[#98A2B3]">{new Date(item.timestamp).toLocaleString()}</span>
               <div>
                 <b className="font-medium text-[#344054]">{item.from_status.replaceAll('_', ' ')} → {item.to_status.replaceAll('_', ' ')}</b>
+                <p className="mt-1 text-[11px] text-[#667085]">Recorded by: {item.actor || 'Unattributed legacy event'}</p>
                 {item.note && <p className="mt-1 text-[#667085]">{item.note}</p>}
               </div>
             </div>
