@@ -1339,7 +1339,8 @@ def _edge_sync_locked(request: EdgeSyncRequest, edge_actor: str):
             analysis_type = str(payload.get("analysis_type") or "")
             outcome = str(payload.get("outcome") or "")
             if centre_id and batch_id and analysis_type and outcome:
-                HISTORY.append(
+                HISTORY.append_edge_once(
+                    edge_event_id=event_id,
                     centre_id=centre_id,
                     batch_id=batch_id,
                     analysis_type=analysis_type,
