@@ -321,7 +321,7 @@ def test_final_scorecard_rejects_malformed_truth_labels_even_if_sha_matches(tmp_
 
     manifest = _build_manifest(tmp_path)
     cases = tmp_path / "cases.csv"
-    cases.write_text(cases.read_text().replace(",false,false", ",maybe,false"))
+    cases.write_text(cases.read_text().replace(",false,false", ",false,maybe"))
     data = json.loads(manifest.read_text())
     next(row for row in data["annotations"] if row["kind"] == "cases")["sha256"] = _hash(cases)
     manifest.write_text(json.dumps(data))
