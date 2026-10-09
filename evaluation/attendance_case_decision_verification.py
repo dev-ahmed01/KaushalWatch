@@ -31,14 +31,23 @@ def verify_attendance_case_opportunity(
     case_sample_id: str,
 ) -> dict:
     """Fail closed if a frozen case row disagrees with a complete engine timeline."""
+    manifest_path = Path(manifest_path).expanduser().resolve()
+    cases_csv_path = Path(cases_csv_path).expanduser().resolve()
+    if sha256_file(manifest_path) != manifest_sha256:
+        raise ValueError("Frozen case manifest SHA differs from the supplied digest")
     operational = verify_operational_attendance_receipt(
         manifest_path, attendance_csv_path, operational_receipt_path, manifest_sha256
     )
     record = json.loads(Path(operational_receipt_path).read_text(encoding="utf-8"))
-    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     attendance_asset = next(x for x in manifest["assets"] if x["role"] == "attendance")
     case_annotations = next(x for x in manifest["annotations"] if x["kind"] == "cases")
-    if sha256_file(Path(cases_csv_path)) != case_annotations["sha256"].lower():
+    frozen_path = Path(case_annotations["path"]).expanduser()
+    if not frozen_path.is_absolute():
+        frozen_path = manifest_path.parent / frozen_path
+    if cases_csv_path != frozen_path.resolve():
+        raise ValueError("Attendance case source is not the frozen cases CSV")
+    if sha256_file(cases_csv_path) != case_annotations["sha256"].lower():
         raise ValueError("Frozen case annotation digest changed")
 
     if not case_sample_id or not case_sample_id.strip():
