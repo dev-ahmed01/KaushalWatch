@@ -11,8 +11,10 @@ from app.models import PracticalActivitySummary, WorkCellActivity
 from app.services.activity_evidence import TemporalActivityGate, worker_motion_fraction
 from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.camera_trust import CameraTrustState, assess_camera
+from app.services.camera_reference import load_reviewed_reference
 from app.services.compliance_cases import (
     build_camera_integrity_case,
+    build_camera_visibility_case,
     build_practical_activity_case,
 )
 from app.services.evidence import persist_evidence
@@ -184,6 +186,8 @@ class PracticalActivityPipeline:
         minimum_zone_overlap: float = 0.15,
         minimum_trusted_ratio: float = 0.50,
         zone_reference_size: tuple[int, int] | None = None,
+        reviewed_reference_manifest: str | Path | None = None,
+        reviewed_reference_mode: str | None = None,
     ) -> PracticalActivitySummary:
         authorization = authorization.strip().lower()
         if authorization not in {"valid", "absent", "unknown"}:
@@ -201,6 +205,17 @@ class PracticalActivityPipeline:
             cap.release()
             raise ValueError("Could not read practical-work video dimensions")
 
+        camera_trust_state = (
+            load_reviewed_reference(
+                reviewed_reference_manifest,
+                camera_id=camera_id,
+                mode=reviewed_reference_mode or "",
+            )
+            if reviewed_reference_manifest is not None
+            else CameraTrustState()
+        )
+        if reviewed_reference_mode is not None and reviewed_reference_manifest is None:
+            raise ValueError("Reference mode requires an explicitly reviewed manifest")
         zone_scaled = False
         reference_width: int | None = None
         reference_height: int | None = None
@@ -249,8 +264,8 @@ class PracticalActivityPipeline:
         zone_active_frames: dict[str, int] = defaultdict(int)
         active_zone_ids_seen: set[str] = set()
 
-        camera_trust_state = CameraTrustState()
         trust_flags: list[bool] = []
+        tamper_flags: list[bool] = []
         trust_reason_counter: Counter[str] = Counter()
         worst_camera_evidence: tuple[float, np.ndarray, list[str]] | None = None
 
@@ -290,6 +305,7 @@ class PracticalActivityPipeline:
                     sample_seconds=step / fps,
                 )
                 trust_flags.append(trust.trusted)
+                tamper_flags.append(trust.tamper_suspected)
                 trust_reason_counter.update(trust.reasons)
 
                 if not trust.trusted and (
@@ -427,7 +443,16 @@ class PracticalActivityPipeline:
             common_reasons = [
                 reason for reason, _ in trust_reason_counter.most_common(3)
             ] or reasons
-            case = build_camera_integrity_case(
+            # If most unusable samples have no tamper evidence, report a
+            # visibility issue, never an allegation of camera sabotage.
+            unusable_count = sum(not item for item in trust_flags)
+            tamper_count = sum(tamper_flags)
+            case_factory = (
+                build_camera_integrity_case
+                if tamper_count > unusable_count / 2
+                else build_camera_visibility_case
+            )
+            case = case_factory(
                 centre_id=centre_id,
                 batch_id=batch_id,
                 camera_id=camera_id,
@@ -446,7 +471,7 @@ class PracticalActivityPipeline:
                         "centre_id": centre_id,
                         "batch_id": batch_id,
                         "camera_id": camera_id,
-                        "case_type": "camera_integrity",
+                        "case_type": case.case_type,
                         "trusted_frame_ratio": round(trusted_ratio, 4),
                         "privacy_transform": "full_frame_blur_due_untrusted_camera",
                     },

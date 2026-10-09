@@ -12,7 +12,8 @@ import numpy as np
 from app.models import AttendanceObservation, AttendanceOverlayBox, AttendanceOverlaySample, ComplianceCase, ProcessSummary
 from app.services.anonymous_tracker import AnonymousCentroidTracker
 from app.services.camera_trust import CameraTrustState, assess_camera
-from app.services.compliance_cases import build_camera_integrity_case
+from app.services.camera_reference import load_reviewed_reference
+from app.services.compliance_cases import build_camera_integrity_case, build_camera_visibility_case
 from app.services.evidence import persist_evidence
 from app.services.occupancy import OccupancySmoother, discrepancy_pct
 from app.services.person_detector import Detector, build_person_detector
@@ -49,7 +50,20 @@ class VideoCompliancePipeline:
         track_grace_seconds: float = 0.8,
         occupancy_count_source: str | None = None,
         occupancy_smoother_window: int | None = None,
+        reviewed_reference_manifest: str | Path | None = None,
+        reviewed_reference_mode: str | None = None,
     ) -> ProcessSummary:
+        camera_trust_state = (
+            load_reviewed_reference(
+                reviewed_reference_manifest,
+                camera_id=camera_id,
+                mode=reviewed_reference_mode or "",
+            )
+            if reviewed_reference_manifest is not None
+            else CameraTrustState()
+        )
+        if reviewed_reference_mode is not None and reviewed_reference_manifest is None:
+            raise ValueError("Reference mode requires an explicitly reviewed manifest")
         cap = cv2.VideoCapture(str(video_path))
         if not cap.isOpened():
             raise ValueError(f"Could not open video: {video_path}")
@@ -100,8 +114,8 @@ class VideoCompliancePipeline:
         overlay_interval_seconds = max(0.8, float(sample_every_seconds))
         next_overlay_second = 0.0
         mismatch_flags: list[bool] = []
-        camera_trust_state = CameraTrustState()
         trust_flags: list[bool] = []
+        tamper_flags: list[bool] = []
         trust_reason_counter: Counter[str] = Counter()
 
         prev_frame = None
@@ -137,6 +151,7 @@ class VideoCompliancePipeline:
                     sample_seconds=step / fps,
                 )
                 trust_flags.append(trust.trusted)
+                tamper_flags.append(trust.tamper_suspected)
                 trust_reason_counter.update(trust.reasons)
 
                 if not trust.trusted and (
@@ -336,7 +351,16 @@ class VideoCompliancePipeline:
             common_reasons = [
                 reason for reason, _ in trust_reason_counter.most_common(3)
             ] or reasons
-            case = build_camera_integrity_case(
+            # If most unusable samples have no tamper evidence, report a
+            # visibility issue, never an allegation of camera sabotage.
+            unusable_count = sum(not item for item in trust_flags)
+            tamper_count = sum(tamper_flags)
+            case_factory = (
+                build_camera_integrity_case
+                if tamper_count > unusable_count / 2
+                else build_camera_visibility_case
+            )
+            case = case_factory(
                 centre_id=centre_id,
                 batch_id=batch_id,
                 camera_id=camera_id,
@@ -355,7 +379,7 @@ class VideoCompliancePipeline:
                         "centre_id": centre_id,
                         "batch_id": batch_id,
                         "camera_id": camera_id,
-                        "case_type": "camera_integrity",
+                        "case_type": case.case_type,
                         "trusted_sample_ratio": round(trusted_ratio, 3),
                         "privacy_transform": "full_frame_blur_due_untrusted_camera",
                     },

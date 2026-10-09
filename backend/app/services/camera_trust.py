@@ -77,6 +77,9 @@ class CameraTrustState:
     elapsed_seconds: float = 0.0
     registration_checked_at: float = -999.0
     registration_shift: bool = False
+    reference_reviewed: bool = False
+    reference_id: str | None = None
+    reference_mode: str | None = None
 
     def persistent(self, key: str, active: bool, seconds: float, minimum: float) -> bool:
         self.consecutive_seconds[key] = (
@@ -111,7 +114,11 @@ def assess_camera(
         memory.reference_frame = (
             reference_frame if reference_frame is not None else frame
         ).copy()
+    if memory.reference_frame.shape[:2] != frame.shape[:2]:
+        raise ValueError("Camera frame and reviewed reference resolution must match")
+    if memory.reference_blur is None:
         memory.reference_blur = blur_score(memory.reference_frame)
+    if memory.reference_light is None:
         memory.reference_light = luminance(memory.reference_frame)
 
     reference = memory.reference_frame
@@ -130,13 +137,22 @@ def assess_camera(
     memory.previous_gray = gray.copy()
     memory.elapsed_seconds += sample_seconds
 
-    frozen = memory.persistent("frozen", identical, sample_seconds, 3.0)
+    # Exact identical black video is not sufficient proof of a replay.
+    frozen = memory.persistent(
+        "frozen", identical and image_light >= dark_threshold and blur >= 3.0,
+        sample_seconds, 3.0,
+    )
     dark = memory.persistent(
         "dark", image_light < dark_threshold, sample_seconds, 1.0,
     )
     blurry = memory.persistent(
         "blur", base_blur >= 3.0 and blur_ratio < 0.27
         and corr > 0.73 and brightness_delta < 35.0,
+        sample_seconds, 1.5,
+    )
+    # Poor visibility must not automatically become a tampering allegation.
+    low_detail = memory.persistent(
+        "low_detail", image_light < 95.0 and blur < 12.0,
         sample_seconds, 1.5,
     )
 
@@ -184,18 +200,22 @@ def assess_camera(
         reasons.append("image excessively blurred")
     if dark:
         reasons.append("image too dark for reliable verification")
+    if low_detail:
+        reasons.append("low-detail scene limits visual verification")
     if obstructed:
         reasons.append("camera view may be obstructed")
     if shifted:
         reasons.append("camera viewpoint may have shifted")
 
-    # Dark footage can be unusable evidence without being a tampering alert.
-    suspected_tamper = frozen or blurry or obstructed or shifted
-    unusable = suspected_tamper or dark
+    # Optical defocus alone is insufficient to infer intentional tampering.
+    suspected_tamper = frozen or obstructed or shifted
+    degraded_visibility = blurry or dark or low_detail
+    unusable = suspected_tamper or degraded_visibility
     penalty = sum((
         60 if frozen else 0,
         60 if blurry else 0,
         60 if dark else 0,
+        60 if low_detail else 0,
         65 if obstructed else 0,
         60 if shifted else 0,
     ))
@@ -207,5 +227,16 @@ def assess_camera(
         is_too_dark=dark,
         scene_shift=shifted,
         tamper_suspected=suspected_tamper,
+        quality_status="DEGRADED_VISIBILITY" if degraded_visibility else "SUFFICIENT",
+        integrity_status="SUSPECTED_TAMPERING" if suspected_tamper else "NO_TAMPER_SIGNAL",
+        camera_status=(
+            "SUSPECTED_TAMPERING" if suspected_tamper
+            else "DEGRADED_VISIBILITY" if degraded_visibility else "USABLE"
+        ),
+        reference_status=(
+            "REVIEWED_REFERENCE" if memory.reference_reviewed
+            else "UNVERIFIED_INITIAL_FRAME"
+        ),
+        reference_id=memory.reference_id,
         reasons=reasons,
     )

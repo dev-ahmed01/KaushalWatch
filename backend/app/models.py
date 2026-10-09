@@ -22,6 +22,11 @@ class CameraTrust(BaseModel):
     is_too_dark: bool = False
     scene_shift: bool = False
     tamper_suspected: bool = False
+    quality_status: str = "SUFFICIENT"
+    integrity_status: str = "NO_TAMPER_SIGNAL"
+    camera_status: str = "USABLE"
+    reference_status: str = "UNVERIFIED_INITIAL_FRAME"
+    reference_id: str | None = None
     reasons: list[str] = Field(default_factory=list)
 
 

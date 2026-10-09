@@ -138,7 +138,7 @@ def test_low_illumination_reference_regime_not_called_obstruction():
         dim_frames.append(frame)
     results = _stream([base] * 3 + dim_frames)
     assert all(not item.tamper_suspected for item in results)
-    assert all(item.trusted for item in results)
+    assert results[-1].quality_status in {"SUFFICIENT", "DEGRADED_VISIBILITY"}
 
 
 def test_dark_occlusion_still_disables_visual_evidence():
@@ -155,3 +155,41 @@ def test_bright_opaque_obstruction_remains_tamper_suspect():
     results = _stream([base] * 3 + [covered] * 20)
     assert not results[-1].trusted
     assert results[-1].tamper_suspected
+
+
+
+def test_low_light_soft_scene_is_degraded_not_tamper():
+    scene = _scene()
+    low = cv2.GaussianBlur(
+        cv2.convertScaleAbs(scene, alpha=0.35, beta=0), (35, 35), 8
+    )
+    stream = []
+    for i in range(14):
+        f = low.copy()
+        f[0, 0] = (i % 3) + 20
+        stream.append(f)
+    latest = _stream([scene] + stream)[-1]
+    assert not latest.trusted
+    assert latest.quality_status == "DEGRADED_VISIBILITY"
+    assert not latest.tamper_suspected
+
+
+def test_all_black_feed_degrades_visibility_not_camera_sabotage():
+    black = np.zeros_like(_scene())
+    trust = _stream([black.copy() for _ in range(14)])[-1]
+    assert not trust.trusted
+    assert trust.camera_status == "DEGRADED_VISIBILITY"
+    assert trust.integrity_status == "NO_TAMPER_SIGNAL"
+
+
+def test_ordinary_scene_reports_unverified_reference():
+    base = _scene()
+    status = assess_camera(base, state=CameraTrustState())
+    assert status.reference_status == "UNVERIFIED_INITIAL_FRAME"
+
+
+def test_bright_scene_shift_remains_integrity_signal():
+    base = _scene()
+    moved = np.roll(base, 60, axis=1)
+    latest = _stream([base] * 2 + [moved] * 12)[-1]
+    assert latest.camera_status == "SUSPECTED_TAMPERING"

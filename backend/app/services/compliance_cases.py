@@ -80,6 +80,35 @@ def build_camera_integrity_case(
 
 
 
+def build_camera_visibility_case(
+    centre_id: str,
+    batch_id: str,
+    camera_id: str,
+    reasons: list[str],
+    trust_score: float,
+) -> ComplianceCase:
+    """Camera may be unusable without evidence of tampering."""
+    return ComplianceCase(
+        case_id=f"CASE-{uuid.uuid4().hex[:8].upper()}",
+        centre_id=centre_id,
+        batch_id=batch_id,
+        case_type="camera_visibility",
+        severity="medium",
+        summary=(
+            f"Camera {camera_id} has insufficient visibility: "
+            + ", ".join(reasons or ["low image quality"])
+            + ". Attendance and practical activity conclusions are suspended "
+            "pending review; no tampering is inferred."
+        ),
+        details={
+            "camera_id": camera_id,
+            "camera_trust_score": trust_score,
+            "reasons": reasons,
+            "decision_basis": "inadequate visual evidence, not camera sabotage",
+        },
+    )
+
+
 def build_practical_activity_case(
     centre_id: str,
     batch_id: str,
