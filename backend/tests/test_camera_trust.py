@@ -129,7 +129,14 @@ def test_low_illumination_reference_regime_not_called_obstruction():
     base = _scene()
     dim = np.full_like(base, 65)
     cv2.circle(dim, (160, 100), 22, (75, 75, 75), 2)
-    results = _stream([base] * 3 + [dim] * 20)
+    # Vary one background pixel between frames so this test isolates
+    # reference-regime drift rather than legitimately frozen video.
+    dim_frames = []
+    for index in range(20):
+        frame = dim.copy()
+        frame[4, 4] = 65 + (index % 4)
+        dim_frames.append(frame)
+    results = _stream([base] * 3 + dim_frames)
     assert all(not item.tamper_suspected for item in results)
     assert all(item.trusted for item in results)
 
