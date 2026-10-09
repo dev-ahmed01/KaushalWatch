@@ -43,6 +43,8 @@ The emitted `final_demo_report.json` contains `evaluation_mode: frozen_input_sco
 - Missing columns, empty cells, negative or non-integer counts, values such as `unknown` or `maybe` in binary truth/prediction columns, invalid apparent-operability states, and a case dataset without both actual positive and actual negative opportunities.
 - Output percentages that would be mathematically unsupported by a denominator. When a class has no negative opportunities, **false-positive rate is null / not estimable**, not a perfect zero. The same principle applies to undefined precision/recall and no-decision operability accuracy.
 
+The [operational attendance trace](operational-attendance-trace.md) optionally verifies sampled **registered/confirmed and smoothed** occupancy predictions from the existing pipeline with `--operational-attendance-receipt`. It cannot be combined with `--attendance-receipt`, which scores a different raw-detector count. Neither mode authenticates the unsigned local receipt or verifies unrelated subsystems.
+
 A future provider-specific model benchmark must separately preserve the inference logs, model version, thresholds, command/configuration, prediction-to-sample matching and independent labels. Only then can a scored result be attributed to a particular computer-vision system. The hash-bound CSV scorer **does not** make that attribution.
 
 ## Acceptance remaining before claiming Milestone 3
