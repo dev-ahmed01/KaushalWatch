@@ -53,6 +53,7 @@ test('single officer click sends one review write and renders both persisted aud
   await expect(page.getByText('A final officer outcome has been recorded.')).toBeVisible();
   await page.reload();
   await expect(page.getByText('A final officer outcome has been recorded.')).toBeVisible();
+  await page.getByText(/Audit trail · 2 events/).click();
   await expect(page.getByText(/Recorded by: synthetic-reviewer/i).first()).toBeVisible();
   expect(reviewWrites).toBe(1);
 });
@@ -103,4 +104,17 @@ test('offline action API is unavailable, not an empty healthy queue', async ({ p
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Action queue', exact: true })).toBeVisible();
   await expect(page.getByText('The grounded action queue is temporarily unavailable.')).toHaveCount(0);
+});
+
+
+test('missing camera measurement never appears as a trusted video on officer screens', async ({ page }) => {
+  await page.goto('/cases/SIM-KA-207-CAM');
+  await expect(page.getByRole('heading', { name: 'Camera integrity', exact: true })).toBeVisible();
+  await expect(page.getByText('Camera trust unavailable').first()).toBeVisible();
+  await expect(page.getByText('Camera trusted', { exact: true })).toHaveCount(0);
+
+  await page.goto('/centres/DEMO-KA-207/evidence');
+  await expect(page.getByRole('heading', { name: 'Evidence', exact: true })).toBeVisible();
+  await expect(page.getByText('Camera trust needs verification').first()).toBeVisible();
+  await expect(page.getByText('Camera trusted', { exact: true })).toHaveCount(0);
 });
