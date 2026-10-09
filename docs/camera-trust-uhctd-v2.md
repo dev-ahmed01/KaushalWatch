@@ -76,3 +76,37 @@ Day 3 clip scores establish deployment suitability.
 Camera trust based on visual evidence cannot reliably authenticate true
 stream freshness or prove malicious tampering. Human review remains
 the final decision.
+
+## Phase 4 — diagnosing Day 4 obstruction false alarms
+
+Previous Day 4 v3 (Camera B) diagnostic: 166,629 normal samples were
+flagged. 164,647 have reason "camera view may be obstructed" and 1,982
+have "image excessively blurred" (these counts sum to the total; do not
+generalize outside this recording). Tamper recall fell to 64.6%.
+
+The proposed first-frame-reference drift hypothesis is **not proven**.
+Run the added diagnostic probe to identify which factor drives the
+obstruction condition without changing any detection thresholds:
+
+  python scripts/diagnose_uhctd_obstruction.py \
+    --video "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/video.avi" \
+    --annotations "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/annotations.csv" \
+    --out "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/obstruction_probe"
+
+The probe selects 12 spread-out, completely normal, 90-second windows
+from the original annotated video with a 20-second margin from labels.
+It samples both the original first-frame reference and an intentionally
+window-local reference at identical video times, using fresh state for
+each window. It reports scene correlation, texture ratio, luminance,
+raw obstruction candidacy, and sustained camera-alert reasons.
+
+Outputs (no images/videos):
+- obstruction_diagnostics_summary.json: aggregate paired evidence.
+- obstruction_windows.csv: timestamped per-window incident counts.
+- obstruction_samples.csv: per-frame numerical traces for diagnosis.
+
+IMPORTANT: Local-reference improvement is *not* permission to update
+production baseline automatically: doing so could allow slow obstruction
+or camera movement to become the new 'trusted' reference. This is a
+targeted normal-only diagnostic, not a full-day scoring run or new
+held-out test. Day 4 is contaminated for independent v3/v4 validation.
