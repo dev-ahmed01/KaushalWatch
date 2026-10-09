@@ -36,22 +36,17 @@ def test_attendance_upload_never_equates_authoritative_detector_with_trusted_res
     history = AnalysisHistoryStore(tmp_path / "analysis.json")
     monkeypatch.setattr(app_main, "HISTORY", history)
 
-    class SyntheticResult:
-        case = None
-        reported_attendance = 20
-        estimated_occupancy = 20
-        discrepancy_pct = 0
-        detector_authoritative = authoritative
-        detector_failures = failures
-        trusted_sample_ratio = trust
-        detector_message = "Synthetic detector event; not real model output"
-        decision = decision
-
-        def model_dump(self, *, mode):
-            assert mode == "json"
-            return {"decision": self.decision, "case": None}
-
-    monkeypatch.setattr(app_main, "PIPELINE", SimpleNamespace(run=lambda *a, **k: SyntheticResult()))
+    synthetic_result = SimpleNamespace(
+        case=None, reported_attendance=20, estimated_occupancy=20,
+        discrepancy_pct=0, detector_authoritative=authoritative,
+        detector_failures=failures, trusted_sample_ratio=trust,
+        detector_message="Synthetic detector event; not real model output",
+        decision=decision,
+        model_dump=lambda **_: {"decision": decision, "case": None},
+    )
+    monkeypatch.setattr(
+        app_main, "PIPELINE", SimpleNamespace(run=lambda *a, **k: synthetic_result)
+    )
     monkeypatch.setenv("KAUSHALWATCH_ENV", "development")
     result = TestClient(app_main.app).post(
         "/api/process-video",
