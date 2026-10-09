@@ -249,3 +249,21 @@ def test_rejects_two_different_assets_assigned_to_the_same_role(tmp_path):
     result = qualify_release_assets(manifest)
     assert result["ready"] is False
     assert _codes(result)["asset_5_unique_role"] is False
+
+
+def test_malformed_manifest_values_are_reported_as_failures_not_exceptions(tmp_path):
+    manifest = _build_manifest(tmp_path)
+    data = json.loads(manifest.read_text())
+    data["assets"][0]["role"] = {"untrusted": "object"}
+    data["annotations"][0]["kind"] = ["unexpected"]
+    data["equipment_cache"]["asset_id"] = ["invalid"]
+    data["operability"]["asset_id"] = ["invalid"]
+    data["practical"]["authorization"] = ["invalid"]
+    data["scenario"]["primary_asset_id"] = ["invalid"]
+    manifest.write_text(json.dumps(data))
+    report = qualify_release_assets(manifest)
+    assert report["ready"] is False
+    assert _codes(report)["asset_0_role"] is False
+    assert _codes(report)["annotation_0_kind"] is False
+    assert _codes(report)["equipment_cache_bound_to_source"] is False
+    assert _codes(report)["operability_stable_roi_window"] is False
