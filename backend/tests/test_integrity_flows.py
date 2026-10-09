@@ -27,7 +27,7 @@ def _write_dark_video(path: Path, frames: int = 30) -> None:
         writer.release()
 
 
-def test_camera_integrity_case_preempts_attendance_on_bad_feed(tmp_path):
+def test_visibility_case_preempts_attendance_on_unusable_black_feed(tmp_path):
     video = tmp_path / "covered-camera.avi"
     _write_dark_video(video)
 
@@ -45,10 +45,13 @@ def test_camera_integrity_case_preempts_attendance_on_bad_feed(tmp_path):
     )
 
     assert result.case is not None
-    assert result.case.case_type == "camera_integrity"
+    assert result.case.case_type == "camera_visibility"
+    assert result.decision == "camera_visibility_insufficient"
+    assert result.estimated_occupancy is None
+    assert result.discrepancy_pct is None
     assert "suspended" in result.case.summary.lower()
     assert len(result.case.evidence) == 1
-    assert result.case.evidence[0].metadata["case_type"] == "camera_integrity"
+    assert result.case.evidence[0].metadata["case_type"] == "camera_visibility"
     assert (
         result.case.evidence[0].metadata["privacy_transform"]
         == "full_frame_blur_due_untrusted_camera"
