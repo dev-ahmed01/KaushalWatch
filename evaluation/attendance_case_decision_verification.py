@@ -51,11 +51,21 @@ def verify_attendance_case_opportunity(
         }
         if not reader.fieldnames or not required.issubset(reader.fieldnames):
             raise ValueError("Frozen case CSV lacks source/centre/batch/reported-count mapping")
+        all_rows = list(reader)
         rows = [
-            x for x in reader
+            x for x in all_rows
             if x.get("sample_id", "").strip() == case_sample_id
             and x.get("case_type", "").strip() == "attendance_discrepancy"
         ]
+    # A single whole-video verdict must not be counted as multiple
+    # independent case opportunities under different sample IDs.
+    from_this_video = [
+        x for x in all_rows
+        if x.get("source_asset_id", "").strip() == attendance_asset["id"]
+        and x.get("case_type", "").strip() == "attendance_discrepancy"
+    ]
+    if len(from_this_video) != 1:
+        raise ValueError("One attendance video must map to exactly one attendance case opportunity")
     if len(rows) != 1:
         raise ValueError("Exactly one attendance_discrepancy opportunity must match the sample ID")
     row = rows[0]
@@ -93,6 +103,11 @@ def verify_attendance_case_opportunity(
             and 0 < minimum_trusted_ratio <= 1 and warmup_seconds >= 0):
         raise ValueError("Invalid recorded decision thresholds")
 
+    selected_samples = record["samples"]
+    selected_by_frame = {item["frame_index"]: item for item in selected_samples}
+    if len(selected_by_frame) != len(selected_samples):
+        raise ValueError("Operational receipt has duplicated selected sample frames")
+    seen_selected: set[int] = set()
     seen: set[int] = set()
     previous_frame = -1
     eligible_flags: list[bool] = []
@@ -109,6 +124,17 @@ def verify_attendance_case_opportunity(
             raise ValueError("Operational decision timeline has invalid time")
         seen.add(frame)
         previous_frame = frame
+        if frame in selected_by_frame:
+            selected = selected_by_frame[frame]
+            comparable = (
+                "second", "decoded_frame_sha256", "camera_trusted",
+                "detector_eligible", "raw_count", "candidate_count",
+                "confirmed_count", "registered_count", "smoothed_count",
+                "sample_mismatch",
+            )
+            if any(sample.get(key) != selected.get(key) for key in comparable):
+                raise ValueError("Selected sample conflicts with complete decision timeline")
+            seen_selected.add(frame)
         warm = bool(second >= warmup_seconds)
         if sample.get("warmup_complete") is not warm:
             raise ValueError("Timeline warmup flag differs from recorded sample time")
@@ -133,6 +159,8 @@ def verify_attendance_case_opportunity(
         if warm:
             eligible_flags.append(mismatch)
 
+    if seen_selected != set(selected_by_frame):
+        raise ValueError("Complete decision timeline excludes selected scoring samples")
     trusted_ratio = trusted / len(timeline)
     if abs(trusted_ratio - result.get("trusted_sample_ratio", -1)) > 0.00011:
         raise ValueError("Pipeline trusted ratio does not match the full timeline")
