@@ -115,7 +115,7 @@ def test_snapshot_refuses_non_simulated_cases_and_leaves_archive_absent(tmp_path
 def test_snapshot_refuses_evidence_external_path_and_symlink(tmp_path):
     source, _ = _prepared_state(tmp_path)
     cases = json.loads((source / "cases.json").read_text())
-    cases[0]["evidence"][0]["frame_path"] = str(tmp_path / "external-photo.jpg")
+    next(case for case in cases if case.get("evidence"))["evidence"][0]["frame_path"] = str(tmp_path / "external-photo.jpg")
     (source / "cases.json").write_text(json.dumps(cases))
     with pytest.raises(ValueError, match="escapes"):
         snapshot_demo(source, tmp_path / "reject-external.zip")
