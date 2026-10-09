@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
+import subprocess
 import sys
+from datetime import datetime, timezone
 from collections import Counter
 from pathlib import Path
 
@@ -29,6 +32,22 @@ sys.path.insert(0, str(ROOT / "backend"))
 from app.services.camera_trust import CameraTrustState, assess_camera  # noqa: E402
 
 LABELS = {0: "normal", 1: "covered", 2: "defocused", 3: "moved"}
+
+
+def file_hash(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def current_revision() -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
+        capture_output=True, text=True, check=False,
+    )
+    return result.stdout.strip() if result.returncode == 0 else None
 
 
 def annotation_intervals(path: Path):
@@ -275,7 +294,11 @@ def survey(video, annotations, out, *, events_per_class=4, normal_windows=12,
                 "first-frame reference. This is NOT continuous-stream scoring, "
                 "and selected intervals do not estimate true 24h incident rates."
             ),
+            "model_commit":current_revision(),
+            "created_at_utc":datetime.now(timezone.utc).isoformat(),
             "video":str(video.resolve()),"annotations":str(annotations.resolve()),
+            "annotations_sha256":file_hash(annotations),
+            "video_bytes":video.stat().st_size,
             "fps":fps,"total_video_frames":count,"effective_sample_seconds":step/fps,
             "event_sample_seconds":event_seconds,
             "normal_sample_seconds":normal_seconds,
