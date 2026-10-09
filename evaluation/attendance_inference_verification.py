@@ -11,6 +11,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import cv2
+
 from evaluation.capture_attendance_inference import _attendance_entries, sha256_file
 
 
@@ -82,6 +84,29 @@ def verify_attendance_receipt(
         observed[sid] = (frame, count)
     if seen != set(expected_samples):
         raise ValueError("Attendance receipt is missing frozen samples")
+
+    video_entry = next(a for a in manifest["assets"] if a["role"] == "attendance")
+    video_path = Path(video_entry["path"]).expanduser()
+    if not video_path.is_absolute():
+        video_path = manifest_path.parent / video_path
+    capture = cv2.VideoCapture(str(video_path.resolve()))
+    if not capture.isOpened():
+        raise ValueError("Attendance source cannot be decoded for receipt verification")
+    try:
+        for sample in samples:
+            index = sample["frame_index"]
+            if not capture.set(cv2.CAP_PROP_POS_FRAMES, index):
+                raise ValueError("Cannot seek to frame recorded in attendance receipt")
+            success, decoded = capture.read()
+            if not success or decoded is None:
+                raise ValueError("Cannot decode frame recorded in attendance receipt")
+            if abs(capture.get(cv2.CAP_PROP_POS_FRAMES) - (index + 1)) > 0.5:
+                raise ValueError("Decoder frame location differs from attendance receipt")
+            actual_hash = hashlib.sha256(decoded.tobytes()).hexdigest()
+            if actual_hash != sample["decoded_frame_sha256"]:
+                raise ValueError("Decoded video frame differs from attendance receipt")
+    finally:
+        capture.release()
 
     with csv_path.open(newline="", encoding="utf-8-sig") as handle:
         rows = list(csv.DictReader(handle, strict=True))
