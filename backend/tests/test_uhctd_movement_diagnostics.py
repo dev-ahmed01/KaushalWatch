@@ -69,6 +69,12 @@ def test_one_synthetic_span_produces_frame_level_gate_diagnostics(tmp_path):
         columns.extend(
             f"{name}_{key}" for name in ("original", "local") for key in metrics
         )
+        from app.services.camera_feature_geometry import landmark_displacement
+        feature_names = list(landmark_displacement(reference, reference))
+        columns.extend(
+            f"{name}_landmark_{key}"
+            for name in ("original", "local") for key in feature_names
+        )
         path = tmp_path / "diagnostic.csv"
         with path.open("w", newline="") as stream:
             csv_writer = csv.DictWriter(stream, fieldnames=columns)
