@@ -1033,7 +1033,7 @@ def review_case(
         )
 
     try:
-        case = STORE.update_status(
+        case = STORE.apply_review_action(
             case_id,
             request.action,
             note=note or None,
