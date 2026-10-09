@@ -267,3 +267,156 @@ def test_malformed_manifest_values_are_reported_as_failures_not_exceptions(tmp_p
     assert _codes(report)["annotation_0_kind"] is False
     assert _codes(report)["equipment_cache_bound_to_source"] is False
     assert _codes(report)["operability_stable_roi_window"] is False
+
+
+def _scorecard_sources(tmp_path):
+    return {kind: tmp_path / f"{kind}.csv"
+            for kind in ("attendance", "equipment", "operability", "cases")}
+
+
+def test_final_scorecard_provenance_is_sha_bound_and_disclaims_prediction_origin(tmp_path):
+    from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+
+    manifest = _build_manifest(tmp_path)
+    provenance = verify_frozen_scorecard_inputs(manifest, _scorecard_sources(tmp_path))
+    assert provenance["manifest_sha256"] == _hash(manifest)
+    assert provenance["annotation_inputs"]["cases"]["sample_rows"] == 2
+    assert provenance["annotation_inputs"]["cases"]["ground_truth_positive"] == 1
+    assert provenance["annotation_inputs"]["cases"]["ground_truth_negative"] == 1
+    assert provenance["source_video_sha256_by_role"]["infrastructure"] == _hash(tmp_path / "synthetic.avi")
+    assert "NOT" in provenance["prediction_provenance"]
+
+
+def test_final_scorecard_rejects_replaced_csv_even_if_contents_match(tmp_path):
+    import pytest
+    from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+
+    manifest = _build_manifest(tmp_path)
+    alternate = tmp_path / "alternate_attendance.csv"
+    alternate.write_bytes((tmp_path / "attendance.csv").read_bytes())
+    sources = _scorecard_sources(tmp_path)
+    sources["attendance"] = alternate
+    with pytest.raises(ValueError, match="attendance: provided CSV"):
+        verify_frozen_scorecard_inputs(manifest, sources)
+
+
+def test_final_scorecard_rejects_duplicate_case_opportunities(tmp_path):
+    import pytest
+    from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+
+    manifest = _build_manifest(tmp_path)
+    cases = tmp_path / "cases.csv"
+    with cases.open("a", encoding="utf-8") as handle:
+        handle.write("C1,attendance_discrepancy,true,true\n")
+    data = json.loads(manifest.read_text())
+    next(row for row in data["annotations"] if row["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="duplicated scoring opportunity"):
+        verify_frozen_scorecard_inputs(manifest, _scorecard_sources(tmp_path))
+
+
+def test_final_scorecard_rejects_malformed_truth_labels_even_if_sha_matches(tmp_path):
+    import pytest
+    from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+
+    manifest = _build_manifest(tmp_path)
+    cases = tmp_path / "cases.csv"
+    cases.write_text(cases.read_text().replace(",false,false", ",maybe,false"))
+    data = json.loads(manifest.read_text())
+    next(row for row in data["annotations"] if row["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="expected a true/false label"):
+        verify_frozen_scorecard_inputs(manifest, _scorecard_sources(tmp_path))
+
+
+def test_final_scorecard_rejects_negative_counts_and_invalid_operability_state(tmp_path):
+    import pytest
+    from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+
+    manifest = _build_manifest(tmp_path)
+    attendance = tmp_path / "attendance.csv"
+    attendance.write_text(attendance.read_text().replace("A1,2,2,", "A1,-2,2,"))
+    data = json.loads(manifest.read_text())
+    next(row for row in data["annotations"] if row["kind"] == "attendance")["sha256"] = _hash(attendance)
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="count cannot be negative"):
+        verify_frozen_scorecard_inputs(manifest, _scorecard_sources(tmp_path))
+
+    attendance.write_text(attendance.read_text().replace("A1,-2,2,", "A1,2,2,"))
+    op = tmp_path / "operability.csv"
+    op.write_text(op.read_text().replace("UNCERTAIN", "WORKING_PERFECTLY"))
+    data = json.loads(manifest.read_text())
+    next(row for row in data["annotations"] if row["kind"] == "attendance")["sha256"] = _hash(attendance)
+    next(row for row in data["annotations"] if row["kind"] == "operability")["sha256"] = _hash(op)
+    manifest.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="invalid predicted state"):
+        verify_frozen_scorecard_inputs(manifest, _scorecard_sources(tmp_path))
+
+
+def test_final_evaluator_does_not_write_report_before_manifest_qualification(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation import evaluate_final_demo
+
+    manifest = _build_manifest(tmp_path)
+    report_dir = tmp_path / "blocked-output"
+    wrong = tmp_path / "alternate.csv"
+    wrong.write_bytes((tmp_path / "attendance.csv").read_bytes())
+    argv = [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--attendance", str(wrong),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(report_dir),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(ValueError, match="attendance: provided CSV"):
+        evaluate_final_demo.main()
+    assert not report_dir.exists()
+
+
+def test_final_evaluator_output_contains_frozen_provenance_and_no_model_claim(
+    tmp_path, monkeypatch
+):
+    from evaluation import evaluate_final_demo
+
+    manifest = _build_manifest(tmp_path)
+    report_dir = tmp_path / "final-output"
+    argv = [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(report_dir),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    evaluate_final_demo.main()
+    report = json.loads((report_dir / "final_demo_report.json").read_text())
+    assert report["evaluation_mode"] == "frozen_input_scorecard"
+    assert report["input_provenance"]["manifest_sha256"] == _hash(manifest)
+    assert report["prediction_source_verified"] is False
+    assert report["apparent_operability"]["coverage"] == 0.0
+    assert report["apparent_operability"]["accuracy_when_decided"] is None
+
+
+def test_unqualified_example_mode_is_explicitly_marked(tmp_path, monkeypatch):
+    from evaluation import evaluate_final_demo
+
+    _build_manifest(tmp_path)
+    report_dir = tmp_path / "dev-report"
+    argv = [
+        "evaluate_final_demo.py",
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(report_dir),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    evaluate_final_demo.main()
+    report = json.loads((report_dir / "final_demo_report.json").read_text())
+    assert report["evaluation_mode"] == "development_inputs_not_release_qualified"
+    assert report["input_provenance"] is None
