@@ -639,7 +639,7 @@ def test_final_evaluator_rejects_missing_attendance_receipt_before_writing(tmp_p
     assert not report_dir.exists()
 
 
-def _operational_fixture(tmp_path, monkeypatch):
+def _operational_fixture(tmp_path, monkeypatch, *, reported_attendance=0):
     from types import SimpleNamespace
     from app.services import video_pipeline
     from app.services.person_detector import DetectorInfo
@@ -647,14 +647,15 @@ def _operational_fixture(tmp_path, monkeypatch):
 
     manifest = _build_manifest(tmp_path)
     attendance = tmp_path / "attendance.csv"
+    issue = "true" if reported_attendance else "false"
     _write_csv(
         attendance,
         ["sample_id", "frame_index", "true_count", "pred_count", "true_issue", "pred_issue"],
         [
             {"sample_id": "OP-20", "frame_index": "20", "true_count": "0",
-             "pred_count": "0", "true_issue": "false", "pred_issue": "false"},
+             "pred_count": "0", "true_issue": "false", "pred_issue": issue},
             {"sample_id": "OP-24", "frame_index": "24", "true_count": "0",
-             "pred_count": "0", "true_issue": "false", "pred_issue": "false"},
+             "pred_count": "0", "true_issue": "false", "pred_issue": issue},
         ],
     )
     frozen = json.loads(manifest.read_text())
@@ -678,7 +679,7 @@ def _operational_fixture(tmp_path, monkeypatch):
 
     receipt = capture_operational_attendance(
         manifest, attendance,
-        reported_attendance=0,
+        reported_attendance=reported_attendance,
         sample_every_seconds=0.2,
         count_source="registered",
         smoother_window=5,
@@ -878,10 +879,14 @@ def test_operational_receipt_blocks_warmup_and_unsampled_annotation(tmp_path, mo
     assert warmup["samples"][0]["smoothed_count"] is None
 
 
-def _case_attendance_fixture(tmp_path, monkeypatch):
+def _case_attendance_fixture(tmp_path, monkeypatch, *, reported_attendance=0):
     from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
 
-    manifest, record = _operational_fixture(tmp_path, monkeypatch)
+    manifest, record = _operational_fixture(
+        tmp_path, monkeypatch, reported_attendance=reported_attendance
+    )
+    positive = "true" if reported_attendance else "false"
+    opposite = "false" if reported_attendance else "true"
     _local_test_model_artifacts(tmp_path, record)
     cases = tmp_path / "cases.csv"
     _write_csv(
@@ -890,13 +895,13 @@ def _case_attendance_fixture(tmp_path, monkeypatch):
          "source_asset_id", "centre_id", "batch_id", "reported_attendance"],
         [
             {"sample_id": "C1", "case_type": "camera_integrity",
-             "true_issue": "true", "pred_issue": "false",
+             "true_issue": opposite, "pred_issue": "false",
              "source_asset_id": "camera_degraded", "centre_id": "DEMO-KA-104",
              "batch_id": "TEST-BATCH", "reported_attendance": "0"},
             {"sample_id": "C2", "case_type": "attendance_discrepancy",
-             "true_issue": "false", "pred_issue": "false",
+             "true_issue": positive, "pred_issue": positive,
              "source_asset_id": "attendance", "centre_id": "DEMO-KA-104",
-             "batch_id": "TEST-BATCH", "reported_attendance": "0"},
+             "batch_id": "TEST-BATCH", "reported_attendance": str(reported_attendance)},
         ],
     )
     frozen = json.loads(manifest.read_text())
