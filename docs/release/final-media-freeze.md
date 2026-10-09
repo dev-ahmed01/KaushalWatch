@@ -67,7 +67,7 @@ python scripts/run_final_demo_rehearsal.py --video "data/raw/DOD_110930728.mp4" 
 
 The `--final` readiness and rehearsal paths now require the frozen registry; they reject runtime scenario/cache or clip SHA mismatch. The exact same primary infrastructure video must be supplied to these commands. Other roles must still be analyzed with their actual annotated source clips during final evaluation.
 
-**Important:** Do not take percentages or detection accuracy from `demo/release-assets.example.json`, synthetic CI tests, or unreviewed per-frame predictions. Metrics belong to the independently annotated exact clips only.
+**Important:** Do not take percentages or detection accuracy from `demo/release-assets.example.json`, synthetic CI tests, or unreviewed per-frame predictions. Metrics belong to the independently annotated exact clips only. After freezing actual files, run the **final-mode** scorer described in [frozen-scorecards.md](frozen-scorecards.md); passing the file-integrity gate alone does not establish model-output provenance.
 
 ## Remaining Milestone 2 acceptance
 
