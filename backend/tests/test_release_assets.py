@@ -889,9 +889,9 @@ def _case_attendance_fixture(tmp_path, monkeypatch):
         ["sample_id", "case_type", "true_issue", "pred_issue",
          "source_asset_id", "centre_id", "batch_id", "reported_attendance"],
         [
-            {"sample_id": "C1", "case_type": "attendance_discrepancy",
+            {"sample_id": "C1", "case_type": "camera_integrity",
              "true_issue": "true", "pred_issue": "false",
-             "source_asset_id": "attendance", "centre_id": "DEMO-KA-104",
+             "source_asset_id": "camera_degraded", "centre_id": "DEMO-KA-104",
              "batch_id": "TEST-BATCH", "reported_attendance": "0"},
             {"sample_id": "C2", "case_type": "attendance_discrepancy",
              "true_issue": "false", "pred_issue": "false",
@@ -1028,12 +1028,14 @@ def test_case_verifier_refuses_unqualified_or_ambiguous_case_rows(tmp_path, monk
     # The global frozen scorecard gate also rejects this; this direct
     # verification must fail rather than silently take the first row.
     rows[0]["sample_id"] = "C2"
+    rows[0]["case_type"] = "attendance_discrepancy"
+    rows[0]["source_asset_id"] = "attendance"
     _write_csv(cases, list(rows[0]), rows)
     frozen = json.loads(manifest.read_text())
     next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
     manifest.write_text(json.dumps(frozen))
     record["manifest_sha256"] = _hash(manifest)
     receipt.write_text(json.dumps(record))
-    with pytest.raises(ValueError, match="Exactly one"):
+    with pytest.raises(ValueError, match="One attendance video"):
         verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
                                            cases, receipt, _hash(manifest), "C2")
