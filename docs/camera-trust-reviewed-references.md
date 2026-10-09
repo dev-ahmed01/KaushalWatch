@@ -259,3 +259,48 @@ until the new movement-gate diagnostics show adequate genuine
 displacement evidence and control #8 false-alarm rejection.**
 Do not automatically adapt the reference using a suspicious camera.
 The frozen fixed-camera-v1 profile remains unchanged.
+
+## Phase 9 updated landmark-survey review and transform safety
+
+Original Day 3 move-event landmark diagnostic at commit 458b5e9:
+- After annotated onset, the four tested moved-event intervals yielded
+  original-reference confident matches **0/60 each**.
+- Local (pre-event window) reference gave 1/60 for moved event 1 and
+  0/60 for moved events 2 through 4.
+- The sole event 1 'confident' match was a degenerate affine estimate:
+  scale 0.0003, corresponding to geometrically collapsed landmarks.
+  This is NOT valid evidence of a physical camera move.
+- Healthy normal control #8 matched its local reference confidently
+  **45/45 checks, with 0 shifts**; it still generated 181/270 false
+  *regional obstruction* alerts against the original stale baseline.
+- Later moved intervals have low texture, poor landmark distribution,
+  and frequently poor visual quality; mere phase offset or low-match
+  affine transformations must NEVER be interpreted as a shifted camera.
+
+Safety fix (still diagnostic only):
+camera_feature_geometry.landmark_displacement now rejects implausible
+transform scale (outside 0.70–1.40), excessive rotation (>30 degrees),
+and insufficient *destination-side* spatial landmark coverage. It
+reports 'IMPLAUSIBLE_AFFINE_TRANSFORM' or insufficient landmarks instead
+of a confident shift. Synthetic tests explicitly reject an affine
+scale of 0.0003 and collapsed destination geometry. This code does NOT
+change the production Camera Trust movement decision.
+
+Next evidence needed: human review the four different moved-event
+appearance sequences (including the event with extent parameter 0.0)
+and the flagged normal control #8. The source data license remains in
+force. A local-only selection tool is available at:
+
+    python scripts/export_uhctd_movement_review.py \
+      --video C:/Users/Admin/Desktop/MEVA/video.avi \
+      --annotations C:/Users/Admin/Desktop/MEVA/annotations-1.csv \
+      --out C:/Users/Admin/Desktop/MEVA/phase9_manual_review
+
+The tool exports five contact sheets, each containing six source-video
+frames with time and onset offsets, plus a JSON manifest. It never
+automatically enrolls these images as references or commits video.
+The observations are diagnostic, NOT held-out or production validation.
+
+Until independent full-day testing supports it, keep PR #54 draft,
+the frozen fixed-camera-v1 profile untouched, and the officer-review
+requirement in place.
