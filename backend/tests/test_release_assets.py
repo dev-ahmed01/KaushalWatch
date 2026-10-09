@@ -1044,3 +1044,69 @@ def test_case_verifier_refuses_unqualified_or_ambiguous_case_rows(tmp_path, monk
     with pytest.raises(ValueError, match="One attendance video"):
         verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
                                            cases, receipt, _hash(manifest), "C2")
+
+
+def test_whole_video_positive_attendance_exception_matches_frozen_case_row(
+    tmp_path, monkeypatch
+):
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(
+        tmp_path, monkeypatch, reported_attendance=5
+    )
+    assert record["pipeline_result"]["decision"] == "attendance_exception"
+    assert record["pipeline_result"]["case_type"] == "attendance_discrepancy"
+    assert record["pipeline_result"]["mismatch_persistence_ratio"] > 0.6
+    checked = verify_attendance_case_opportunity(
+        manifest, tmp_path / "attendance.csv", cases, receipt, _hash(manifest), "C2"
+    )
+    assert checked["predicted_issue"] is True
+    assert checked["independent_label_in_csv"] is True
+    assert checked["decision"] == "attendance_exception"
+
+
+def test_attendance_case_negative_cannot_represent_insufficient_camera_trust(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    selected_frames = {item["frame_index"] for item in record["samples"]}
+    for point in record["decision_timeline"]:
+        if point["frame_index"] in selected_frames:
+            continue
+        point["camera_trusted"] = False
+        point["detector_eligible"] = False
+        point["smoothed_count"] = None
+        point["raw_count"] = None
+        point["candidate_count"] = None
+        point["confirmed_count"] = None
+        point["registered_count"] = None
+        point["sample_mismatch"] = None
+        point["mismatch_for_persistence"] = False
+    record["pipeline_result"]["trusted_sample_ratio"] = round(
+        len(selected_frames) / len(record["decision_timeline"]), 4
+    )
+    record["pipeline_result"]["decision"] = "camera_integrity_exception"
+    record["pipeline_result"]["case_type"] = "camera_integrity"
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Insufficient trusted video"):
+        verify_attendance_case_opportunity(
+            manifest, tmp_path / "attendance.csv", cases, receipt, _hash(manifest), "C2"
+        )
+
+
+def test_case_selected_sample_must_match_whole_video_timeline(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    selected_frame = record["samples"][0]["frame_index"]
+    full = next(row for row in record["decision_timeline"] if row["frame_index"] == selected_frame)
+    full["confirmed_count"] = 10
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Selected sample conflicts"):
+        verify_attendance_case_opportunity(
+            manifest, tmp_path / "attendance.csv", cases, receipt, _hash(manifest), "C2"
+        )
