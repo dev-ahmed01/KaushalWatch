@@ -92,7 +92,7 @@ def _build_manifest(tmp_path: Path) -> Path:
         }],
     }]))
     meta = tmp_path / "reviewed-cache.meta.json"
-    meta.write_text(json.dumps({"source_video": {"sha256": _hash(clip)}}))
+    meta.write_text(json.dumps({"source_video": {"sha256": _hash(clip)}, "review": {"training_panel": "accepted by human"}}))
     assets = []
     for role in ("attendance", "practical", "infrastructure", "operability", "camera_degraded"):
         assets.append({
@@ -197,7 +197,7 @@ def test_rejects_operability_measurement_across_documented_camera_cut(tmp_path):
 def test_rejects_wrong_equipment_source_even_when_cache_files_are_intact(tmp_path):
     manifest = _build_manifest(tmp_path)
     meta = tmp_path / "reviewed-cache.meta.json"
-    meta.write_text(json.dumps({"source_video": {"sha256": "abcdef12" * 8}}))
+    meta.write_text(json.dumps({"source_video": {"sha256": "abcdef12" * 8}, "review": {"training_panel": "accepted by human"}}))
     data = json.loads(manifest.read_text())
     data["equipment_cache"]["metadata"]["sha256"] = _hash(meta)
     manifest.write_text(json.dumps(data))
@@ -217,3 +217,35 @@ def test_requires_real_roles_and_independent_annotation_attestation(tmp_path):
     assert result["ready"] is False
     assert _codes(result)["required_video_roles"] is False
     assert _codes(result)["annotation_0_independence"] is False
+
+
+def test_final_freeze_refuses_rebranded_example_cache_and_labels(tmp_path):
+    manifest = _build_manifest(tmp_path)
+    data = json.loads(manifest.read_text())
+    example_csv = tmp_path / "cases.example.csv"
+    original_cases = tmp_path / "cases.csv"
+    example_csv.write_bytes(original_cases.read_bytes())
+    cases = next(a for a in data["annotations"] if a["kind"] == "cases")
+    cases["path"] = example_csv.name
+    data["equipment_cache"]["path"] = "reviewed-cache.example.json"
+    (tmp_path / "reviewed-cache.example.json").write_bytes(
+        (tmp_path / "reviewed-cache.json").read_bytes()
+    )
+    manifest.write_text(json.dumps(data))
+    result = qualify_release_assets(manifest)
+    assert result["ready"] is False
+    assert _codes(result)["annotation_3_sha256"] is True
+    assert _codes(result)["annotation_3_not_example"] is False
+    assert _codes(result)["equipment_cache_not_example"] is False
+
+
+def test_rejects_two_different_assets_assigned_to_the_same_role(tmp_path):
+    manifest = _build_manifest(tmp_path)
+    data = json.loads(manifest.read_text())
+    extra = dict(data["assets"][0])
+    extra["id"] = "another-attendance-video"
+    data["assets"].append(extra)
+    manifest.write_text(json.dumps(data))
+    result = qualify_release_assets(manifest)
+    assert result["ready"] is False
+    assert _codes(result)["asset_5_unique_role"] is False
