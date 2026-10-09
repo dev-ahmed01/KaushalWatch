@@ -12,7 +12,7 @@ import os
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.services.review_access import PROTECTED_ENVS, resolve_review_actor
+from app.services.review_access import LOCAL_ENVS, resolve_review_actor
 
 PUBLIC_PATHS = frozenset({"/api/health", "/api/review-access"})
 EDGE_ONLY_PATHS = frozenset({"/api/edge/sync"})
@@ -31,7 +31,7 @@ async def protected_read_boundary(request: Request, call_next):
     """Authorize before hitting any API handler or static evidence mount."""
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     path = request.scope.get("path", "")
-    if env not in PROTECTED_ENVS or request.method == "OPTIONS" or not is_sensitive_path(path):
+    if env in LOCAL_ENVS or request.method == "OPTIONS" or not is_sensitive_path(path):
         return await call_next(request)
     if path in PUBLIC_PATHS or path in EDGE_ONLY_PATHS:
         # Edge ingestion authenticates its own device identity downstream;
