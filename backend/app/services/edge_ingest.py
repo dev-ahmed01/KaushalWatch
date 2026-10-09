@@ -81,7 +81,7 @@ def normalize_event(event: Any) -> tuple[dict[str, Any] | None, str]:
     if not isinstance(event_id, str) or not EVENT_ID.fullmatch(event_id):
         return None, "invalid_event_id"
     kind = event.get("event_type")
-    if kind not in {"analysis_summary", "compliance_case"}:
+    if not isinstance(kind, str) or kind not in {"analysis_summary", "compliance_case"}:
         return None, "unsupported_event_type"
     payload = event.get("payload")
     if not isinstance(payload, dict):
@@ -113,8 +113,9 @@ def normalize_event(event: Any) -> tuple[dict[str, Any] | None, str]:
         trusted = details.get("trusted_sample_ratio")
         # No camera ratio or explicit successful detector: no clean result.
         expected_outcome = DECISION_OUTCOME.get(decision, "blocked")
+        failures = details.get("detector_failures")
         if expected_outcome == "compliant" and (
-            not authoritative or not isinstance(trusted, (int, float))
+            not authoritative or failures != 0 or not isinstance(trusted, (int, float))
             or not 0.5 <= trusted <= 1.0
         ):
             expected_outcome = "blocked"
@@ -142,10 +143,10 @@ def normalize_event(event: Any) -> tuple[dict[str, Any] | None, str]:
         if (not isinstance(case_id, str) or not 1 <= len(case_id) <= 100
                 or not re.fullmatch(r"[A-Za-z0-9_-]+", case_id)):
             return None, "invalid_case_id"
-        if case_type not in CASE_TYPES:
+        if not isinstance(case_type, str) or case_type not in CASE_TYPES:
             return None, "unsupported_case_type"
         severity = payload.get("severity")
-        if severity not in {"low", "medium", "high", "critical"}:
+        if not isinstance(severity, str) or severity not in {"low", "medium", "high", "critical"}:
             return None, "invalid_severity"
         evidence = payload.get("evidence_integrity") or []
         if not isinstance(evidence, list) or len(evidence) > 40:
