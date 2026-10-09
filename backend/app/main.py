@@ -53,6 +53,7 @@ from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.review_access import review_access_status, resolve_review_actor
+from app.services.protected_access import protected_read_boundary
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
@@ -218,6 +219,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# No sensitive API/evidence reads are public on a protected network. This
+# outermost gate is intentionally separate from edge-device ingestion auth.
+# Development SIH walk-throughs are unaffected.
+app.middleware("http")(protected_read_boundary)
 EVIDENCE.mkdir(parents=True, exist_ok=True)
 app.mount("/evidence", StaticFiles(directory=str(EVIDENCE)), name="evidence")
 
