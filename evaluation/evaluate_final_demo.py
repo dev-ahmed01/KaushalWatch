@@ -37,34 +37,42 @@ def safe_div(a: float, b: float) -> float:
     return a / b if b else 0.0
 
 
+def _defined_div(numerator: float, denominator: float) -> float | None:
+    """A missing denominator is not evidence of a zero error rate."""
+    return numerator / denominator if denominator else None
+
+
+def _defined_f1(precision: float | None, recall: float | None) -> float | None:
+    if precision is None or recall is None:
+        return None
+    return _defined_div(2 * precision * recall, precision + recall) if precision + recall else 0.0
+
+
 def classification_metrics(tp: int, fp: int, fn: int, tn: int) -> dict:
-    precision = safe_div(tp, tp + fp)
-    recall = safe_div(tp, tp + fn)
-    f1 = safe_div(2 * precision * recall, precision + recall)
+    precision = _defined_div(tp, tp + fp)
+    recall = _defined_div(tp, tp + fn)
     return {
-        "tp": tp,
-        "fp": fp,
-        "fn": fn,
-        "tn": tn,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "positive_opportunities": tp + fn,
+        "negative_opportunities": fp + tn,
         "precision": precision,
         "recall": recall,
-        "f1": f1,
-        "false_positive_rate": safe_div(fp, fp + tn),
-        "false_negative_rate": safe_div(fn, fn + tp),
+        "f1": _defined_f1(precision, recall),
+        "false_positive_rate": _defined_div(fp, fp + tn),
+        "false_negative_rate": _defined_div(fn, fn + tp),
+        "note": "A null rate means no qualifying denominator, not a zero error rate.",
     }
 
 
 def positive_class_metrics(tp: int, fp: int, fn: int) -> dict:
-    precision = safe_div(tp, tp + fp)
-    recall = safe_div(tp, tp + fn)
-    f1 = safe_div(2 * precision * recall, precision + recall)
+    precision = _defined_div(tp, tp + fp)
+    recall = _defined_div(tp, tp + fn)
     return {
-        "tp": tp,
-        "fp": fp,
-        "fn": fn,
+        "tp": tp, "fp": fp, "fn": fn,
         "precision": precision,
         "recall": recall,
-        "f1": f1,
+        "f1": _defined_f1(precision, recall),
+        "note": "A null rate means no qualifying denominator, not a zero error rate.",
     }
 
 
