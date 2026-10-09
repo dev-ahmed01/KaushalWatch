@@ -32,7 +32,7 @@ def test_uhctd_evaluator_aligns_frames_and_distinguishes_preview(tmp_path):
     full, events = score_recording(
         video, labels, sample_seconds=0.2, verbose=False
     )
-    assert full["evaluation_status"] == "COMPLETE_UNTOUCHED_RECORDING"
+    assert full["evaluation_status"] == "COMPLETE_RECORDING_NOT_NECESSARILY_HELD_OUT"
     assert full["sampled_confusion"]["tp"] + full["sampled_confusion"]["fn"] == 10
     assert len(events) == 1
     assert events[0]["class"] == "covered"
