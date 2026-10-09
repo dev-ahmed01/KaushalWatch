@@ -54,6 +54,7 @@ from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
+from app.services.api_redaction import redact_local_evidence_paths
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
@@ -710,7 +711,7 @@ def _build_centre_report(
             "escalation": centre["escalation"],
         },
         "analyses": history,
-        "cases": [case.model_dump(mode="json") for case in cases],
+        "cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in cases],
         "privacy_note": (
             "No facial recognition is used for attendance verification. "
             "Visual outputs are aggregate or anonymous and final action requires human review."
@@ -791,9 +792,9 @@ def dashboard(
         ),
         "synced_edge_events": len(edge_events),
         "edge_sync_state": "idle" if not edge_events else "synced",
-        "pending_cases": [case.model_dump(mode="json") for case in pending_cases[-20:]],
-        "resolved_case_history": [case.model_dump(mode="json") for case in resolved_cases[-20:]],
-        "cases": [case.model_dump(mode="json") for case in cases[-40:]],
+        "pending_cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in pending_cases[-20:]],
+        "resolved_case_history": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in resolved_cases[-20:]],
+        "cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in cases[-40:]],
     }
 
 
@@ -850,7 +851,7 @@ def process_video(
                 "vision_profile_id": VISION_PROFILE_ID,
             },
         )
-        return result.model_dump(mode="json")
+        return redact_local_evidence_paths(result.model_dump(mode="json"))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
@@ -975,7 +976,7 @@ def process_practical_activity(
                 ],
             },
         )
-        return result.model_dump(mode="json")
+        return redact_local_evidence_paths(result.model_dump(mode="json"))
     except RuntimeError as exc:
         message = str(exc)
         HISTORY.append(
@@ -1024,7 +1025,7 @@ def process_practical_activity(
 
 @app.get("/api/cases")
 def list_cases():
-    return [c.model_dump(mode="json") for c in STORE.list()]
+    return [redact_local_evidence_paths(c.model_dump(mode="json")) for c in STORE.list()]
 
 
 @app.get("/api/cases/{case_id}/evidence-pack")
@@ -1032,10 +1033,10 @@ def get_evidence_pack(case_id: str):
     case = STORE.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return build_evidence_review_pack(
+    return redact_local_evidence_paths(build_evidence_review_pack(
         case=case,
         history=HISTORY.list(centre_id=case.centre_id, limit=500),
-    )
+    ))
 
 
 @app.get("/api/review-access")
@@ -1068,7 +1069,7 @@ def review_case(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return case.model_dump(mode="json")
+    return redact_local_evidence_paths(case.model_dump(mode="json"))
 
 
 @app.get("/api/demo/infrastructure")
@@ -1253,7 +1254,7 @@ def process_infrastructure_video(
             "equipment_profile": equipment_profile if demo_profile == "discrepancy" else {},
             "profile_source_match": source_match,
             "items": preview_items,
-            "case": case.model_dump(mode="json"),
+            "case": redact_local_evidence_paths(case.model_dump(mode="json")),
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1321,7 +1322,7 @@ def create_demo_infrastructure_case(
     return {
         "created": True,
         "banner": "Prototype — case derived from cached/simulated equipment detections",
-        "case": case.model_dump(mode="json"),
+        "case": redact_local_evidence_paths(case.model_dump(mode="json")),
     }
 
 
