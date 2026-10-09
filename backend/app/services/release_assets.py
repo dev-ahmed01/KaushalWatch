@@ -166,6 +166,8 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
         if valid_id:
             ids.add(asset_id)
         if role in REQUIRED_ROLES:
+            record(f"asset_{index}_unique_role", role not in roles,
+                   "one frozen asset entry is required for each video role")
             roles.add(role)
         else:
             record(f"asset_{index}_role", False, "unsupported asset role")
@@ -196,6 +198,8 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
                item.get("independent_of_predictions") is True and _nonplaceholder(item.get("reviewer_id")),
                "independently labelled source and reviewer ID required")
         path, _ = check_file(f"annotation_{index}_sha256", item)
+        record(f"annotation_{index}_not_example", bool(path and ".example." not in path.name),
+               "example annotations cannot establish final measured accuracy")
         if path and path.is_file():
             try:
                 with path.open(newline="", encoding="utf-8-sig") as handle:
@@ -222,6 +226,8 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
 
     equipment = data.get("equipment_cache")
     cache_path, _ = check_file("equipment_cache_digest", equipment)
+    record("equipment_cache_not_example", bool(cache_path and ".example." not in cache_path.name),
+           "synthetic example cache cannot stand in for a reviewed final source")
     meta_path, _ = check_file("equipment_cache_metadata_digest",
                              equipment.get("metadata") if isinstance(equipment, dict) else None)
     if isinstance(equipment, dict):
@@ -233,7 +239,12 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             source = meta.get("source_video", {})
-            bound = _sha256(source.get("sha256")) and source["sha256"].lower() == _digest(asset_paths[asset_id], digests)
+            bound = (
+                _sha256(source.get("sha256"))
+                and source["sha256"].lower() == _digest(asset_paths[asset_id], digests)
+                and isinstance(meta.get("review"), dict)
+                and bool(meta["review"])
+            )
             if asset_id not in asset_metadata:
                 bound = False
         except (ValueError, OSError, TypeError, AttributeError):
