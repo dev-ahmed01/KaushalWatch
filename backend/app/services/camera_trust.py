@@ -11,6 +11,7 @@ import cv2
 import numpy as np
 
 from app.models import CameraTrust
+from app.services.camera_local_obstruction import localized_occlusion_candidate
 
 
 def _gray(frame: np.ndarray) -> np.ndarray:
@@ -171,8 +172,17 @@ def assess_camera(
         and image_light >= dark_threshold
         and not dimmed_reference_regime
     )
+    # Whole-frame statistics miss partial covers. A separately guarded,
+    # edge-adjacent tile cue detects a persistent localized change only
+    # when most unaffected background tiles remain stable. In contrast,
+    # global exposure changes must not create a lens-obstruction alert.
+    candidate_local_obstruction = (
+        image_light >= dark_threshold
+        and localized_occlusion_candidate(reference, frame, previous)
+    )
     obstructed = memory.persistent(
-        "obstructed", candidate_obstruction, sample_seconds, 1.5,
+        "obstructed", candidate_obstruction or candidate_local_obstruction,
+        sample_seconds, 1.5,
     )
 
     # Change in raw appearance is not sufficient for camera displacement.
@@ -204,6 +214,8 @@ def assess_camera(
         reasons.append("low-detail scene limits visual verification")
     if obstructed:
         reasons.append("camera view may be obstructed")
+        if candidate_local_obstruction:
+            reasons.append("localized stable scene change")
     if shifted:
         reasons.append("camera viewpoint may have shifted")
 
