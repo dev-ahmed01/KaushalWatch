@@ -66,8 +66,14 @@ def verify_attendance_case_opportunity(
             if x.get("sample_id", "").strip() == case_sample_id
             and x.get("case_type", "").strip() == "attendance_discrepancy"
         ]
-    # A single whole-video verdict must not be counted as multiple
-    # independent case opportunities under different sample IDs.
+    if len(rows) != 1:
+        raise ValueError("Exactly one attendance_discrepancy opportunity must match the sample ID")
+    row = rows[0]
+    if row["source_asset_id"].strip() != attendance_asset["id"]:
+        raise ValueError("Attendance case row source asset does not match the frozen clip")
+    # One whole-video verdict must not count as multiple independent
+    # opportunities. First verify the selected row's source, then check
+    # duplicates; otherwise a wrong source obscures its proper error.
     from_this_video = [
         x for x in all_rows
         if x.get("source_asset_id", "").strip() == attendance_asset["id"]
@@ -75,11 +81,6 @@ def verify_attendance_case_opportunity(
     ]
     if len(from_this_video) != 1:
         raise ValueError("One attendance video must map to exactly one attendance case opportunity")
-    if len(rows) != 1:
-        raise ValueError("Exactly one attendance_discrepancy opportunity must match the sample ID")
-    row = rows[0]
-    if row["source_asset_id"].strip() != attendance_asset["id"]:
-        raise ValueError("Attendance case row source asset does not match the frozen clip")
     if (row["centre_id"].strip() != attendance_asset["centre_id"]
             or row["batch_id"].strip() != attendance_asset["batch_id"]):
         raise ValueError("Attendance case row centre or batch differs from the frozen clip")
