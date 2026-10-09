@@ -165,7 +165,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
         record(f"asset_{index}_identity", bool(valid_id), "unique non-placeholder asset id required")
         if valid_id:
             ids.add(asset_id)
-        if role in REQUIRED_ROLES:
+        if isinstance(role, str) and role in REQUIRED_ROLES:
             record(f"asset_{index}_unique_role", role not in roles,
                    "one frozen asset entry is required for each video role")
             roles.add(role)
@@ -190,7 +190,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
             record(f"annotation_{index}_shape", False, "annotation row must be an object")
             continue
         kind = item.get("kind")
-        if kind in REQUIRED_ANNOTATIONS and kind not in annotation_kinds:
+        if isinstance(kind, str) and kind in REQUIRED_ANNOTATIONS and kind not in annotation_kinds:
             annotation_kinds.add(kind)
         else:
             record(f"annotation_{index}_kind", False, "duplicate or unsupported annotation kind")
@@ -235,7 +235,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
     else:
         asset_id = None
     bound = False
-    if meta_path and meta_path.is_file() and asset_id in asset_paths:
+    if meta_path and meta_path.is_file() and isinstance(asset_id, str) and asset_id in asset_paths:
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             source = meta.get("source_video", {})
@@ -255,7 +255,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
 
     operability = data.get("operability") if isinstance(data.get("operability"), dict) else {}
     op_id = operability.get("asset_id")
-    info = asset_metadata.get(op_id)
+    info = asset_metadata.get(op_id) if isinstance(op_id, str) else None
     op_role = any(i.get("id") == op_id and i.get("role") == "operability" for i in assets if isinstance(i, dict))
     roi = operability.get("roi")
     window = operability.get("window")
@@ -283,6 +283,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
     p_id = practical.get("asset_id")
     valid_practical = (
         any(i.get("id") == p_id and i.get("role") == "practical" for i in assets if isinstance(i, dict))
+        and isinstance(practical.get("authorization"), str)
         and practical.get("authorization") in {"valid", "absent", "unknown"}
         and _nonplaceholder(practical.get("zone_profile"))
     )
@@ -292,7 +293,7 @@ def qualify_release_assets(manifest_path: Path) -> dict[str, Any]:
     primary_id = scenario.get("primary_asset_id") if isinstance(scenario, dict) else None
     primary = next((i for i in assets if isinstance(i, dict) and i.get("id") == primary_id), None)
     record("scenario_asset_binding", bool(
-        primary and primary_id in asset_metadata and
+        primary and isinstance(primary_id, str) and primary_id in asset_metadata and
         primary.get("centre_id") == scenario_data.get("centre_id") and
         primary.get("batch_id") == scenario_data.get("batch_id")
     ), "frozen scenario must identify the exact centre/batch and primary reviewed clip")
