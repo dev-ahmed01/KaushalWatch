@@ -399,3 +399,43 @@ test candidate robustness to stationary foreground occlusion, dawn/dusk
 mode changes and sustained weather/lighting effects, then seek a
 different untouched camera/day for independent confirmation. Continuous
 production camera-integrity rules and fixed profile are UNCHANGED.
+
+## Phase 11 — visual root cause of shadow false movement warnings
+
+The user reviewed the two false-warning controls from Phase 10:
+- **normal_control_1** shows multiple pedestrians moving down/across the
+  walkway in front of a stationary camera. Two separate background
+  occlusions lasting long enough to trigger the *whole-frame*
+  persistent-change probe account for 43 false-warning samples.
+- **normal_control_10** shows two pedestrians approaching the foreground.
+  Camera framing and grass/pavement boundaries remain stable. Exactly
+  one frame was flagged (12-second confirmation boundary).
+- Neither contact sheet provides evidence of camera displacement. These
+  are false review triggers, not actual camera-integrity incidents.
+- The Phase 10 duration-only adjustment to 22 seconds is **post-hoc** and
+  was deliberately NOT made part of a live detector or shadow default.
+
+NEW diagnostic-only spatial suite:
+- camera_spatial_scene_shadow.py divides video into a 6×8 tiled grid,
+  comparing locally mean-normalized grayscale texture against a
+  temporary 10-second median from known-healthy context.
+- It measures changed tile fraction, changed quadrant coverage and
+  availability of textured patches. LOW_TEXTURE produces UNKNOWN, not
+  'camera unmoved'.
+- It evaluates three parallel 12-second confirmation variants requiring
+  at least 45%, 55% or 65% of *textured* tiles to be dissimilar in at
+  least three image quadrants.
+- scripts/diagnose_uhctd_spatial_scene.py replays the four selected moved
+  events plus all 12 healthy controls on Day 3 in a single short survey
+  and writes spatial_shadow_summary.json + spatial_shadow_samples.csv.
+- This is a targeted development study, with no changes to the live
+  Camera Trust pipeline, frozen vision profile, or stored references.
+
+Illustrative synthetic movement and two-person foreground frames support
+the investigation direction, but **do not establish success** on actual
+CCTV or a new camera. Stationary crowds, moving shadows, weather, IR
+switching, dense pedestrian foreground, tiny motion, and gradual camera
+motion remain unresolved. Selecting a threshold after inspecting Day 3
+would overfit. A genuine untouched full recording remains required
+before validation or any production change. No private footage is
+committed to this repository.
