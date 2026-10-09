@@ -589,6 +589,25 @@ def test_receipt_matching_requires_exact_model_files_and_predicted_count(tmp_pat
     assert matched["scope"] == "raw_frame_detector_counts_only"
     assert "not_cryptographically_authenticated" in matched["authenticity"]
 
+    # End-to-end scorer integration accepts the exact matched local trace,
+    # but does not upgrade unsupported global model-provenance claims.
+    from evaluation import evaluate_final_demo
+    report_dir = tmp_path / "matched-report"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--attendance-receipt", str(path),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(tmp_path / "cases.csv"),
+        "--out-dir", str(report_dir),
+    ])
+    evaluate_final_demo.main()
+    report = json.loads((report_dir / "final_demo_report.json").read_text())
+    assert report["attendance_raw_frame_trace"]["sample_count"] == 2
+    assert report["attendance_raw_frame_trace"]["status"] == "local_openvino_raw_count_receipt_matched"
+    assert report["prediction_source_verified"] is False
+
     record["samples"][0]["decoded_frame_sha256"] = "a" * 64
     path.write_text(json.dumps(record))
     with pytest.raises(ValueError, match="Decoded video frame differs"):
