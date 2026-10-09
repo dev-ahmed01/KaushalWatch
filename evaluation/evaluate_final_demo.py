@@ -18,6 +18,7 @@ from evaluation.operational_attendance_verification import verify_operational_at
 from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
 from evaluation.equipment_cache_trace import verify_equipment_cache_receipt
 from evaluation.operability_motion_trace import verify_operability_trace
+from evaluation.practical_activity_trace import verify_practical_trace, verify_practical_case
 
 
 def read_csv(path: str) -> list[dict[str, str]]:
@@ -256,6 +257,10 @@ def main() -> None:
     parser.add_argument("--attendance-receipt", help="Optional local OpenVINO frame-count trace; requires --final.")
     parser.add_argument("--operational-attendance-receipt",
                         help="Optional tracked/registered/smoothed attendance receipt; requires --final.")
+    parser.add_argument("--practical-receipt",
+                        help="Full sampled worker-motion/authorization trace; requires --final.")
+    parser.add_argument("--practical-case-sample-id",
+                        help="Match one practical_activity_authorization row to the traced final decision.")
     parser.add_argument("--operability-receipt",
                         help="Replayed frozen ROI-motion state and decoded-frame hashes.")
     parser.add_argument("--equipment-receipt",
@@ -276,6 +281,12 @@ def main() -> None:
     case_trace = None
     equipment_trace = None
     operability_trace = None
+    practical_trace = None
+    practical_case_trace = None
+    if args.practical_case_sample_id and not args.practical_receipt:
+        parser.error('--practical-case-sample-id requires --practical-receipt')
+    if args.practical_receipt and not args.final:
+        parser.error('--practical-receipt requires --final')
     if args.operability_receipt and not args.final:
         parser.error("--operability-receipt requires --final")
     if args.equipment_receipt and not args.final:
@@ -308,6 +319,17 @@ def main() -> None:
                 Path(args.operational_attendance_receipt),
                 provenance["manifest_sha256"],
             )
+        if args.practical_receipt:
+            practical_trace = verify_practical_trace(
+                Path(args.asset_manifest), Path(args.practical_receipt),
+                provenance['manifest_sha256'],
+            )
+        if args.practical_case_sample_id:
+            practical_case_trace = verify_practical_case(
+                Path(args.asset_manifest), Path(args.cases),
+                Path(args.practical_receipt), provenance['manifest_sha256'],
+                args.practical_case_sample_id,
+            )
         if args.operability_receipt:
             operability_trace = verify_operability_trace(
                 Path(args.asset_manifest), Path(args.operability), Path(args.operability_receipt),
@@ -336,6 +358,8 @@ def main() -> None:
         "attendance_case_trace": case_trace,
         "equipment_cache_trace": equipment_trace,
         "operability_motion_trace": operability_trace,
+        "practical_pipeline_trace": practical_trace,
+        "practical_case_trace": practical_case_trace,
         "attendance": attendance_metrics(read_csv(args.attendance)),
         "equipment": equipment_metrics(read_csv(args.equipment)),
         "apparent_operability": operability_metrics(read_csv(args.operability)),
@@ -347,6 +371,7 @@ def main() -> None:
             "An optional raw OpenVINO receipt traces detector counts only; an operational receipt traces tracked/smoothed samples. Explicit case mapping can verify ONE final attendance decision, not entire case detection accuracy or other modalities.",
             "A SHA-matched equipment cache receipt distinguishes raw proposals from human-reviewed corrections but does NOT prove a live model run or model-only accuracy.",
             "Apparent operability receipts replay only ROI pixel-motion activity; machinery health and electrical safety are unverified.",
+            "Practical-work receipts trace anonymous worker-zone motion and externally supplied authorization; unknown authorization and insufficient camera evidence cannot be scored as normal compliance negatives.",
             "Never claim a zero false-positive rate without independently observed negative opportunities.",
             "Report UNCERTAIN operability outputs as abstentions and disclose coverage.",
             "Apparent operability is visual activity evidence, not mechanical/electrical diagnosis.",
