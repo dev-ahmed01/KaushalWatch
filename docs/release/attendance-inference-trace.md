@@ -45,7 +45,7 @@ python evaluation/evaluate_final_demo.py `
   --out-dir evaluation/output/final-demo
 ```
 
-The report's `attendance_raw_frame_trace` field records whether exact sample IDs, frame indices and raw counts matched, along with hashes of the local model XML, BIN and vision profile. A changed model file, different sample frame, missing camera-trust evidence, missing/duplicated sample or mismatch between CSV `pred_count` and captured detector result stops scoring **before report output**.
+The report's `attendance_raw_frame_trace` field records whether exact sample IDs, frame indices and raw counts matched, along with hashes of the local model XML, BIN and vision profile. A changed model file, different sample frame, **re-decoded frame SHA mismatch**, missing camera-trust evidence, missing/duplicated sample or mismatch between CSV `pred_count` and captured detector result stops scoring **before report output**.
 
 Without `--attendance-receipt`, final-mode scorecards still require frozen CSVs, but have `attendance_raw_frame_trace: null` and cannot claim detector-output corroboration.
 
