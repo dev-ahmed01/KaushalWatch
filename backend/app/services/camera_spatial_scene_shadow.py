@@ -43,7 +43,7 @@ def spatial_metrics(reference: np.ndarray, current: np.ndarray) -> dict:
     bb = tb - tb.mean(axis=1, keepdims=True)
     sa = np.sqrt(np.mean(aa * aa, axis=1))
     sb = np.sqrt(np.mean(bb * bb, axis=1))
-    textured = (sa >= 7.0) & (sb >= 4.0)
+    textured = (sa >= 4.0) & (sb >= 2.5)
     denom = np.linalg.norm(aa, axis=1) * np.linalg.norm(bb, axis=1)
     similarity = np.divide(
         np.sum(aa * bb, axis=1), denom,
