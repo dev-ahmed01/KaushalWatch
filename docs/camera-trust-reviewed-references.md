@@ -214,3 +214,48 @@ behave differently, and control #8 remains unexplained.
 
 Before changing the production movement rule, inspect this diagnostic.
 Do not merge the draft or change the frozen v1 vision profile.
+
+## Phase 8 — movement-gate diagnostics from Day 3 (not full-day validation)
+
+Five spans sampled at 3 FPS:
+- Four moved spans, 360 annotated post-onset frames each, produced **no**
+  phase-correlation registration pass and no integrity alert.
+- Original-reference phase-correlation displacement medians were
+  53.2, 62.7, 74.6, and 68.9 normalized pixels. These apparent
+  offsets are **unreliable** because all geometric responses were
+  below the existing 0.25 confidence floor.
+- Healthy normal control #8 also showed median apparent displacement
+  54.9 pixels against the original historical reference, but only
+  0.115 pixels against a fresh local reference. It generated 181
+  suspected-obstruction flags. This is a distinct stale-reference
+  false alarm, not evidence of camera movement.
+- Moved events 2 through 4 were frequently low detail before and
+  after onset, so apparent motion from phase correlation alone is not
+  credible. The event with extent 0.0 needs visual confirmation.
+
+A diagnostic-only **ORB + RANSAC partial-affine landmark estimator**
+has now been added in camera_feature_geometry.py. It uses CLAHE and
+distributed matched background landmarks and returns a three-way
+interpretation: confident shifted, confident not shifted, or unknown
+when evidence is insufficient. It does not substitute large
+low-response phase offsets for physical motion.
+
+In a separate development replay of the supplied strong moved clip
+(680x510, 3 FPS), a clean frame versus frame 45 produced approx
+61 normalized pixels displacement with 45 inlier ORB matches across
+6 of 9 spatial regions; pre-onset frame 9 had only 0.13 pixels
+displacement. The partial-cover clip did not produce a false
+confident shift. These probes and synthetic unit tests are only
+candidate evidence, not representative validation.
+
+scripts/diagnose_uhctd_movement.py now emits sparse
+original_landmark_* and local_landmark_* measurements every ~2 seconds
+for the same four selected moved events and normal control #8.
+It writes movement_gate_summary.json and movement_gate_samples.csv;
+no protected CCTV images are exported or committed.
+
+**Do not promote ORB results into the production integrity decision
+until the new movement-gate diagnostics show adequate genuine
+displacement evidence and control #8 false-alarm rejection.**
+Do not automatically adapt the reference using a suspicious camera.
+The frozen fixed-camera-v1 profile remains unchanged.
