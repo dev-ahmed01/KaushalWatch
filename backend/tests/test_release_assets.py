@@ -1308,3 +1308,186 @@ def test_equipment_trace_requires_explicit_scoring_basis_and_frozen_file(tmp_pat
     replacement.write_bytes(equipment.read_bytes())
     with pytest.raises(ValueError, match="Equipment CSV path or SHA"):
         capture_equipment_cache_trace(manifest, replacement)
+
+
+def _operability_trace_fixture(tmp_path, *, threshold=100.0, predicted="APPARENTLY_INACTIVE"):
+    manifest = _build_manifest(tmp_path)
+    csv_path = tmp_path / "operability.csv"
+    _write_csv(
+        csv_path,
+        ["sample_id", "item_id", "source_asset_id", "centre_id", "batch_id",
+         "true_state", "pred_state"],
+        [{
+            "sample_id": "OP-01", "item_id": "training_panel",
+            "source_asset_id": "operability", "centre_id": "DEMO-KA-104",
+            "batch_id": "TEST-BATCH", "true_state": "APPARENTLY_INACTIVE",
+            "pred_state": predicted,
+        }],
+    )
+    frozen = json.loads(manifest.read_text())
+    frozen["operability"]["item_id"] = "training_panel"
+    frozen["operability"]["motion_threshold"] = threshold
+    frozen["operability"]["max_frames"] = 30
+    next(x for x in frozen["annotations"] if x["kind"] == "operability")["sha256"] = _hash(csv_path)
+    manifest.write_text(json.dumps(frozen))
+    return manifest, csv_path
+
+
+def test_operability_replays_exact_roi_window_and_sha_bound_frame_samples(tmp_path):
+    from evaluation.operability_motion_trace import capture_operability_trace, verify_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path)
+    trace = capture_operability_trace(manifest, csv_path)
+    assert trace["receipt_type"] == "replayed_operability_roi_motion"
+    assert trace["motion"]["state"] == "APPARENTLY_INACTIVE"
+    assert trace["motion"]["activity_score"] < 100.0
+    assert trace["motion"]["analysis_window"] == {"start_sec": 1.5, "end_sec": 2.5}
+    assert trace["motion"]["roi"] == {"x1": 10, "y1": 10, "x2": 60, "y2": 50}
+    assert trace["motion"]["frames_sampled"] == len(trace["motion"]["frame_samples"])
+    assert trace["motion"]["frames_sampled"] >= 3
+    assert all(len(frame["decoded_frame_sha256"]) == 64 for frame in trace["motion"]["frame_samples"])
+    assert all("image" not in frame and "boxes" not in frame for frame in trace["motion"]["frame_samples"])
+    assert trace["equipment_mechanical_health_verified"] is False
+
+    path = tmp_path / "operability-receipt.json"
+    path.write_text(json.dumps(trace))
+    verified = verify_operability_trace(manifest, csv_path, path, _hash(manifest))
+    assert verified["status"] == "local_roi_motion_replay_matched"
+    assert verified["mechanical_health_verified"] is False
+
+
+def test_operability_trace_integrates_with_actual_infrastructure_case_sampler(tmp_path):
+    from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
+    from evaluation.operability_motion_trace import capture_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path)
+    trace = capture_operability_trace(manifest, csv_path)
+    pipeline = InfrastructureCompliancePipeline(tmp_path / "evidence", tmp_path / "evidence-index.json")
+    case = pipeline.run(
+        video_path=tmp_path / "synthetic.avi",
+        manifest={"job_role": "training simulation", "items": [
+            {"id": "training_panel", "label": "Training Panel", "required": 2,
+             "verification_tier": "camera_verifiable"},
+        ]},
+        detection_rows=[{"second": 1.5, "detections": [
+            {"label": "training_panel", "count": 1, "confidence": 0.9},
+        ]}],
+        centre_id="DEMO-KA-104", batch_id="TEST-BATCH", camera_id="TEST-ONLY",
+        operability_item_id="training_panel",
+        operability_roi=(10, 10, 60, 50),
+        operability_threshold=100.0,
+        operability_window=(1.5, 2.5),
+    )
+    assert case is not None
+    app_result = case.details["apparent_operability"]
+    assert app_result["state"] == trace["motion"]["state"]
+    assert app_result["activity_score"] == trace["motion"]["activity_score"]
+    assert app_result["frames_sampled"] == trace["motion"]["frames_sampled"]
+    assert app_result["analysis_window"] == trace["motion"]["analysis_window"]
+
+
+def test_operability_trace_refuses_unreviewed_video_cut_or_changed_source(tmp_path):
+    import pytest
+    from evaluation.operability_motion_trace import capture_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path)
+    frozen = json.loads(manifest.read_text())
+    frozen["operability"]["camera_cuts"] = [{"start_sec": 1.8, "end_sec": 2.0}]
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="not qualified"):
+        capture_operability_trace(manifest, csv_path)
+
+    frozen["operability"]["camera_cuts"] = [{"start_sec": 0.3, "end_sec": 0.6}]
+    manifest.write_text(json.dumps(frozen))
+    with (tmp_path / "synthetic.avi").open("ab") as handle:
+        handle.write(b"modified after pinning")
+    with pytest.raises(ValueError, match="not qualified"):
+        capture_operability_trace(manifest, csv_path)
+
+
+def test_operability_trace_rejects_prediction_source_or_label_mismatch(tmp_path):
+    import pytest
+    from evaluation.operability_motion_trace import capture_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path, predicted="APPARENTLY_ACTIVE")
+    with pytest.raises(ValueError, match="pred_state differs"):
+        capture_operability_trace(manifest, csv_path)
+    _write_csv(
+        csv_path,
+        ["sample_id", "item_id", "source_asset_id", "centre_id", "batch_id",
+         "true_state", "pred_state"],
+        [{
+            "sample_id": "OP-01", "item_id": "training_panel",
+            "source_asset_id": "infrastructure", "centre_id": "DEMO-KA-104",
+            "batch_id": "TEST-BATCH", "true_state": "APPARENTLY_INACTIVE",
+            "pred_state": "APPARENTLY_INACTIVE",
+        }],
+    )
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "operability")["sha256"] = _hash(csv_path)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="source asset"):
+        capture_operability_trace(manifest, csv_path)
+
+
+def test_operability_receipt_tampering_and_swapped_csv_block_final_scorecard(tmp_path, monkeypatch):
+    import pytest
+    from evaluation import evaluate_final_demo
+    from evaluation.operability_motion_trace import capture_operability_trace, verify_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path)
+    receipt = capture_operability_trace(manifest, csv_path)
+    receipt_path = tmp_path / "motion-receipt.json"
+    receipt_path.write_text(json.dumps(receipt))
+    dest = tmp_path / "operability-final-report"
+    argv = [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--operability-receipt", str(receipt_path),
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(csv_path),
+        "--cases", str(tmp_path / "cases.csv"), "--out-dir", str(dest),
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    evaluate_final_demo.main()
+    report = json.loads((dest / "final_demo_report.json").read_text())
+    assert report["operability_motion_trace"]["state"] == "APPARENTLY_INACTIVE"
+    assert report["operability_motion_trace"]["mechanical_health_verified"] is False
+    assert report["prediction_source_verified"] is False
+
+    receipt["motion"]["frame_samples"][0]["decoded_frame_sha256"] = "0" * 64
+    receipt_path.write_text(json.dumps(receipt))
+    rejected = tmp_path / "rejected-report"
+    argv[-1] = str(rejected)
+    monkeypatch.setattr(sys, "argv", argv)
+    with pytest.raises(ValueError, match="receipt differs"):
+        evaluate_final_demo.main()
+    assert not rejected.exists()
+
+    alternate = tmp_path / "alternate-operability.csv"
+    alternate.write_bytes(csv_path.read_bytes())
+    with pytest.raises(ValueError, match="exact frozen annotation source"):
+        capture_operability_trace(manifest, alternate)
+
+
+def test_operability_trace_requires_unique_window_opportunity_and_valid_threshold(tmp_path):
+    import pytest
+    from evaluation.operability_motion_trace import capture_operability_trace
+
+    manifest, csv_path = _operability_trace_fixture(tmp_path)
+    with csv_path.open("a") as handle:
+        handle.write("OP-02,training_panel,operability,DEMO-KA-104,TEST-BATCH,APPARENTLY_INACTIVE,APPARENTLY_INACTIVE\n")
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "operability")["sha256"] = _hash(csv_path)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="exactly one operability opportunity"):
+        capture_operability_trace(manifest, csv_path)
+
+    csv_path.write_text(csv_path.read_text().splitlines()[0] + "\n" +
+                        csv_path.read_text().splitlines()[1] + "\n")
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "operability")["sha256"] = _hash(csv_path)
+    frozen["operability"]["motion_threshold"] = -1.0
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="threshold must"):
+        capture_operability_trace(manifest, csv_path)
