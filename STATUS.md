@@ -7,6 +7,7 @@ The controlled SIH MVP release branch is `release/kaushalwatch-sih-mvp`, based o
 
 Release-specific additions:
 - `docs/release/SIH_MVP_TRACKER.md` defines **five finite acceptance milestones**, source-audited claim boundaries and remaining real-video/rehearsal gates.
+- `scripts/verify_release_assets.py` now enforces local exact video SHA-256 identity, five video roles, four SHA-bound independent-annotation CSV schemas (including negative case opportunities), licensed/privacy-described provenance, case/scenario binding, reviewed equipment-source metadata and cut-safe operability interval. Both final readiness and final rehearsal require the manifest. All checked-in media-manifest values are intentionally placeholders, not certified results; see `docs/release/final-media-freeze.md`.
 - `scripts/check_frontend_api_contracts.py` and backend regression tests check **22 officer-facing frontend-to-FastAPI route/method contracts**; CI runs this gate.
 - Officer review writes now support explicit `KAUSHALWATCH_REVIEW_AUTH_MODE=token` with distinct backend-configured bearer credentials mapped to officer IDs. The server supplies the audit actor. Missing/bad tokens are rejected without changing case state.
 - Default **local development/demo** mode still allows a synthetic judge walkthrough, with the actor explicitly labelled `prototype_officer`. The server refuses unauthenticated demo reviews in `pilot`, `staging` or `production` environments.
