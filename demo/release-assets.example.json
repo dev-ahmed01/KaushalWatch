@@ -127,6 +127,23 @@
   "practical": {
     "asset_id": "practical",
     "authorization": "unknown",
-    "zone_profile": "authorized"
+    "zone_profile": "authorized",
+    "zone_config": {
+      "path": "../data/reviewed/work-zones.json",
+      "sha256": "REPLACE_WITH_EXACT_ZONE_CONFIG_SHA256"
+    },
+    "authorization_evidence": {
+      "path": "../data/reviewed/external-work-authorization.json",
+      "sha256": "REPLACE_WITH_AUTHORIZATION_RECORD_SHA256"
+    },
+    "pipeline_parameters": {
+      "sample_every_seconds": 0.2,
+      "confirmation_seconds": 1,
+      "registration_seconds": 2,
+      "activity_window_seconds": 1,
+      "activity_required_ratio": 0.6,
+      "motion_threshold": 0.02,
+      "minimum_trusted_ratio": 0.5
+    }
   }
 }
