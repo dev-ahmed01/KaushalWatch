@@ -304,3 +304,50 @@ The observations are diagnostic, NOT held-out or production validation.
 Until independent full-day testing supports it, keep PR #54 draft,
 the frozen fixed-camera-v1 profile untouched, and the officer-review
 requirement in place.
+
+
+## Phase 10 — six-frame visual review and persistent-change hypothesis
+
+Manual review of all five supplied contact sheets (UHCTD Day 3,
+3 FPS) confirms a stable background before the annotated onset and
+a **persistent new composition** after onset in the four selected
+'camera moved' event sequences. Event 2 and event 3 are extremely
+low-detail/night scenes, so a physical movement diagnosis remains
+visually uncertain. Event 4 has a clear scene change even though its
+dataset extent parameter is 0.0; this parameter is NOT direct proof
+of zero motion. Normal control #8 shows pedestrian movement but
+the static path/camera framing persists, with no evidence of lens
+tampering in the contact sheet.
+
+Development-only 400x278 cropped JPEG still correlations against the
+pre-onset image at +2, +10, +40, +100 seconds respectively:
+- moved 1: .181, -.060, .166, .161
+- moved 2: .576, .586, .589, .588
+- moved 3: .378, .372, .353, .343
+- moved 4: .446, .433, .433, .444
+- normal control 8: .803, .961, .962, .965
+
+These are **five sparsely sampled/recompressed contact sheets**, not
+continuous video confidence scores or ground truth of mechanism.
+
+The new shadow-only candidate
+backend/app/services/camera_persistent_scene_probe.py compares each
+sample with a temporary median of an independently known healthy
+10-second startup interval, using an illumination-tolerant correlation
+and requiring 12 seconds of continuous low similarity (<0.67) to
+mark `PERSISTENT_SCENE_CHANGE_REVIEW`. It deliberately does NOT call
+camera movement, infer intent, modify attendance conclusions, or
+enroll a verified reference. It was devised from these same Day 3
+examples; its operating thresholds are contaminated for validation.
+
+The auxiliary `scripts/diagnose_uhctd_persistent_change.py`
+replays four selected moved events plus all 12 normal control windows.
+It writes `persistent_change_summary.json` and
+`persistent_change_samples.csv` without exporting images. It also
+logs what the existing production Camera Trust decides.
+
+**Do not merge/promote the scene probe.** Sustained foreground objects,
+large lighting changes, camera image-mode transitions and localized
+covers can produce similar apparent scene changes. Normal intervals
+outside the 12 samples and untouched cameras must be tested before
+any production integrity classification or reference-adaptation logic.
