@@ -101,6 +101,8 @@ def capture_operational_attendance(
     index = {int(item["frame_index"]): item for item in captured}
     if len(index) != len(captured):
         raise ValueError("Operational pipeline emitted duplicate frame positions")
+    if not captured:
+        raise ValueError("Operational pipeline yielded no reviewable timeline")
     samples: list[dict] = []
     for sample_id, frame_index in schedule:
         if frame_index not in index:
@@ -125,11 +127,17 @@ def capture_operational_attendance(
             "sample_every_seconds": float(sample_every_seconds),
             "occupancy_count_source": count_source,
             "occupancy_smoother_window": smoother_window,
+            "mismatch_threshold_pct": 15.0,
+            "persistence_threshold": 0.6,
+            "minimum_trusted_ratio": 0.5,
+            "attendance_registration_seconds": 2.0,
         },
+        "decision_timeline": captured,
         "pipeline_result": {
             "decision": summary.decision,
             "case_type": summary.case.case_type if summary.case else None,
             "estimated_occupancy": summary.estimated_occupancy,
+            "discrepancy_pct": summary.discrepancy_pct,
             "mismatch_persistence_ratio": summary.mismatch_persistence_ratio,
             "trusted_sample_ratio": summary.trusted_sample_ratio,
             "frames_sampled": summary.frames_sampled,
