@@ -1505,9 +1505,20 @@ def _practical_trace_fixture(tmp_path, monkeypatch, *, authorization="absent", a
         "_reference": {"width": 96, "height": 72},
         "default": [{"zone_id": "workbench", "x": 0, "y": 0, "w": 95, "h": 71}],
     }))
+    authorization_path = tmp_path / "external-work-authorization.json"
+    authorization_path.write_text(json.dumps({
+        "record_id": "CI-EXTERNAL-SCHEDULE-01",
+        "source": "isolated synthetic work-schedule review",
+        "status": authorization,
+        "centre_id": "DEMO-KA-104", "batch_id": "TEST-BATCH",
+        "reviewed_at": "2026-10-09T10:00:00+05:30",
+    }))
     frozen = json.loads(manifest.read_text())
     frozen["practical"].update({
         "authorization": authorization,
+        "authorization_evidence": {
+            "path": authorization_path.name, "sha256": _hash(authorization_path),
+        },
         "zone_profile": "default",
         "zone_config": {"path": zones.name, "sha256": _hash(zones)},
         "pipeline_parameters": {
@@ -1596,6 +1607,7 @@ def test_practical_pipeline_receipt_records_anonymous_activity_without_boxes(tmp
     manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
     assert receipt["mode"] == "synthetic_test_only"
     assert receipt["authorization_basis"] == "external_input_not_inferred_from_video"
+    assert receipt["authorization_record"]["record_id"] == "CI-EXTERNAL-SCHEDULE-01"
     assert receipt["result"]["decision"] == "unauthorized_practical_activity"
     assert receipt["result"]["case_type"] == "practical_activity_authorization"
     assert receipt["result"]["practical_activity_fraction"] > 0
@@ -1747,3 +1759,42 @@ def test_practical_trace_refuses_unknown_authorization_binary_case(tmp_path, mon
     path.write_text(json.dumps(receipt))
     with pytest.raises(ValueError, match="Unknown authorization requires officer review"):
         verify_practical_case(manifest, cases, path, _hash(manifest), "PRACTICAL-01")
+
+
+def test_practical_external_authorization_source_must_match_frozen_record(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import capture_practical_trace, verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    auth_file = tmp_path / "external-work-authorization.json"
+    data = json.loads(auth_file.read_text())
+    data["status"] = "valid"
+    auth_file.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="authorization record differs"):
+        capture_practical_trace(manifest, detector=object(), test_fixture=True)
+
+    frozen = json.loads(manifest.read_text())
+    frozen["practical"]["authorization_evidence"]["sha256"] = _hash(auth_file)
+    manifest.write_text(json.dumps(frozen))
+    with pytest.raises(ValueError, match="status disagrees"):
+        capture_practical_trace(manifest, detector=object(), test_fixture=True)
+
+
+def test_practical_full_timeline_cannot_omit_a_sample_even_if_totals_rewritten(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(tmp_path, monkeypatch)
+    _fake_practical_model_receipt(tmp_path, receipt)
+    trace_path = tmp_path / "practical-trace.json"
+    removed = receipt["timeline"].pop(10)
+    receipt["result"]["frames_processed"] = len(receipt["timeline"])
+    # Use matched aggregates to demonstrate frame-cadence protection, not
+    # just a summary-count mismatch.
+    receipt["result"]["trusted_frame_ratio"] = 1.0
+    receipt["result"]["practical_activity_fraction"] = sum(
+        row["practical_active"] for row in receipt["timeline"]
+    ) / len(receipt["timeline"])
+    trace_path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="omitted or inserted"):
+        verify_practical_trace(manifest, trace_path, _hash(manifest))
