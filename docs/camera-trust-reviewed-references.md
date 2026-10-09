@@ -170,3 +170,47 @@ normal hour. Entire 5-minute events may continue beyond the 120-second
 sample. The annotation extent is a dataset control parameter, not
 necessarily a literal percent of the field of view. Day 3 and Day 4
 are both development/diagnostic inputs, NOT untouched promotion tests.
+
+
+## Phase 7 survey review and movement forensics
+
+Day 3 Camera A, stratified development survey at commit 3611609:
+- 4/4 sampled covered events produced new suspected-tamper alerts.
+  1,423/1,440 positive samples were flagged (98.82%).
+- Defocus: 2/4 produced brief tamper alerts, but 1,305/1,440
+  frames were correctly classified as **unusable evidence by the heuristic**.
+  A blurry camera should not automatically imply deliberate tampering.
+- Movement: 0/4 selected events produced new integrity alerts.
+  1,065/1,440 event samples were unusable, commonly because of
+  poor night visibility. One selected moved event had extent
+  parameter 0.0: verify before treating it as physical displacement.
+- 181 suspected-tamper samples occurred within a single 90-second
+  normal control (control #8, starting around 15:00 into recording).
+  That window accounted for all 181 normal-control alerts. Across
+  all 12 controls and all event contexts it is 181/3,960 healthy
+  samples (4.57%), **not** an estimated full-day false alarm rate.
+- All selections reset temporal state, so neither event frequency
+  nor production latency is established.
+
+New nonmutating diagnosis:
+  python scripts/diagnose_uhctd_movement.py \
+    --video C:/Users/Admin/Desktop/MEVA/video.avi \
+    --annotations C:/Users/Admin/Desktop/MEVA/annotations-1.csv \
+    --out C:/Users/Admin/Desktop/MEVA/phase7_movement_diagnostics
+
+It replays the four selected moved events and normal control #8,
+recording phase-correlation translation response, estimated shift,
+reference correlation, blur/luminance ratios, each movement eligibility
+gate, and actual integrity/visibility decisions. It compares the
+recording's first-frame reference against a window-local reference
+**only diagnostically**. It exports CSV/JSON, not licensed media.
+
+A previously uploaded strong-moved onset clip shows coherent phase
+translation (roughly 36 normalized pixels in its displaced state)
+with registration response around 0.35, while a healthy static control
+showed almost zero displacement. That alone is not justification to
+remove all eligibility checks: the selected milder moved events may
+behave differently, and control #8 remains unexplained.
+
+Before changing the production movement rule, inspect this diagnostic.
+Do not merge the draft or change the frozen v1 vision profile.
