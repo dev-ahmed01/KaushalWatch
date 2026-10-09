@@ -33,6 +33,7 @@ import cv2
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 from app.services.camera_trust import CameraTrustState, assess_camera  # noqa: E402
+from app.services.camera_reference import load_reviewed_reference  # noqa: E402
 
 
 NAMES = {0: "normal", 1: "covered", 2: "defocused", 3: "moved"}
@@ -57,11 +58,26 @@ def git_head() -> str | None:
 def score_recording(
     video: Path, annotations: Path, sample_seconds: float = 0.2,
     preview_seconds: float | None = None, verbose: bool = True,
+    reviewed_reference_manifest: Path | None = None,
+    reviewed_reference_mode: str | None = None,
+    camera_id: str | None = None,
 ) -> tuple[dict, list[dict]]:
     if sample_seconds <= 0 or not math.isfinite(sample_seconds):
         raise ValueError("sample_seconds must be finite and positive")
     if preview_seconds is not None and preview_seconds <= 0:
         raise ValueError("preview_seconds must be positive")
+    if reviewed_reference_mode is not None and reviewed_reference_manifest is None:
+        raise ValueError("Reference mode requires a reviewed reference manifest")
+    if reviewed_reference_manifest is not None and not camera_id:
+        raise ValueError("Reviewed reference requires the explicit camera ID")
+    state = (
+        load_reviewed_reference(
+            reviewed_reference_manifest,
+            camera_id=camera_id or "",
+            mode=reviewed_reference_mode or "",
+        )
+        if reviewed_reference_manifest is not None else CameraTrustState()
+    )
     cap = cv2.VideoCapture(str(video))
     if not cap.isOpened():
         raise ValueError(f"Could not open video: {video}")
@@ -80,7 +96,6 @@ def score_recording(
         by_label = {kind: Counter() for kind in NAMES}
         events = []
         current = None
-        state = CameraTrustState()
         previous_tamper_alert = False
         false_alarm_episodes = 0
         normal_quality_suspensions = 0
@@ -114,6 +129,7 @@ def score_recording(
                         "end_frame": frame_number,
                         "detected_frame": None,
                         "first_any_alert_frame": None,
+                        "first_unusable_frame": None,
                         "preexisting_tamper_alert": previous_tamper_alert,
                         "flagged_samples": 0,
                     }
@@ -134,6 +150,12 @@ def score_recording(
                 )
                 alert = bool(trust.tamper_suspected)
                 quality_alert = not trust.trusted
+                if quality_alert and current["first_unusable_frame"] is None:
+                    current["first_unusable_frame"] = frame_number
+                by_label[label]["unusable"] += int(quality_alert)
+                by_label[label]["degraded_visibility"] += int(
+                    trust.quality_status == "DEGRADED_VISIBILITY"
+                )
                 if label == 0 and quality_alert:
                     normal_quality_suspensions += 1
                 for reason in trust.reasons:
@@ -201,6 +223,7 @@ def score_recording(
                 "detected": detection is not None,
                 "preexisting_tamper_alert": event["preexisting_tamper_alert"],
                 "any_alert_during_event": event["first_any_alert_frame"] is not None,
+                "evidence_unusable_during_event": event["first_unusable_frame"] is not None,
                 "first_alert_seconds": round(detection, 3) if detection is not None else "",
                 "detection_delay_seconds": round(detection-onset, 3) if detection is not None else "",
                 "flagged_samples": event["flagged_samples"],
@@ -221,13 +244,17 @@ def score_recording(
                 "maximum_detection_delay_seconds": max(delays) if delays else None,
                 "sampled_positive_frames": by_label[kind]["sampled"],
                 "sampled_positive_frames_flagged": by_label[kind]["alert"],
+                "sampled_positive_frames_unusable": by_label[kind]["unusable"],
+                "evidence_unusable_frame_fraction": div(
+                    by_label[kind]["unusable"], by_label[kind]["sampled"]
+                ),
                 "positive_frame_recall": div(
                     by_label[kind]["alert"], by_label[kind]["sampled"]
                 ),
             }
         summary = {
             "evaluation_status": (
-                "COMPLETE_UNTOUCHED_RECORDING" if fully_evaluated
+                "COMPLETE_RECORDING_NOT_NECESSARILY_HELD_OUT" if fully_evaluated
                 else "PREVIEW_ONLY_NOT_HELD_OUT_VALIDATION"
             ),
             "model_commit": git_head(),
@@ -250,8 +277,20 @@ def score_recording(
                 "of each known tampering type, not four-class accuracy."
             ),
             "sampled_confusion": {"tp": tp, "fp": fp, "tn": tn, "fn": fn},
+            "reference_status": (
+                "REVIEWED_REFERENCE" if state.reference_reviewed
+                else "UNVERIFIED_INITIAL_FRAME"
+            ),
+            "reference_id": state.reference_id,
             "normal_quality_untrusted_samples": normal_quality_suspensions,
             "normal_quality_untrusted_fraction": div(normal_quality_suspensions, by_label[0]["sampled"]),
+            "normal_degraded_visibility_fraction": div(
+                by_label[0]["degraded_visibility"], by_label[0]["sampled"]
+            ),
+            "tampered_evidence_unusable_sample_fraction": div(
+                sum(by_label[kind]["unusable"] for kind in (1, 2, 3)),
+                sum(by_label[kind]["sampled"] for kind in (1, 2, 3)),
+            ),
             "normal_untrusted_reasons": dict(normal_reason_samples),
             "tampered_untrusted_reasons": dict(tamper_reason_samples),
             "sampled_precision": div(tp, tp+fp),
@@ -278,6 +317,9 @@ def main():
     parser.add_argument("--annotations", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
     parser.add_argument("--sample-seconds", type=float, default=0.2)
+    parser.add_argument("--reviewed-reference-manifest", type=Path)
+    parser.add_argument("--reference-mode", type=str)
+    parser.add_argument("--camera-id", type=str)
     parser.add_argument(
         "--preview-seconds", type=float, default=None,
         help="Smoke check only: partial run, never full held-out evaluation",
@@ -288,6 +330,9 @@ def main():
     summary, events = score_recording(
         args.video, args.annotations, args.sample_seconds,
         args.preview_seconds,
+        reviewed_reference_manifest=args.reviewed_reference_manifest,
+        reviewed_reference_mode=args.reference_mode,
+        camera_id=args.camera_id,
     )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     json_file = args.output_dir / "camera_trust_summary.json"
@@ -297,7 +342,8 @@ def main():
         writer = csv.DictWriter(
             stream, fieldnames=[
                 "class", "start_frame", "end_frame", "onset_seconds",
-                "detected", "preexisting_tamper_alert", "any_alert_during_event", "first_alert_seconds",
+                "detected", "preexisting_tamper_alert", "any_alert_during_event",
+                "evidence_unusable_during_event", "first_alert_seconds",
                 "detection_delay_seconds", "flagged_samples",
             ],
         )
@@ -307,6 +353,8 @@ def main():
         "evaluation_status": summary["evaluation_status"],
         "sampled_confusion": summary["sampled_confusion"],
         "sampled_precision": summary["sampled_precision"],
+        "normal_quality_untrusted_fraction": summary["normal_quality_untrusted_fraction"],
+        "tampered_evidence_unusable_sample_fraction": summary["tampered_evidence_unusable_sample_fraction"],
         "sampled_recall": summary["sampled_recall"],
         "false_alarms_per_normal_hour": summary["false_alarm_episodes_per_normal_hour"],
         "per_tamper_class": summary["per_tamper_class"],
