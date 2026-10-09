@@ -28,6 +28,8 @@ from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
+from app.services.edge_ingest import normalize_event
+from app.services.edge_event_ledger import EdgeEventLedger
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
     load_demo_equipment_metadata,
@@ -1300,24 +1302,34 @@ def create_demo_infrastructure_case(
 
 @app.post("/api/edge/sync")
 def edge_sync(request: EdgeSyncRequest):
-    """Receive compact edge telemetry and fold it into the same audit stores.
+    """Ingest sanitized, explicitly unverified edge telemetry atomically per worker."""
+    with EdgeEventLedger._lock:
+        return _edge_sync_locked(request)
 
-    Raw video remains local. Analysis summaries update history and exception case
-    telemetry becomes reviewable centrally without pretending the raw frame was uploaded.
-    """
-    events_path = DATA / "edge_events.json"
-    rows = json.loads(events_path.read_text()) if events_path.exists() else []
-    accepted = []
+
+def _edge_sync_locked(request: EdgeSyncRequest):
+    # Process-local idempotency (not a multi-replica transaction).
+    ledger = EdgeEventLedger(DATA / "edge_events.json")
+    rows = ledger.load()
+    accepted: list[str] = []
+    rejected: list[dict[str, str]] = []
     skipped_existing_case_ids: list[str] = []
     existing = {row.get("event_id") for row in rows}
 
-    for event in request.events:
-        event_id = event.get("event_id")
-        if not event_id or event_id in existing:
+    for incoming in request.events:
+        event, rejection = normalize_event(incoming)
+        if rejection:
+            rejected.append({
+                "event_id": str(incoming.get("event_id") or "")[:96] if isinstance(incoming, dict) else "",
+                "reason": rejection,
+            })
+            continue
+        event_id = event["event_id"]
+        if event_id in existing:
             continue
 
-        event_type = event.get("event_type")
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        event_type = event["event_type"]
+        payload = event["payload"]
 
         if event_type == "analysis_summary":
             centre_id = str(payload.get("centre_id") or "")
@@ -1391,11 +1403,13 @@ def edge_sync(request: EdgeSyncRequest):
         existing.add(event_id)
         accepted.append(event_id)
 
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    events_path.write_text(json.dumps(rows, indent=2))
+    if accepted:
+        ledger.save(rows)
     return {
         "accepted_event_ids": accepted,
         "accepted_count": len(accepted),
+        "rejected_events": rejected,
+        "rejected_count": len(rejected),
         "skipped_existing_case_ids": skipped_existing_case_ids,
         "received_payload_bytes": json_payload_bytes(request.events),
         "raw_video_required": False,
