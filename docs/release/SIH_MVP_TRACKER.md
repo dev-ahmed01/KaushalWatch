@@ -41,6 +41,8 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 ### Milestone 3/5 — Defensible final evaluation
 
+**Scorecard-engineering checks implemented (not actual measured results):** `evaluation/final_scorecard_guard.py` and `evaluation/evaluate_final_demo.py --final --asset-manifest` now bind every input CSV to the local frozen media manifest, validate sample uniqueness and scoring domains, and record file/manifest SHA-256 provenance. Development-mode reports are explicitly marked unqualified. Undefined precision, recall, false-positive rates and abstention-only operability accuracy are `null`, not fabricated zeros. Crucially, frozen prediction columns **do not by themselves prove a particular model generated them**. See `docs/release/frozen-scorecards.md`.
+
 - [ ] Run frozen OpenVINO profile on exact target/hold-out clips; record occupancy MAE, count agreement and evidence trust.
 - [ ] Evaluate practical-work case outputs against pre-labelled, independent ground truth.
 - [ ] Evaluate equipment per-class TP/FP/FN and report coverage, including classes absent from the clip.
@@ -49,6 +51,8 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 - [ ] Measure camera visibility/insufficient-evidence outcomes without promoting experimental displacement metrics.
 - [ ] Measure offline payload/bandwidth against the exact video; verify duplicate delivery is idempotent.
 - [ ] Publish observed results, reproducible commands and known limits; leave unsupported claims pending.
+
+**Operator command (after final asset qualification, not on placeholder data):** `python evaluation/evaluate_final_demo.py --final --asset-manifest demo/release-assets.local.json --attendance data/annotations/attendance.csv --equipment data/annotations/equipment.csv --operability data/annotations/operability.csv --cases data/annotations/cases.csv --out-dir evaluation/output/final-demo`.
 
 **Exit gate:** every presented metric has a labelled source, exact configuration and reproducible result.
 
@@ -95,7 +99,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 1. **Final media are not shipped in Git.** The repository has a reviewed DOD equipment cache and example annotations, not a complete versioned set of real demonstration videos.
 2. **Equipment quantities are simulated.** Source documentation covers job-role equipment types, not validated per-item sanctioned quantities. The new asset verification can confirm source consistency, but does not validate the sanctioned quantity specification or accuracy.
-3. **Formal equipment and overall case metrics are pending.** A synthetic example CSV is not a model accuracy benchmark.
+3. **Formal equipment and overall case metrics are pending.** A synthetic example CSV is not a model accuracy benchmark. The evaluator now distinguishes example-mode math from SHA-bound final-input scoring; actual inference provenance, independent timestamped annotations and correct negative-case opportunities still require evidence.
 4. **Camera Trust experimental PR #54 is not promotion-ready.** It includes promising selected-event results alongside previously observed severe false alarms; do not merge based solely on CI.
 5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
 6. **Privacy/authority:** automated visual findings are review inputs; unknown visibility cannot become a healthy or punitive conclusion.
