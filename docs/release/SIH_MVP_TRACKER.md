@@ -26,6 +26,9 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 ### Milestone 2/5 — Final demo assets and annotation
 
+**Engineering gate implemented (not final-media acceptance):** `scripts/verify_release_assets.py`, `backend/app/services/release_assets.py` and `backend/tests/test_release_assets.py` check five clip roles, independent annotation CSV schema, SHA-256 source integrity, reviewer attestations, source/privacy/licensing metadata, camera-cut-safe ROI, and reviewed equipment cache binding. `check_demo_readiness.py --final` and `run_final_demo_rehearsal.py --final` now refuse missing or mismatched frozen assets. The checked-in `demo/release-assets.example.json` is intentionally incomplete and **cannot** pass final qualification. See `docs/release/final-media-freeze.md`.
+
+
 - [ ] Freeze exact attendance clip and its annotated reported/observed counts.
 - [ ] Freeze practical-work clip, zones, authorization inputs, and held-out labels.
 - [ ] Freeze infrastructure source clip; verify SHA-bound reviewed DOD cache and equipment manifest align to the same footage.
@@ -91,7 +94,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 ## Critical boundaries and known blockers
 
 1. **Final media are not shipped in Git.** The repository has a reviewed DOD equipment cache and example annotations, not a complete versioned set of real demonstration videos.
-2. **Equipment quantities are simulated.** Source documentation covers job-role equipment types, not validated per-item sanctioned quantities.
+2. **Equipment quantities are simulated.** Source documentation covers job-role equipment types, not validated per-item sanctioned quantities. The new asset verification can confirm source consistency, but does not validate the sanctioned quantity specification or accuracy.
 3. **Formal equipment and overall case metrics are pending.** A synthetic example CSV is not a model accuracy benchmark.
 4. **Camera Trust experimental PR #54 is not promotion-ready.** It includes promising selected-event results alongside previously observed severe false alarms; do not merge based solely on CI.
 5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
@@ -117,9 +120,10 @@ The **route contract gate** verifies 22 required frontend helper ↔ FastAPI rou
 On the judge machine, after safely configuring local assets and provider credentials, also run:
 
 ```bash
+python scripts/verify_release_assets.py --manifest demo/release-assets.local.json
 python scripts/prepare_demo_vision.py --install
-python scripts/check_demo_readiness.py --video <exact-source-clip> --final
-python scripts/run_final_demo_rehearsal.py --video <exact-source-clip>
+python scripts/check_demo_readiness.py --video <exact-primary-source-clip> --final --asset-manifest demo/release-assets.local.json
+python scripts/run_final_demo_rehearsal.py --video <exact-primary-source-clip> --final --asset-manifest demo/release-assets.local.json
 ```
 
 Do **not** execute `prepare_demo_state.py --yes` on a runtime with unsaved officer work: that action resets the mutable demo seed. Keep actual footage, local model binaries, generated evaluation reports and credentials out of source control.
