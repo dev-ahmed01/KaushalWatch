@@ -41,7 +41,7 @@ For a remote test, use **HTTPS, narrow CORS origins, restricted ingress, and syn
 2. If token mode is active, enter the assigned access key in the password field.
 3. Read the evidence, add a decision note, and choose an allowed case action.
 4. The frontend sends the key **only** in the `Authorization: Bearer ...` header on officer-review POST requests. The key stays in React memory and is not stored in browser cookies, localStorage or sessionStorage.
-5. The backend derives the actor from the configured token map and persists the case-state transition, timestamp, note and actor. Audits display **Recorded by: officer-01** or the applicable server-mapped actor.
+5. The backend derives the actor from the configured token map and persists the case-state transition, timestamp, note and actor. For a final action on an **open** case, one HTTP POST atomically commits **open → under review → final** as two audit entries and one JSON replacement. There is no intermediate persisted state if the write fails. Audits display **Recorded by: officer-01** or the applicable server-mapped actor.
 6. Missing credentials, wrong credentials or a failed review-access status check block writes with a visible error. No failure should silently become a successful review.
 
 `GET /api/review-access` exposes **only** `mode`, `required`, and `prototype_only`. It never returns a key or a list of authorised actors.
@@ -64,3 +64,10 @@ The structural contract gate checks 22 method/path pairs, including `GET /api/re
 - TLS termination, centrally managed secrets, key rotation, CSRF/CORS/deployment review, rate limits, security logging and penetration testing.
 
 The token-mode check is a release hardening measure for a **controlled synthetic SIH demonstration**, not certification of production or real-centre security.
+
+
+## Atomic prototype review and failure boundaries
+
+A confirmation on an open case used to require two browser POSTs. A network or disk error between them could persist `under_review` without the intended final status. The browser now sends exactly one request. `CaseStore.apply_review_action` records both transitions under the same lock and calls one atomic file replacement. On a write failure the previous file and officer audit remain intact. Two competing terminal actions cannot both win within the same Python worker; retries of an already-terminal action do not append a second audit. Regression coverage lives in `backend/tests/test_atomic_review_action.py` and `web/e2e/offline-integrity.spec.ts`.
+
+This is a one-process, local JSON-file improvement. Cross-process transactions, conflict-version headers, immutable regulatory audit evidence, comprehensive role-based access to sensitive reads, and production deployment controls remain **not implemented**.
