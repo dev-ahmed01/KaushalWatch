@@ -876,3 +876,164 @@ def test_operational_receipt_blocks_warmup_and_unsampled_annotation(tmp_path, mo
     )
     assert warmup["samples"][0]["detector_eligible"] is False
     assert warmup["samples"][0]["smoothed_count"] is None
+
+
+def _case_attendance_fixture(tmp_path, monkeypatch):
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, record = _operational_fixture(tmp_path, monkeypatch)
+    _local_test_model_artifacts(tmp_path, record)
+    cases = tmp_path / "cases.csv"
+    _write_csv(
+        cases,
+        ["sample_id", "case_type", "true_issue", "pred_issue",
+         "source_asset_id", "centre_id", "batch_id", "reported_attendance"],
+        [
+            {"sample_id": "C1", "case_type": "attendance_discrepancy",
+             "true_issue": "true", "pred_issue": "false",
+             "source_asset_id": "attendance", "centre_id": "DEMO-KA-104",
+             "batch_id": "TEST-BATCH", "reported_attendance": "0"},
+            {"sample_id": "C2", "case_type": "attendance_discrepancy",
+             "true_issue": "false", "pred_issue": "false",
+             "source_asset_id": "attendance", "centre_id": "DEMO-KA-104",
+             "batch_id": "TEST-BATCH", "reported_attendance": "0"},
+        ],
+    )
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    record["manifest_sha256"] = _hash(manifest)
+    receipt = tmp_path / "case-attendance-receipt.json"
+    receipt.write_text(json.dumps(record))
+    return manifest, cases, receipt, record
+
+
+def test_full_video_case_verifier_matches_only_explicit_attendance_opportunity(
+    tmp_path, monkeypatch
+):
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+    from evaluation import evaluate_final_demo
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    result = verify_attendance_case_opportunity(
+        manifest, tmp_path / "attendance.csv", cases, receipt, _hash(manifest), "C2"
+    )
+    assert result["status"] == "one_attendance_case_opportunity_matched_to_operational_timeline"
+    assert result["predicted_issue"] is False
+    assert result["independent_label_in_csv"] is False
+    assert result["timeline_frames"] == record["pipeline_result"]["frames_sampled"]
+    assert result["decision"] == "compliant"
+    assert result["trusted_frame_ratio"] == 1.0
+
+    out = tmp_path / "scored-case"
+    monkeypatch.setattr(sys, "argv", [
+        "evaluate_final_demo.py", "--final", "--asset-manifest", str(manifest),
+        "--operational-attendance-receipt", str(receipt),
+        "--attendance-case-sample-id", "C2",
+        "--attendance", str(tmp_path / "attendance.csv"),
+        "--equipment", str(tmp_path / "equipment.csv"),
+        "--operability", str(tmp_path / "operability.csv"),
+        "--cases", str(cases), "--out-dir", str(out),
+    ])
+    evaluate_final_demo.main()
+    report = json.loads((out / "final_demo_report.json").read_text())
+    assert report["attendance_case_trace"]["case_sample_id"] == "C2"
+    assert report["attendance_case_trace"]["predicted_issue"] is False
+    assert report["prediction_source_verified"] is False
+
+
+def test_case_verifier_blocks_incorrect_reported_count_or_source_mapping(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    rows = list(csv.DictReader(cases.open(newline="")))
+    rows[-1]["reported_attendance"] = "5"
+    _write_csv(cases, list(rows[0]), rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    record["manifest_sha256"] = _hash(manifest)
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="reported count"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+    rows[-1]["reported_attendance"] = "0"
+    rows[-1]["source_asset_id"] = "infrastructure"
+    _write_csv(cases, list(rows[0]), rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    record["manifest_sha256"] = _hash(manifest)
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="source asset"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+
+def test_case_verifier_rejects_tampered_whole_video_decision_or_missing_timeline(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+
+    record["pipeline_result"]["decision"] = "attendance_exception"
+    record["pipeline_result"]["case_type"] = "attendance_discrepancy"
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Final attendance case decision disagrees"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+    record["pipeline_result"]["decision"] = "compliant"
+    record["pipeline_result"]["case_type"] = None
+    record["decision_timeline"] = record["decision_timeline"][:-1]
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="missing sampled frames"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+
+def test_case_verifier_rejects_tampered_persistence_and_insufficient_camera(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+
+    record["pipeline_result"]["mismatch_persistence_ratio"] = 0.8
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="mismatch persistence"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+    record["pipeline_result"]["mismatch_persistence_ratio"] = 0.0
+    record["pipeline_parameters"]["minimum_trusted_ratio"] = 1.1
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Invalid recorded decision thresholds"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
+
+
+def test_case_verifier_refuses_unqualified_or_ambiguous_case_rows(tmp_path, monkeypatch):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    rows = list(csv.DictReader(cases.open(newline="")))
+    # Deliberately create two rows with the same case ID and case type.
+    # The global frozen scorecard gate also rejects this; this direct
+    # verification must fail rather than silently take the first row.
+    rows[0]["sample_id"] = "C2"
+    _write_csv(cases, list(rows[0]), rows)
+    frozen = json.loads(manifest.read_text())
+    next(x for x in frozen["annotations"] if x["kind"] == "cases")["sha256"] = _hash(cases)
+    manifest.write_text(json.dumps(frozen))
+    record["manifest_sha256"] = _hash(manifest)
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="Exactly one"):
+        verify_attendance_case_opportunity(manifest, tmp_path / "attendance.csv",
+                                           cases, receipt, _hash(manifest), "C2")
