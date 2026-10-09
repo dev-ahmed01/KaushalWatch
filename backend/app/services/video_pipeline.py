@@ -444,8 +444,16 @@ class VideoCompliancePipeline:
                 evidence=[evidence],
             )
 
-        if case is not None and case.case_type == "camera_integrity":
-            decision = "camera_integrity_exception"
+        if case is not None and case.case_type in {"camera_integrity", "camera_visibility"}:
+            # Never return 'compliant' or an occupancy estimate when the
+            # majority of footage was unsuitable for visual inference.
+            decision = (
+                "camera_integrity_exception"
+                if case.case_type == "camera_integrity"
+                else "camera_visibility_insufficient"
+            )
+            estimated = None
+            overall_pct = None
         elif not runtime_authoritative:
             decision = "detector_unavailable"
         elif case is not None and case.case_type == "attendance_discrepancy":
