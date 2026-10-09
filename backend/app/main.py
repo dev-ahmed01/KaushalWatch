@@ -29,6 +29,7 @@ from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.edge_ingest import normalize_event
+from app.services.edge_access import resolve_edge_actor
 from app.services.edge_event_ledger import EdgeEventLedger
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
@@ -1301,13 +1302,13 @@ def create_demo_infrastructure_case(
 
 
 @app.post("/api/edge/sync")
-def edge_sync(request: EdgeSyncRequest):
+def edge_sync(request: EdgeSyncRequest, edge_actor: str = Depends(resolve_edge_actor)):
     """Ingest sanitized, explicitly unverified edge telemetry atomically per worker."""
     with EdgeEventLedger._lock:
-        return _edge_sync_locked(request)
+        return _edge_sync_locked(request, edge_actor)
 
 
-def _edge_sync_locked(request: EdgeSyncRequest):
+def _edge_sync_locked(request: EdgeSyncRequest, edge_actor: str):
     # Process-local idempotency (not a multi-replica transaction).
     ledger = EdgeEventLedger(DATA / "edge_events.json")
     rows = ledger.load()
@@ -1327,6 +1328,7 @@ def _edge_sync_locked(request: EdgeSyncRequest):
         event_id = event["event_id"]
         if event_id in existing:
             continue
+        event["server_resolved_edge_actor"] = edge_actor
 
         event_type = event["event_type"]
         payload = event["payload"]
@@ -1347,6 +1349,8 @@ def _edge_sync_locked(request: EdgeSyncRequest):
                         **(payload.get("details") or {}),
                         "edge_synced": True,
                         "raw_video_uploaded": False,
+                        "edge_receipt_unverified": True,
+                        "edge_actor": edge_actor,
                         "edge_event_id": event_id,
                     },
                 )
@@ -1391,6 +1395,8 @@ def _edge_sync_locked(request: EdgeSyncRequest):
                         **(payload.get("details") or {}),
                         "edge_synced": True,
                         "raw_video_uploaded": False,
+                        "edge_receipt_unverified": True,
+                        "edge_actor": edge_actor,
                         "edge_event_id": event_id,
                         "edge_reported_status_unverified": str(payload.get("status") or "open"),
                         "edge_evidence_integrity": payload.get("evidence_integrity") or [],
