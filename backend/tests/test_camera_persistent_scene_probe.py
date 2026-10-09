@@ -89,7 +89,8 @@ def test_shadow_survey_outputs_without_private_frames(tmp_path):
         finally:
             writer.release()
     results = run(avi, labels, tmp_path / "results", events_per_class=4,
-                  normal_windows=4, sample_seconds=1/3)
+                  normal_windows=4, sample_seconds=1/3,
+                  normal_seconds=30)
     assert results["moved_events"] == 4
     assert results["normal_controls"] == 4
     assert len(list((tmp_path / "results").iterdir())) == 2
