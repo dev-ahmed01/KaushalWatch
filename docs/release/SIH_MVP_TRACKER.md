@@ -77,6 +77,12 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 
 ### Milestone 4/5 — End-to-end officer journey
 
+**Protected API/evidence boundary (engineering implemented, protected browser UI not complete):** `backend/app/services/protected_access.py` requires a server-mapped officer bearer key for every sensitive `/api/` route, `/evidence/` frame, PDF/report path and API schema in staging/pilot/production. Only health, limited review-access status and independently device-authenticated edge sync remain exempt. Unknown/misspelled deployment environments fail closed. These checks are tested on synthetic keys and cases in `backend/tests/test_protected_data_boundary.py`. **The existing Next.js UI has no login/session BFF for protected reads and images; it will deliberately be blocked in protected mode. This is a data-exposure safety gate, not pilot readiness.** See `docs/release/protected-data-access.md`.
+
+**API attendance disposition fail-closed:** `/api/process-video` now requires the whole-video decision, authoritative detector, zero detection failures and enough trusted samples before writing `compliant` to analysis history. Previously detector authority alone could be mistaken for clean attendance. `backend/tests/test_attendance_api_fail_closed.py` exercises eight synthetic cases without claiming model accuracy.
+
+
+
 **Atomic officer outcomes + browser failure states implemented (synthetic CI):** the case store and review API can now process an open-to-final decision with *one* atomic JSON replacement while preserving both audit transitions. The case page sends a single POST, preventing a failed final request from leaving a half-updated officer review. Concurrency, disk-interruption and key-denial tests are in `backend/tests/test_atomic_review_action.py`. Browser tests in `web/e2e/offline-integrity.spec.ts` exercise one-click confirmation/audit reload, network failures, offline action-queue recovery and camera-trust uncertainty. Evidence screens no longer interpret missing camera-trust measurement as a positive trust observation. Note: this is a **single-process prototype atomicity guarantee**, not pilot-grade distributed audit storage.
 
 
@@ -109,7 +115,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 | Feature | Source-audited state | Required final verification |
 | --- | --- | --- |
 | AI-first shell, five centres, Insights, Actions | Implemented with responsive browser E2E on PR #53 | Candidate browser run |
-| FastAPI, analysis history, case/evidence persistence, officer review | Implemented; optional token-mode reviewer write restriction and server-derived audit actor added on release branch | Real officer vertical slice, full permissions and negative paths |
+| FastAPI, analysis history, case/evidence persistence, officer review | Implemented: atomic audit, mapped officer write actor; staging/pilot API/evidence read boundary rejects unauthenticated requests | Secure browser sessions, scoped RBAC, transactional database, real officer vertical slice |
 | Frozen OpenVINO attendance profile | Benchmarked on *limited* EPFL Camera 0 sequence | Exact demo clip and held-out counts |
 | Practical activity | Development held-out unauthorized example in `STATUS.md` | Stage clip/zone labels and independent benchmark |
 | Infrastructure presence | Reviewed DOD cache with SHA-256-bound source | Source availability, exact hash, formal per-class evaluation |
@@ -128,7 +134,7 @@ A task is DONE only if its acceptance evidence is recorded and applicable tests 
 4. **Camera Trust experimental PR #54 is not promotion-ready.** It includes promising selected-event results alongside previously observed severe false alarms; do not merge based solely on CI.
 5. **Provider readiness is environment-dependent.** Gemini/Groq calls need operator keys and a live test; typed/offline monitoring must remain usable without them.
 6. **Privacy/authority:** automated visual findings are review inputs; unknown visibility cannot become a healthy or punitive conclusion.
-7. **Officer identity:** `docs/release/officer-review-access.md` documents a server-side bearer-key write safeguard and actor attribution. The default local SIH mode is explicitly simulated, while pilot/staging/production settings fail closed without token mode. Sensitive read APIs and other writes are not RBAC-protected, so government or real-centre deployment remains out of scope.
+7. **Officer identity and protected data:** `docs/release/officer-review-access.md` covers server-side mapped bearer-key actor attribution; `docs/release/protected-data-access.md` covers the new all-sensitive-route read/write/evidence denial in staging/pilot/production. Only explicitly local environments can use demo access; unknown settings fail closed. **This is not full RBAC, and the browser lacks a protected-session/login proxy**. Every valid bearer key currently has broad demo-centre access, so government/real-centre deployment remains out of scope.
 8. **Durable case status:** an edge event with an existing case ID no longer overwrites that case (even under a different event ID); untrusted edge source statuses are never treated as human decisions. `CaseStore` writes now use in-process locking and atomic file replacement. These controls do **not** provide multi-process transactions, signed edge event provenance, or a production audit ledger.
 
 ## Release checks
