@@ -161,13 +161,19 @@ def sync(args) -> int:
         return 0
 
     body = json.dumps({"events": events}, separators=(",", ":")).encode("utf-8")
+    # Keep device credentials out of CLI arguments and stdout; use an
+    # environment-provided opaque secret for externally exposed endpoints.
+    token = os.getenv("KAUSHALWATCH_EDGE_SYNC_TOKEN", "").strip()
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "KaushalWatch-Edge/1.0",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = Request(
         args.url.rstrip("/") + "/api/edge/sync",
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "KaushalWatch-Edge/1.0",
-        },
+        headers=headers,
         method="POST",
     )
     try:
