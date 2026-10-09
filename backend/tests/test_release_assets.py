@@ -1493,7 +1493,7 @@ def test_operability_trace_requires_unique_window_opportunity_and_valid_threshol
         capture_operability_trace(manifest, csv_path)
 
 
-def _practical_trace_fixture(tmp_path, monkeypatch, *, authorization="absent", active=True):
+def _practical_trace_fixture(tmp_path, monkeypatch, *, authorization="absent", active=True, trust=True):
     from types import SimpleNamespace
     from app.services import practical_activity_pipeline
     from app.services.person_detector import Detection, DetectorInfo
@@ -1536,7 +1536,8 @@ def _practical_trace_fixture(tmp_path, monkeypatch, *, authorization="absent", a
     monkeypatch.setattr(
         practical_activity_pipeline, "assess_camera",
         lambda frame, previous_frame, reference_frame: SimpleNamespace(
-            trusted=True, score=100.0, reasons=[]
+            trusted=trust, score=100.0 if trust else 0.0,
+            reasons=[] if trust else ["camera_view_untrusted"]
         ),
     )
     monkeypatch.setattr(
@@ -1798,3 +1799,24 @@ def test_practical_full_timeline_cannot_omit_a_sample_even_if_totals_rewritten(t
     trace_path.write_text(json.dumps(receipt))
     with pytest.raises(ValueError, match="omitted or inserted"):
         verify_practical_trace(manifest, trace_path, _hash(manifest))
+
+
+def test_practical_untrusted_camera_is_abstention_not_clean_authorization_negative(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.practical_activity_trace import verify_practical_trace
+
+    manifest, receipt = _practical_trace_fixture(
+        tmp_path, monkeypatch, authorization="absent", trust=False,
+    )
+    assert receipt["result"]["decision"] == "camera_evidence_insufficient"
+    assert receipt["result"]["case_type"] == "camera_integrity"
+    assert receipt["result"]["trusted_frame_ratio"] == 0
+    assert all(row["practical_active"] is None and row["registered_workers"] is None
+               for row in receipt["timeline"])
+    _fake_practical_model_receipt(tmp_path, receipt)
+    path = tmp_path / "camera-degraded-practical.json"
+    path.write_text(json.dumps(receipt))
+    with pytest.raises(ValueError, match="Insufficient camera trust"):
+        verify_practical_trace(manifest, path, _hash(manifest))
