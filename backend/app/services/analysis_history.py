@@ -20,9 +20,13 @@ class AnalysisHistoryStore:
             return []
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return []
-        return data if isinstance(data, list) else []
+        except (json.JSONDecodeError, OSError) as exc:
+            # Never silently replace a corrupted history file with an empty
+            # ledger on the next append; surface it for operator recovery.
+            raise ValueError("Analysis history is unreadable; refusing unsafe overwrite") from exc
+        if not isinstance(data, list):
+            raise ValueError("Analysis history must be a JSON array")
+        return data
 
     def _save(self, rows: list[dict[str, Any]]) -> None:
         """Single-worker crash-safe JSON replacement, not a DB transaction."""
