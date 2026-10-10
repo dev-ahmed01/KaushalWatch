@@ -27,10 +27,21 @@ export function requireProtectedMode(): boolean {
 
 export function sameOrigin(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
+  const host = request.headers.get('host');
   const fetchSite = request.headers.get('sec-fetch-site');
-  // Browser mutations always send Origin. Reject cross-site and originless
-  // requests, including form POST CSRF and unsafe replay from unrelated apps.
-  return !!origin && origin === request.nextUrl.origin && fetchSite !== 'cross-site';
+  // Next.js can normalize nextUrl.origin to localhost behind a proxy while
+  // the browser's actual Host/Origin is 127.0.0.1 or a public HTTPS domain.
+  // Compare the incoming browser Origin to the Host, not an internal URL.
+  if (!origin || !host || fetchSite === 'cross-site') return false;
+  try {
+    const parsed = new URL(origin);
+    if (parsed.host.toLowerCase() !== host.toLowerCase()) return false;
+    if (parsed.protocol === 'https:') return true;
+    return parsed.protocol === 'http:'
+      && ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function sweep(): void {
