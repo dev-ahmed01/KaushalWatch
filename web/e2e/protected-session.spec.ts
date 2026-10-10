@@ -135,4 +135,40 @@ test.describe('Protected browser officer session', () => {
     await page.getByText(/Audit trail · 2 events/).click();
     await expect(page.getByText('Recorded by: browser-ci-officer').first()).toBeVisible();
   });
+
+  test('one Redis-backed login works on two Next.js instances and logout revokes both', async ({ page }) => {
+    test.skip(process.env.E2E_DISTRIBUTED_MODE !== 'true', 'Requires two protected web instances sharing synthetic Redis REST.');
+    await page.goto('http://127.0.0.1:3001/login');
+    await page.getByLabel('Officer access key').fill(TOKEN);
+    await page.getByRole('button', { name: 'Sign in securely' }).click();
+    await expect(page).toHaveURL('http://127.0.0.1:3001/');
+    const cookie = (await page.context().cookies()).find(c => c.name === 'kw_officer_session');
+    expect(cookie?.value).toHaveLength(43);
+
+    // Navigate rather than fetch across origins: browser cookies are scoped to
+    // the hostname, not the TCP port. Instance B never issued this session.
+    await page.goto('http://127.0.0.1:3002/');
+    await expect(page.getByRole('heading', { name: 'KaushalAI' })).toBeVisible();
+    const fromB = await page.evaluate(async () => {
+      const [status, cases] = await Promise.all([
+        fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin' }),
+        fetch('/api/proxy/api/cases', { cache: 'no-store', credentials: 'same-origin' }),
+      ]);
+      return { status: await status.json(), caseCode: cases.status };
+    });
+    expect(fromB.status.authenticated).toBe(true);
+    expect(fromB.status.csrfToken).toBeTruthy();
+    expect(fromB.caseCode).toBe(200);
+    await page.getByRole('button', { name: 'Sign out of officer session' }).click();
+    await expect(page).toHaveURL(/\/login/);
+
+    // A new request to instance A using the revoked ID is rejected.
+    const revoked = await page.request.get('http://127.0.0.1:3001/api/proxy/api/cases', {
+      headers: { Cookie: 'kw_officer_session=' + cookie?.value },
+    });
+    expect(revoked.status()).toBe(401);
+    await page.goto('http://127.0.0.1:3001/');
+    await expect(page).toHaveURL(/\/login\?next=/);
+  });
+
 });

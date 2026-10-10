@@ -172,3 +172,18 @@ Do **not** execute `prepare_demo_state.py --yes` on a runtime with unsaved offic
 **KaushalAI -> Centres -> Centre intelligence -> Analyze/inspect -> Evidential discrepancy -> Anonymized proof -> Officer case review -> Persistent audit -> Actions/escalation -> Insights/report -> Grounded assistant follow-up.**
 
 The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. This records historical baseline verification only. The release branch needs its **own** successful CI, plus the final-media and live-environment gates above before it can be called SIH-ready.
+
+
+### Post-protected-browser continuation — distributed session protocol (synthetic CI)
+
+- Added an opt-in Upstash-compatible Redis REST store with SHA-256-keyed opaque
+  session IDs, AES-256-GCM-encrypted officer bearer and CSRF material, fixed
+  30-minute Redis TTL, and shared logout revocation. Missing or failed stores
+  deny access; memory mode requires an explicit non-pilot staging escape hatch.
+- Dedicated protected-browser job starts two Next.js processes and a local
+  mock Redis REST protocol server. Cross-instance login, case access and logout
+  are now tested; actual hosted Redis, latency and service outages are **not**.
+- Officer centre-scoped authorization, identity provisioning, read audit,
+  hard login throttling, transactional backend persistence and final-stage
+  real-media quality gates remain **open**. See
+  `docs/release/distributed-session-store.md`. PR #55 remains draft.

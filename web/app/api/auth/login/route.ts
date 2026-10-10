@@ -38,7 +38,10 @@ export async function POST(request: NextRequest) {
       { status: response.status === 401 ? 401 : 503 },
     );
   }
-  const { id } = createSession(key);
+  let id: string;
+  try { ({ id } = await createSession(key)); }
+  catch { return NextResponse.json({ detail: 'Officer session storage unavailable.' },
+    { status: 503, headers: { 'Cache-Control': 'no-store' } }); }
   const result = NextResponse.json({ authenticated: true });
   result.cookies.set(sessionCookie(id));
   result.headers.set('Cache-Control', 'no-store');

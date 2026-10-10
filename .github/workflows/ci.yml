@@ -168,12 +168,26 @@ jobs:
           npm install
           npm run build
           npx playwright install --with-deps chromium
+      - name: Start synthetic shared Redis REST session store
+        env:
+          KAUSHALWATCH_TEST_REDIS_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
+        run: |
+          python scripts/mock_redis_rest.py --host 127.0.0.1 --port 6399 > /tmp/kaushalwatch-session-mock.log 2>&1 &
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:6399 -H 'Authorization: Bearer CI_Synthetic_Redis_SessionToken_0123456789abcdef' -H 'Content-Type: application/json' -d '["GET","health"]'; then break; fi
+            sleep 1
+          done
+          echo "KAUSHALWATCH_SESSION_ENCRYPTION_KEY=$(python -c 'import base64,os; print(base64.b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
       - name: Start protected web server
         working-directory: web
         env:
           NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
           KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_ENV: staging
           KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8011
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6399
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
         run: |
           npm run start -- -H 127.0.0.1 -p 3001 > /tmp/kaushalwatch-protected-web.log 2>&1 &
           for i in {1..30}; do
@@ -182,9 +196,28 @@ jobs:
           done
           cat /tmp/kaushalwatch-protected-web.log
           exit 1
+      - name: Start second protected web instance (same shared session store)
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8011
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6399
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3002 > /tmp/kaushalwatch-protected-web-2.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3002/login && exit 0
+            sleep 1
+          done
+          cat /tmp/kaushalwatch-protected-web-2.log
+          exit 1
       - name: Test protected login, CSRF, evidence and logout
         working-directory: web
         env:
           E2E_BASE_URL: http://127.0.0.1:3001
           E2E_PROTECTED_MODE: 'true'
+          E2E_DISTRIBUTED_MODE: 'true'
         run: npx playwright test e2e/protected-session.spec.ts

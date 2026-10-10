@@ -6,12 +6,12 @@ This is an opt-in **single-process** browser integration for the SIH prototype, 
 
 1. The officer enters a pre-provisioned bearer key on the `/login` page. The browser sends the key **once**, same-origin, to `POST /api/auth/login` over HTTPS on a real deployment. It is not logged or retained in local storage.
 2. The Next.js route checks a strict `Origin` header, then calls the backend's **protected-only** `GET /api/officer-validate` with that key. That endpoint refuses to validate in development/demo mode or when the backend is missing token authentication.
-3. A valid key creates an **opaque, 32-byte random session ID** and a separate CSRF secret held in a server memory map for a maximum of 30 minutes. The browser receives only a short-lived `HttpOnly`, `SameSite=Strict`, `Secure`-in-production session cookie; the bearer key remains on the Next.js server.
+3. A valid key creates an **opaque, 32-byte random session ID** and a separate CSRF secret retained in an encrypted, shared Redis REST store for a maximum of 30 minutes when durable mode is enabled. The browser receives only a short-lived `HttpOnly`, `SameSite=Strict`, `Secure`-in-production session cookie; the bearer key remains on the Next.js server.
 4. The protected frontend build sets `NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY=true`. This public value is a feature switch, **not a credential**. Browser API/evidence requests use same-origin `/api/proxy/api/...` and `/api/proxy/evidence/<id>.jpg` endpoints. The Next.js server forwards only allowlisted application endpoints, attaches the officer bearer in its server-to-server request, and filters outgoing response headers to deny caching or accidental cookie forwarding. Video uploads are streamed rather than buffered in memory.
 5. Mutations require the session CSRF token supplied in `X-KaushalWatch-CSRF` and a matching `Origin`. The token comes from `GET /api/auth/status`, and does **not** carry officer credentials. The browser app adds it automatically. An edge-device token cannot read officer case data; the officer proxy blocks edge-sync routes.
 6. `POST /api/auth/logout` requires matching origin and CSRF, revokes the session server-side, and clears the cookie. Expired or lost sessions block further reads rather than falling back to local-demo permissions.
 
-**Important:** This is a one-instance in-memory session map. Restarting the server signs everyone out. Multiple Next.js workers or serverless functions cannot share sessions, and there is no production session store, administrator UI, token rotation, password recovery, hardware-backed identity, centre-scoped RBAC, session revocation by administrator, login rate limit, or full audit of read access. **Do not deploy this prototype against real-centre data** without replacing it with a durable, distributed secure session/identity system and independent security review.
+**Session update:** The original single-process memory map is now a synthetic-staging-only explicit fallback. A configurable encrypted Redis REST session store supports shared, expiring, revocable browser sessions across Next.js instances. See [distributed-session-store.md](distributed-session-store.md) for setup and test boundaries. There is still no real pilot identity provisioning, administrator revocation, centre-scoped RBAC, login throttling, full read audit or end-to-end security certification. **Do not deploy against real-centre data.**
 
 ## Local protected smoke (synthetic only)
 
@@ -44,7 +44,7 @@ CI now includes a separate `protected-browser` workflow job that boots synthetic
 ## Pilot blockers
 
 - A centralized or securely managed identity provider with real users and actor/centre-scoped RBAC.
-- A durable cross-worker, revocable session store and CSRF policy behind the intended reverse proxy.
+- A real hosted Redis REST deployment/security review and a verified CSRF policy behind the intended reverse proxy (synthetic multi-instance protocol check implemented).
 - Login throttling, strong audit/access logs, TLS, credential rotation and session management.
 - A transactional backend database, media encryption/retention policy, legal data provenance.
 - Final licensed video, held-out annotations and actual model evidence scores.

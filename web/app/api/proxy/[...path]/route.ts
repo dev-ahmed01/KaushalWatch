@@ -11,7 +11,10 @@ const SEGMENT = /^[A-Za-z0-9_.-]{1,128}$/;
 
 async function relay(request: NextRequest, params: Promise<{ path: string[] }>): Promise<NextResponse> {
   if (!protectedMode()) return NextResponse.json({ detail: 'Protected proxy is disabled.' }, { status: 503 });
-  const session = getSession(request);
+  let session;
+  try { session = await getSession(request); }
+  catch { return NextResponse.json({ detail: 'Officer session storage unavailable.' },
+    { status: 503, headers: { 'Cache-Control': 'no-store' } }); }
   if (!session) return NextResponse.json({ detail: 'Officer session required.' }, {
     status: 401, headers: { 'Cache-Control': 'no-store' },
   });
