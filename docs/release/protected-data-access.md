@@ -28,9 +28,11 @@ Use `curl` or a controlled API client to verify a protected read:
 curl -H "Authorization: Bearer <OFFICER_SECRET>" http://127.0.0.1:8000/api/cases
 ```
 
-**Important limitations.** The existing Next.js browser UI does not yet have a secure session/login flow for general authenticated data reads. Its standard `fetch` calls and `<img>` evidence elements do not attach an officer bearer token. As a result, **the protected environment is intentionally locked against the current browser UI** until a secure BFF/session proxy is implemented. This is safer than leaving records public; do not describe it as a completed staging/pilot rollout. Do not put keys in `NEXT_PUBLIC_*`, image URLs, browser local storage, application source or screenshots.
+**Protected browser integration:** An opt-in Next.js server-side BFF/session flow now exists. When the protected build switch `NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY=true` and runtime `KAUSHALWATCH_WEB_AUTH_MODE=protected` are configured, officers sign in at `/login` and backend reads/evidence and writes go through the same-origin server proxy with a short-lived HttpOnly cookie and CSRF check. The browser does not carry the backend bearer key on each request. A dedicated protected CI job validates this separately from the local SIH demo. Full instructions and limitations are in [protected-browser-session.md](protected-browser-session.md).
 
-Bearer keys are not a replacement for per-centre least-privilege RBAC, secure cookies with CSRF protection, HTTPS, credential rotation, real officer identity, scoped evidence retention or database-backed audit transactions. For any real deployment, build and test those capabilities before connecting private footage or real-centre data. In particular, a valid officer token here is **not centre-scoped** and can access all demo centres.
+**Important limitations.** This new session flow is a **single-process synthetic release integration**, not a completed staging/pilot rollout. It has no distributed session store, centre-scoped authorization, external identity provider, login throttling, production TLS deployment validation or full security review. Do not put secrets in `NEXT_PUBLIC_*`, image URLs, browser local storage, application source or screenshots.
+
+Bearer keys and an in-process cookie session are not replacements for per-centre least-privilege RBAC, distributed revocation, HTTPS, credential rotation, real officer identity, scoped evidence retention or database-backed audit transactions. For any real deployment, build and test those capabilities before connecting private footage or real-centre data. In particular, a valid officer token here is **not centre-scoped** and can access all demo centres.
 
 ## Validation
 
