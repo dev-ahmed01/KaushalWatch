@@ -1,10 +1,14 @@
 'use client';
 
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { SECURE_PROXY } from '../lib/api';
 
 export default function OfficerLogin() {
+  return <Suspense fallback={<div role="status">Preparing officer sign in…</div>}><OfficerLoginForm /></Suspense>;
+}
+
+function OfficerLoginForm() {
   const query = useSearchParams();
   const next = query.get('next') || '/';
   const safeNext = next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
