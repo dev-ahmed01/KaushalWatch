@@ -157,3 +157,17 @@ def test_explicit_demo_local_environments_are_allowed(tmp_path, monkeypatch):
         monkeypatch.setenv("KAUSHALWATCH_ENV", local)
         assert client.get("/api/cases").status_code == 200
         assert client.get("/api/review-access").status_code == 200
+
+
+def test_login_validation_refuses_demo_server_even_with_a_configured_officer_token(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "development")
+    token = client.get("/api/officer-validate", headers={"Authorization": f"Bearer {OFFICER}"})
+    assert token.status_code == 503
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
+    assert client.get("/api/officer-validate").status_code == 401
+    assert client.get("/api/officer-validate", headers={"Authorization": f"Bearer {EDGE}"}).status_code == 401
+    valid = client.get("/api/officer-validate", headers={"Authorization": f"Bearer {OFFICER}"})
+    assert valid.status_code == 200
+    assert valid.json() == {"authenticated": True}
+    assert OFFICER not in valid.text
