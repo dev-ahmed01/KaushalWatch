@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     // The protected backend itself authenticates and authorizes the key.
     // No officer credential goes to the browser again after this login.
-    response = await fetch(upstreamBase() + '/api/cases', {
+    response = await fetch(upstreamBase() + '/api/officer-validate', {
       headers: { Authorization: 'Bearer ' + key, Accept: 'application/json' },
       cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(8000),
     });
