@@ -110,7 +110,10 @@ def evidence_centre(evidence_id: str) -> str | None:
     # Lazy reference avoids a module import cycle and honors the active store
     # patched by isolated API tests.
     import app.main as main
-    for case in main.STORE.list():
-        if any(record.evidence_id == evidence_id for record in case.evidence):
-            return case.centre_id
-    return None
+    centres = {
+        case.centre_id for case in main.STORE.list()
+        if any(record.evidence_id == evidence_id for record in case.evidence)
+    }
+    # Reject cross-centre collisions rather than allowing whichever case was
+    # iterated first to decide authorization for a shared static filename.
+    return next(iter(centres)) if len(centres) == 1 else None

@@ -253,6 +253,7 @@ export default function CaseDetailPage() {
                   </Button>
                 </div>
               </>
+              )
             ) : (
               <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-4 text-[12px] leading-5 text-[#667085]">
                 A final officer outcome has been recorded. The evidence and audit trail remain available.

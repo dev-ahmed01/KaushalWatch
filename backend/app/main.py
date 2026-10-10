@@ -769,7 +769,9 @@ def dashboard(
         # Unknown event shapes never reveal global edge telemetry to scoped officers.
         edge_events = [
             row for row in edge_events
-            if isinstance(row, dict) and row.get("centre_id") in principal.centres
+            if isinstance(row, dict)
+            and isinstance(row.get("payload"), dict)
+            and row["payload"].get("centre_id") in principal.centres
         ]
     pending_statuses = {"open", "under_review", "virtual_verification"}
 

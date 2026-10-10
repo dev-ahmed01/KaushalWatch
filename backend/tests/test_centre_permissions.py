@@ -246,3 +246,54 @@ def test_anonymous_and_edge_key_cannot_enter_officer_boundary(protected):
     assert client.get("/api/cases").status_code == 401
     assert client.get("/api/health").status_code == 200
     assert client.get("/api/cases", headers={"Authorization": "Bearer wrong"}).status_code == 401
+
+
+def test_duplicate_evidence_id_across_centres_is_ambiguous_and_denied(protected):
+    client, store, _ = protected
+    original = store.get("RBAC-CASE-A").evidence[0]
+    store.save(ComplianceCase(
+        case_id="RBAC-DUPLICATE-ID-B", centre_id=C2, batch_id="TEST-B",
+        case_type="evidence_integrity", severity="low",
+        summary="Synthetic ambiguous evidence reference",
+        evidence=[EvidenceRecord(**original.model_dump())],
+    ))
+    for actor in KEYS:
+        response = client.get("/evidence/RBAC_SYNTHETIC_A_2026.jpg", headers=auth(actor))
+        assert response.status_code == 404
+
+
+def test_dashboard_scopes_nested_edge_payload_counts(protected, tmp_path):
+    client, _, _ = protected
+    (tmp_path / "edge_events.json").write_text(json.dumps([
+        {"event_id": "EDGE-A", "payload": {"centre_id": C1}},
+        {"event_id": "EDGE-B", "payload": {"centre_id": C2}},
+        {"event_id": "NO-CENTRE", "payload": {}},
+    ]), encoding="utf-8")
+    assert client.get("/api/dashboard", headers=auth("centre-reviewer")).json()["synced_edge_events"] == 1
+    assert client.get("/api/dashboard", headers=auth("centre-viewer")).json()["synced_edge_events"] == 1
+    assert client.get("/api/dashboard", headers=auth("net-admin")).json()["synced_edge_events"] == 3
+
+
+def test_role_context_returns_capabilities_without_any_secret(protected):
+    client, _, _ = protected
+    admin = client.get("/api/officer-context", headers=auth("net-admin"))
+    assert admin.status_code == 200
+    assert admin.json()["can_use_network_assistant"] is True
+    viewer = client.get("/api/officer-context", headers=auth("centre-viewer"))
+    assert viewer.status_code == 200
+    assert viewer.json()["role"] == "centre_viewer"
+    assert viewer.json()["centre_ids"] == [C2]
+    assert viewer.json()["can_review"] is False
+    assert viewer.json()["can_use_network_assistant"] is False
+    assert all(secret not in viewer.text + admin.text for secret in KEYS.values())
+
+
+def test_live_role_reassignment_applies_to_next_request(protected, monkeypatch):
+    client, _, _ = protected
+    assert client.get(f"/api/centres/{C1}", headers=auth("centre-reviewer")).status_code == 200
+    new_grants = {**GRANTS, "centre-reviewer": {"role": "centre_viewer", "centres": [C2]}}
+    monkeypatch.setenv("KAUSHALWATCH_OFFICER_PERMISSIONS_JSON", json.dumps(new_grants))
+    assert client.get(f"/api/centres/{C1}", headers=auth("centre-reviewer")).status_code == 404
+    assert client.get(f"/api/centres/{C2}", headers=auth("centre-reviewer")).status_code == 200
+    assert client.post("/api/cases/RBAC-CASE-B/review", headers=auth("centre-reviewer"),
+                       json={"action": "under_review"}).status_code == 403

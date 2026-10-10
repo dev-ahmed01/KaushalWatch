@@ -29,6 +29,7 @@ REQUIRED_CONTRACTS = (
     ("getHistory", "GET", "/api/analysis-history"),
     ("getCases", "GET", "/api/cases"),
     ("getReviewAccess", "GET", "/api/review-access"),
+    ("getOfficerContext", "GET", "/api/officer-context"),
     ("getEvidencePack", "GET", "/api/cases/{case_id}/evidence-pack"),
     ("reviewCase", "POST", "/api/cases/{case_id}/review"),
     ("askAssistant", "POST", "/api/assistant/chat"),
