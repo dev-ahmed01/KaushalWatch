@@ -52,6 +52,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [signOutError, setSignOutError] = useState('');
   const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
   const activeLabel = NAV.find(item => item.href === active)?.label || 'KaushalAI';
@@ -176,10 +177,14 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 );
               })}
             </div>
+            {signOutError && <span role="alert" className="text-[11px] text-[#B42318]">{signOutError}</span>}
             {SECURE_PROXY && (
               <button type="button" aria-label="Sign out of officer session"
                 onClick={() => {
-                  void logoutOfficer().finally(() => window.location.replace('/login'));
+                  setSignOutError('');
+                  void logoutOfficer()
+                    .then(() => window.location.replace('/login'))
+                    .catch(() => setSignOutError('Unable to revoke this session. Try again.'));
                 }}
                 className="kw-focus rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-[12px] font-medium text-[#344054]">
                 Sign out
