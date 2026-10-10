@@ -18,6 +18,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/cn';
 import { PeriodProvider, useBriefPeriod } from '../lib/period';
 import AssistantDrawer from './AssistantDrawer';
+import SecureSessionGate from './SecureSessionGate';
+import { SECURE_PROXY, logoutOfficer } from '../lib/api';
 import { Button } from './ui/button';
 
 const NAV = [
@@ -38,7 +40,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
       <PeriodProvider>
-        <AppShellContent>{children}</AppShellContent>
+        <SecureSessionGate>
+          <AppShellContent>{children}</AppShellContent>
+        </SecureSessionGate>
       </PeriodProvider>
     </MotionConfig>
   );
@@ -61,6 +65,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
     window.addEventListener('kaushalwatch:assistant', open);
     return () => window.removeEventListener('kaushalwatch:assistant', open);
   }, []);
+
+  if (SECURE_PROXY && pathname === '/login') return <>{children}</>;
 
   return (
     <div className="min-h-screen bg-[var(--kw-page)]">
@@ -170,6 +176,15 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 );
               })}
             </div>
+            {SECURE_PROXY && (
+              <button type="button" aria-label="Sign out of officer session"
+                onClick={() => {
+                  void logoutOfficer().finally(() => window.location.replace('/login'));
+                }}
+                className="kw-focus rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-[12px] font-medium text-[#344054]">
+                Sign out
+              </button>
+            )}
             <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
               <Sparkles size={15} />
               <span className="hidden sm:inline">Ask KaushalAI</span>
