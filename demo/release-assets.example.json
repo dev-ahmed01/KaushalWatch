@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "status": "example_not_frozen",
+  "scenario": {
+    "path": "scenarios/final-demo.local.json",
+    "sha256": "REPLACE_WITH_64_CHARACTER_SCENARIO_SHA256",
+    "primary_asset_id": "infrastructure"
+  },
+  "assets": [
+    {
+      "id": "attendance",
+      "role": "attendance",
+      "path": "../data/raw/attendance.avi",
+      "sha256": "REPLACE_WITH_EXACT_CLIP_SHA256",
+      "origin": "REPLACE",
+      "license": "REPLACE",
+      "privacy_basis": "REPLACE",
+      "centre_id": "DEMO-KA-104",
+      "batch_id": "REPLACE"
+    },
+    {
+      "id": "practical",
+      "role": "practical",
+      "path": "../data/raw/practical.avi",
+      "sha256": "REPLACE_WITH_EXACT_CLIP_SHA256",
+      "origin": "REPLACE",
+      "license": "REPLACE",
+      "privacy_basis": "REPLACE",
+      "centre_id": "DEMO-KA-104",
+      "batch_id": "REPLACE"
+    },
+    {
+      "id": "infrastructure",
+      "role": "infrastructure",
+      "path": "../data/raw/DOD_110930728.mp4",
+      "sha256": "REPLACE_WITH_EXACT_CLIP_SHA256",
+      "origin": "REPLACE",
+      "license": "REPLACE",
+      "privacy_basis": "REPLACE",
+      "centre_id": "DEMO-KA-104",
+      "batch_id": "REPLACE"
+    },
+    {
+      "id": "operability",
+      "role": "operability",
+      "path": "../data/raw/DOD_110930728.mp4",
+      "sha256": "REPLACE_WITH_EXACT_CLIP_SHA256",
+      "origin": "REPLACE",
+      "license": "REPLACE",
+      "privacy_basis": "REPLACE",
+      "centre_id": "DEMO-KA-104",
+      "batch_id": "REPLACE"
+    },
+    {
+      "id": "camera_degraded",
+      "role": "camera_degraded",
+      "path": "../data/raw/degraded-camera.avi",
+      "sha256": "REPLACE_WITH_EXACT_CLIP_SHA256",
+      "origin": "REPLACE",
+      "license": "REPLACE",
+      "privacy_basis": "REPLACE",
+      "centre_id": "DEMO-KA-207",
+      "batch_id": "REPLACE"
+    }
+  ],
+  "annotations": [
+    {
+      "kind": "attendance",
+      "path": "../data/annotations/attendance.csv",
+      "sha256": "REPLACE_WITH_EXACT_ANNOTATION_SHA256",
+      "reviewer_id": "REPLACE",
+      "independent_of_predictions": false
+    },
+    {
+      "kind": "equipment",
+      "path": "../data/annotations/equipment.csv",
+      "sha256": "REPLACE_WITH_EXACT_ANNOTATION_SHA256",
+      "reviewer_id": "REPLACE",
+      "independent_of_predictions": false
+    },
+    {
+      "kind": "operability",
+      "path": "../data/annotations/operability.csv",
+      "sha256": "REPLACE_WITH_EXACT_ANNOTATION_SHA256",
+      "reviewer_id": "REPLACE",
+      "independent_of_predictions": false
+    },
+    {
+      "kind": "cases",
+      "path": "../data/annotations/cases.csv",
+      "sha256": "REPLACE_WITH_EXACT_ANNOTATION_SHA256",
+      "reviewer_id": "REPLACE",
+      "independent_of_predictions": false
+    }
+  ],
+  "equipment_cache": {
+    "path": "cached_detections/dod_110930728.reviewed.json",
+    "sha256": "REPLACE_WITH_EXACT_CACHE_SHA256",
+    "metadata": {
+      "path": "cached_detections/dod_110930728.reviewed.json.meta.json",
+      "sha256": "REPLACE_WITH_EXACT_METADATA_SHA256"
+    },
+    "asset_id": "infrastructure"
+  },
+  "operability": {
+    "asset_id": "operability",
+    "roi": {
+      "x1": 650,
+      "y1": 250,
+      "x2": 1500,
+      "y2": 900
+    },
+    "window": {
+      "start_sec": 14,
+      "end_sec": 33
+    },
+    "camera_cuts": [
+      {
+        "start_sec": 13.3,
+        "end_sec": 13.7
+      }
+    ],
+    "item_id": "training_panel",
+    "motion_threshold": 0.8,
+    "max_frames": 30
+  },
+  "practical": {
+    "asset_id": "practical",
+    "authorization": "unknown",
+    "zone_profile": "authorized",
+    "zone_config": {
+      "path": "../data/reviewed/work-zones.json",
+      "sha256": "REPLACE_WITH_EXACT_ZONE_CONFIG_SHA256"
+    },
+    "authorization_evidence": {
+      "path": "../data/reviewed/external-work-authorization.json",
+      "sha256": "REPLACE_WITH_AUTHORIZATION_RECORD_SHA256"
+    },
+    "pipeline_parameters": {
+      "sample_every_seconds": 0.2,
+      "confirmation_seconds": 1,
+      "registration_seconds": 2,
+      "activity_window_seconds": 1,
+      "activity_required_ratio": 0.6,
+      "motion_threshold": 0.02,
+      "minimum_trusted_ratio": 0.5
+    }
+  }
+}

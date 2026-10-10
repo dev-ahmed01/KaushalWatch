@@ -55,6 +55,12 @@ single-camera video
 Equipment presence, Temporal Proof, apparent operability, evidence authenticity, camera integrity and officer audit history all plug into the same persisted case workflow rather than becoming separate demos.
 
 
+## Protected officer browser (synthetic release integration)
+
+A separate opt-in Next.js build now supports short-lived, HttpOnly officer sessions and a same-origin, CSRF-protected proxy for FastAPI data, evidence JPEGs, reports and review actions. Protected login requires FastAPI staging/pilot/production mode and a server-mapped officer key; **it refuses to authenticate against demo mode**. The officer bearer key is not stored in browser local storage or included in ordinary browser API/image URLs. See [protected-browser-session.md](docs/release/protected-browser-session.md) and [protected-data-access.md](docs/release/protected-data-access.md) for setup, negative-state tests and caveats.
+
+This uses a **single-process, non-distributed session registry** and is tested only on generated synthetic data. It does **not** provide real officer identities, per-centre RBAC, a government SSO integration, pilot-grade session storage, independent compliance accuracy or production certification. Local SIH/demo mode remains separately accessible without introducing fake credentials. CI tests the two modes independently.
+
 ## Judge-day start
 
 From the repository root, prepare and verify the deterministic demo state before starting services:

@@ -267,3 +267,38 @@ def test_infrastructure_evidence_uses_full_frame_privacy_fallback(tmp_path):
         case.evidence[0].metadata["privacy_transform"]
         == "full_frame_blur_non_authoritative_privacy_detector"
     )
+
+
+def test_shared_motion_sampler_distinguishes_moving_and_stable_roi_windows(tmp_path):
+    from app.services.operability import trace_apparent_motion
+
+    video = tmp_path / "staged-camera-cut.avi"
+    _write_cut_video(video)
+    moving = trace_apparent_motion(
+        video, (0, 20, 100, 100), threshold=0.1, window=(0.0, 2.5),
+    )
+    stable = trace_apparent_motion(
+        video, (0, 20, 100, 100), threshold=0.1, window=(3.0, 5.8),
+    )
+    assert moving["state"] == "APPARENTLY_ACTIVE"
+    assert stable["state"] == "APPARENTLY_INACTIVE"
+    assert moving["unique_decoded_frames"] >= 3
+    assert stable["unique_decoded_frames"] >= 3
+    assert len(moving["frame_samples"]) == moving["frames_sampled"]
+    assert all(len(x["decoded_frame_sha256"]) == 64 for x in moving["frame_samples"])
+
+
+def test_short_operability_window_abstains_when_seek_reuses_same_frame(tmp_path):
+    from app.services.operability import trace_apparent_motion
+
+    video = tmp_path / "short.avi"
+    writer = cv2.VideoWriter(str(video), cv2.VideoWriter_fourcc(*"MJPG"), 10, (160, 120))
+    assert writer.isOpened()
+    writer.write(np.full((120, 160, 3), 120, dtype=np.uint8))
+    writer.release()
+    result = trace_apparent_motion(
+        video, (0, 0, 100, 100), threshold=0.8, window=(0.0, 0.05),
+    )
+    assert result["state"] == "UNCERTAIN"
+    assert result["unique_decoded_frames"] < 3
+    assert result["frames_sampled"] <= 3

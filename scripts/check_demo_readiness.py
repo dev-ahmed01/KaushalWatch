@@ -14,6 +14,8 @@ sys.path.insert(0, str(BACKEND))
 
 from app.config import demo_manifest_path, equipment_cache_path, demo_scenario_path
 from app.services.person_detector import build_person_detector
+from app.services.release_assets import qualify_release_assets
+from app.services.evidence import sha256_file
 
 
 REQUIRED_SCENARIO_EVENTS = {
@@ -202,6 +204,10 @@ def main() -> None:
     parser.add_argument("--video", default=os.getenv("KAUSHALWATCH_DEMO_VIDEO"))
     parser.add_argument("--require-openvino", action="store_true")
     parser.add_argument(
+        "--asset-manifest", default=os.getenv("KAUSHALWATCH_RELEASE_ASSET_MANIFEST"),
+        help="Frozen per-clip, provenance and independent annotation manifest.",
+    )
+    parser.add_argument(
         "--final",
         action="store_true",
         help=(
@@ -307,6 +313,41 @@ def main() -> None:
     ))
 
     if args.final:
+        if args.asset_manifest:
+            release_assets = qualify_release_assets(Path(args.asset_manifest))
+            for row in release_assets["checks"]:
+                checks.append(("release_assets_" + row["check"], row["ok"], row["detail"]))
+            checks.append((
+                "release_assets_qualified", release_assets["ready"],
+                "frozen assets and independent annotations" if release_assets["ready"] else "release media qualification failed",
+            ))
+            if release_assets["ready"]:
+                frozen_path = Path(args.asset_manifest).expanduser().resolve()
+                frozen = json.loads(frozen_path.read_text(encoding="utf-8"))
+                primary_id = frozen["scenario"]["primary_asset_id"]
+                primary = next(item for item in frozen["assets"] if item["id"] == primary_id)
+                checks.append((
+                    "release_assets_scenario_matches_runtime",
+                    (frozen_path.parent / frozen["scenario"]["path"]).resolve() == scenario_path.resolve(),
+                    "runtime scenario must be the frozen, annotated scenario",
+                ))
+                checks.append((
+                    "release_assets_cache_matches_runtime",
+                    (frozen_path.parent / frozen["equipment_cache"]["path"]).resolve() == cache_path.resolve(),
+                    "runtime equipment cache must be the SHA-bound reviewed cache",
+                ))
+                checks.append((
+                    "release_assets_primary_video_matches_runtime",
+                    bool(args.video and Path(args.video).expanduser().resolve().is_file()
+                         and sha256_file(Path(args.video).expanduser().resolve()) == primary["sha256"].lower()
+                         and primary["role"] == "infrastructure"),
+                    "the video passed to --final must be the scenario's frozen infrastructure source",
+                ))
+        else:
+            checks.append((
+                "release_assets_manifest_required", False,
+                "Set KAUSHALWATCH_RELEASE_ASSET_MANIFEST or supply --asset-manifest for final mode",
+            ))
         checks.extend(
             final_mode_checks(
                 scenario,

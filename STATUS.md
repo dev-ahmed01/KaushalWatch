@@ -1,5 +1,22 @@
 # Build Status
 
+
+## SIH release integration (draft PR #55 — not merged)
+
+The controlled SIH MVP release branch is `release/kaushalwatch-sih-mvp`, based on the verified but unmerged AI-first PR #53. The experimental Camera Trust draft PR #54 is **not** part of the release branch and must not be silently promoted.
+
+Release-specific additions:
+- `docs/release/SIH_MVP_TRACKER.md` defines **five finite acceptance milestones**, source-audited claim boundaries and remaining real-video/rehearsal gates.
+- `scripts/verify_release_assets.py` now enforces local exact video SHA-256 identity, five video roles, four SHA-bound independent-annotation CSV schemas (including negative case opportunities), licensed/privacy-described provenance, case/scenario binding, reviewed equipment-source metadata and cut-safe operability interval. Both final readiness and final rehearsal require the manifest. All checked-in media-manifest values are intentionally placeholders, not certified results; see `docs/release/final-media-freeze.md`.
+- `scripts/check_frontend_api_contracts.py` and backend regression tests check **22 officer-facing frontend-to-FastAPI route/method contracts**; CI runs this gate.
+- Officer review writes now support explicit `KAUSHALWATCH_REVIEW_AUTH_MODE=token` with distinct backend-configured bearer credentials mapped to officer IDs. The server supplies the audit actor. Missing/bad tokens are rejected without changing case state.
+- Default **local development/demo** mode still allows a synthetic judge walkthrough, with the actor explicitly labelled `prototype_officer`. The server refuses unauthenticated demo reviews in `pilot`, `staging` or `production` environments.
+- The review screen shows an access-key input only in token mode, does not persist it to browser storage, displays errors and shows recorded actors in the audit trail.
+- See `docs/release/officer-review-access.md` for environment setup, verification commands and security limitations.
+
+**Not claimed:** The reviewer-key safeguard is not full authentication, centre-scoped authorization or RBAC; sensitive read routes and other write routes remain insufficiently protected for real-centre rollout. The JSON-based case store is not a transactional multi-user audit store. No new accuracy claim has been established, and final exact-video annotations/metrics and deployed AI-provider availability are still pending. Keep this release PR in draft until the remaining gates pass.
+
+
 **Verification checkpoint:** core backend tests, final-evaluator smoke test, Next.js production build, Playwright browser E2E, EPFL detector benchmark, and isolated GroundingDINO image smoke inference all pass on the active core build.
 
 This file is the source of truth for what is verified, scaffolded, or still pending.

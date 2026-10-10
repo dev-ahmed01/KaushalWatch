@@ -251,3 +251,64 @@ test('attendance and activity pages withhold conclusions when evidence services 
   await expect(page.getByText('Activity service unavailable')).toBeVisible();
 });
 
+
+
+test('officer token-mode prompt gates writes and does not place the key in the audit payload', async ({ page }) => {
+  const observedHeaders: string[] = [];
+  await page.route('**/api/review-access', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ mode: 'token', required: true, prototype_only: true }),
+  }));
+  await page.route('**/api/cases/SIM-KA-104-ATT/evidence-pack', async route => {
+    const upstream = await route.fetch();
+    const payload = await upstream.json();
+    payload.case.status = 'open';
+    payload.review.terminal = false;
+    payload.review.history = [];
+    await route.fulfill({ response: upstream, json: payload });
+  });
+  await page.route('**/api/cases/SIM-KA-104-ATT/review', route => {
+    observedHeaders.push(route.request().headers()['authorization'] || '');
+    return route.fulfill({
+      status: 401,
+      contentType: 'application/json',
+      body: JSON.stringify({ detail: 'A valid officer access key is required.' }),
+    });
+  });
+
+  await page.goto('/cases/SIM-KA-104-ATT');
+  await expect(page.getByLabel('Officer access key')).toBeVisible();
+  await page.getByLabel('Decision note').fill('Evidence reviewed.');
+  await page.getByRole('button', { name: 'Confirm discrepancy' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Enter your officer access key' })).toBeVisible();
+  expect(observedHeaders).toHaveLength(0);
+
+  await page.getByLabel('Officer access key').fill('synthetic-test-only-access-key');
+  await page.getByRole('button', { name: 'Confirm discrepancy' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'A valid officer access key is required.' })).toBeVisible();
+  expect(observedHeaders).toEqual(['Bearer synthetic-test-only-access-key']);
+  await expect(page.getByText('Case confirmed for officer follow-up.')).toHaveCount(0);
+});
+
+test('review access endpoint failure cannot silently submit an officer decision', async ({ page }) => {
+  let writes = 0;
+  await page.route('**/api/review-access', route => route.abort());
+  await page.route('**/api/cases/SIM-KA-104-ATT/evidence-pack', async route => {
+    const upstream = await route.fetch();
+    const payload = await upstream.json();
+    payload.case.status = 'open';
+    payload.review.terminal = false;
+    await route.fulfill({ response: upstream, json: payload });
+  });
+  await page.route('**/api/cases/SIM-KA-104-ATT/review', route => {
+    writes += 1;
+    return route.fulfill({ status: 500 });
+  });
+  await page.goto('/cases/SIM-KA-104-ATT');
+  await expect(page.getByRole('alert').filter({ hasText: 'Officer review access is unavailable. Decisions are disabled.' })).toBeVisible();
+  await page.getByLabel('Decision note').fill('Cannot submit without review status.');
+  await page.getByRole('button', { name: 'Confirm discrepancy' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Officer review access is unavailable. No decision was recorded.' })).toBeVisible();
+  expect(writes).toBe(0);
+});

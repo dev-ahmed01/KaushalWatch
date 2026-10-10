@@ -3,53 +3,82 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import sys
 from collections import defaultdict
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from evaluation.final_scorecard_guard import verify_frozen_scorecard_inputs
+from evaluation.attendance_inference_verification import verify_attendance_receipt
+from evaluation.operational_attendance_verification import verify_operational_attendance_receipt
+from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+from evaluation.equipment_cache_trace import verify_equipment_cache_receipt
+from evaluation.operability_motion_trace import verify_operability_trace
+from evaluation.practical_activity_trace import verify_practical_trace, verify_practical_case
+
 
 def read_csv(path: str) -> list[dict[str, str]]:
-    rows = list(csv.DictReader(Path(path).open()))
+    with Path(path).open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle, strict=True)
+        if not reader.fieldnames or len(reader.fieldnames) != len(set(reader.fieldnames)):
+            raise ValueError(f"Missing or duplicate column names in {path}")
+        rows = list(reader)
     if not rows:
         raise ValueError(f"No rows in {path}")
     return rows
 
 
 def to_bool(value: str) -> bool:
-    return value.strip().lower() in {"1", "true", "yes", "y"}
+    normalized = str(value).strip().lower()
+    if normalized not in {"0", "1", "true", "false", "yes", "no", "y", "n"}:
+        raise ValueError(f"Invalid case truth/prediction label: {value!r}")
+    return normalized in {"1", "true", "yes", "y"}
 
 
 def safe_div(a: float, b: float) -> float:
     return a / b if b else 0.0
 
 
+def _defined_div(numerator: float, denominator: float) -> float | None:
+    """A missing denominator is not evidence of a zero error rate."""
+    return numerator / denominator if denominator else None
+
+
+def _defined_f1(precision: float | None, recall: float | None) -> float | None:
+    if precision is None or recall is None:
+        return None
+    return _defined_div(2 * precision * recall, precision + recall) if precision + recall else 0.0
+
+
 def classification_metrics(tp: int, fp: int, fn: int, tn: int) -> dict:
-    precision = safe_div(tp, tp + fp)
-    recall = safe_div(tp, tp + fn)
-    f1 = safe_div(2 * precision * recall, precision + recall)
+    precision = _defined_div(tp, tp + fp)
+    recall = _defined_div(tp, tp + fn)
     return {
-        "tp": tp,
-        "fp": fp,
-        "fn": fn,
-        "tn": tn,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "positive_opportunities": tp + fn,
+        "negative_opportunities": fp + tn,
         "precision": precision,
         "recall": recall,
-        "f1": f1,
-        "false_positive_rate": safe_div(fp, fp + tn),
-        "false_negative_rate": safe_div(fn, fn + tp),
+        "f1": _defined_f1(precision, recall),
+        "false_positive_rate": _defined_div(fp, fp + tn),
+        "false_negative_rate": _defined_div(fn, fn + tp),
+        "note": "A null rate means no qualifying denominator, not a zero error rate.",
     }
 
 
 def positive_class_metrics(tp: int, fp: int, fn: int) -> dict:
-    precision = safe_div(tp, tp + fp)
-    recall = safe_div(tp, tp + fn)
-    f1 = safe_div(2 * precision * recall, precision + recall)
+    precision = _defined_div(tp, tp + fp)
+    recall = _defined_div(tp, tp + fn)
     return {
-        "tp": tp,
-        "fp": fp,
-        "fn": fn,
+        "tp": tp, "fp": fp, "fn": fn,
         "precision": precision,
         "recall": recall,
-        "f1": f1,
+        "f1": _defined_f1(precision, recall),
+        "note": "A null rate means no qualifying denominator, not a zero error rate.",
     }
 
 
@@ -70,6 +99,8 @@ def attendance_metrics(rows: list[dict[str, str]]) -> dict:
     for row in rows:
         true_count = int(row["true_count"])
         pred_count = int(row["pred_count"])
+        if true_count < 0 or pred_count < 0:
+            raise ValueError("Attendance counts cannot be negative")
         errors.append(abs(true_count - pred_count))
         bump_confusion(
             counts,
@@ -184,6 +215,10 @@ def operability_metrics(rows: list[dict[str, str]]) -> dict:
     for row in rows:
         truth = row["true_state"].strip().upper()
         pred = row["pred_state"].strip().upper()
+        if truth not in {"APPARENTLY_ACTIVE", "APPARENTLY_INACTIVE"}:
+            raise ValueError("Operability truth must be APPARENTLY_ACTIVE or APPARENTLY_INACTIVE")
+        if pred not in {"APPARENTLY_ACTIVE", "APPARENTLY_INACTIVE", "UNCERTAIN"}:
+            raise ValueError("Invalid operability prediction")
         if pred == "UNCERTAIN":
             uncertain += 1
             continue
@@ -195,7 +230,7 @@ def operability_metrics(rows: list[dict[str, str]]) -> dict:
         "evaluated_samples": evaluated,
         "uncertain_samples": uncertain,
         "coverage": evaluated / len(rows),
-        "accuracy_when_decided": safe_div(correct, evaluated),
+        "accuracy_when_decided": safe_div(correct, evaluated) if evaluated else None,
         "note": (
             "UNCERTAIN is treated as abstention, not a wrong operating-state claim. "
             "Coverage must be reported alongside decided-sample accuracy."
@@ -216,9 +251,115 @@ def main() -> None:
         help="CSV of independently annotated compliance-case opportunities",
     )
     parser.add_argument("--out-dir", default="evaluation/output/final-demo")
+    parser.add_argument("--final", action="store_true",
+                        help="Require qualified frozen media and exact input CSV identity.")
+    parser.add_argument("--asset-manifest", default=os.getenv("KAUSHALWATCH_RELEASE_ASSET_MANIFEST"))
+    parser.add_argument("--attendance-receipt", help="Optional local OpenVINO frame-count trace; requires --final.")
+    parser.add_argument("--operational-attendance-receipt",
+                        help="Optional tracked/registered/smoothed attendance receipt; requires --final.")
+    parser.add_argument("--practical-receipt",
+                        help="Full sampled worker-motion/authorization trace; requires --final.")
+    parser.add_argument("--practical-case-sample-id",
+                        help="Match one practical_activity_authorization row to the traced final decision.")
+    parser.add_argument("--operability-receipt",
+                        help="Replayed frozen ROI-motion state and decoded-frame hashes.")
+    parser.add_argument("--equipment-receipt",
+                        help="SHA-frozen cache proposal/review count receipt (not a live detector inference receipt).")
+    parser.add_argument("--attendance-case-sample-id",
+                        help="Verify exactly one attendance_discrepancy row against a complete operational decision timeline.")
     args = parser.parse_args()
 
+    input_paths = {
+        "attendance": args.attendance,
+        "equipment": args.equipment,
+        "operability": args.operability,
+        "cases": args.cases,
+    }
+    provenance = None
+    attendance_trace = None
+    operational_trace = None
+    case_trace = None
+    equipment_trace = None
+    operability_trace = None
+    practical_trace = None
+    practical_case_trace = None
+    if args.practical_case_sample_id and not args.practical_receipt:
+        parser.error('--practical-case-sample-id requires --practical-receipt')
+    if args.practical_receipt and not args.final:
+        parser.error('--practical-receipt requires --final')
+    if args.operability_receipt and not args.final:
+        parser.error("--operability-receipt requires --final")
+    if args.equipment_receipt and not args.final:
+        parser.error("--equipment-receipt requires --final")
+    if args.attendance_case_sample_id and not args.operational_attendance_receipt:
+        parser.error("--attendance-case-sample-id requires --operational-attendance-receipt")
+    if args.operational_attendance_receipt and args.attendance_receipt:
+        parser.error("Use only one attendance receipt for a given scorecard")
+    if args.operational_attendance_receipt and not args.final:
+        parser.error("--operational-attendance-receipt requires --final")
+    if args.attendance_receipt and not args.final:
+        parser.error("--attendance-receipt requires --final")
+    if args.final:
+        if not args.asset_manifest:
+            parser.error("--final requires --asset-manifest or KAUSHALWATCH_RELEASE_ASSET_MANIFEST")
+        # Fail before writing any output if media, source digest, annotation row
+        # domain, or source-to-manifest binding is invalid.
+        provenance = verify_frozen_scorecard_inputs(Path(args.asset_manifest), input_paths)
+        if args.attendance_receipt:
+            attendance_trace = verify_attendance_receipt(
+                Path(args.asset_manifest),
+                Path(args.attendance),
+                Path(args.attendance_receipt),
+                provenance["manifest_sha256"],
+            )
+        if args.operational_attendance_receipt:
+            operational_trace = verify_operational_attendance_receipt(
+                Path(args.asset_manifest),
+                Path(args.attendance),
+                Path(args.operational_attendance_receipt),
+                provenance["manifest_sha256"],
+            )
+        if args.practical_receipt:
+            practical_trace = verify_practical_trace(
+                Path(args.asset_manifest), Path(args.practical_receipt),
+                provenance['manifest_sha256'],
+            )
+        if args.practical_case_sample_id:
+            practical_case_trace = verify_practical_case(
+                Path(args.asset_manifest), Path(args.cases),
+                Path(args.practical_receipt), provenance['manifest_sha256'],
+                args.practical_case_sample_id,
+            )
+        if args.operability_receipt:
+            operability_trace = verify_operability_trace(
+                Path(args.asset_manifest), Path(args.operability), Path(args.operability_receipt),
+                provenance["manifest_sha256"],
+            )
+        if args.equipment_receipt:
+            equipment_trace = verify_equipment_cache_receipt(
+                Path(args.asset_manifest), Path(args.equipment), Path(args.equipment_receipt),
+                provenance["manifest_sha256"],
+            )
+        if args.attendance_case_sample_id:
+            case_trace = verify_attendance_case_opportunity(
+                Path(args.asset_manifest), Path(args.attendance), Path(args.cases),
+                Path(args.operational_attendance_receipt),
+                provenance["manifest_sha256"], args.attendance_case_sample_id,
+            )
+
     report = {
+        "evaluation_mode": (
+            "frozen_input_scorecard" if args.final else "development_inputs_not_release_qualified"
+        ),
+        "input_provenance": provenance,
+        "prediction_source_verified": False,
+        "attendance_raw_frame_trace": attendance_trace,
+        "attendance_pipeline_trace": operational_trace,
+        "attendance_case_trace": case_trace,
+        "equipment_cache_trace": equipment_trace,
+        "operability_motion_trace": operability_trace,
+        "practical_pipeline_trace": practical_trace,
+        "practical_case_trace": practical_case_trace,
         "attendance": attendance_metrics(read_csv(args.attendance)),
         "equipment": equipment_metrics(read_csv(args.equipment)),
         "apparent_operability": operability_metrics(read_csv(args.operability)),
@@ -226,6 +367,12 @@ def main() -> None:
         "reporting_rules": [
             "Use only annotations from the exact demonstration dataset.",
             "Do not extrapolate these metrics to all PMKVY centres.",
+            "CSV predictions are accepted inputs, not evidence that a particular model produced them.",
+            "An optional raw OpenVINO receipt traces detector counts only; an operational receipt traces tracked/smoothed samples. Explicit case mapping can verify ONE final attendance decision, not entire case detection accuracy or other modalities.",
+            "A SHA-matched equipment cache receipt distinguishes raw proposals from human-reviewed corrections but does NOT prove a live model run or model-only accuracy.",
+            "Apparent operability receipts replay only ROI pixel-motion activity; machinery health and electrical safety are unverified.",
+            "Practical-work receipts trace anonymous worker-zone motion and externally supplied authorization; unknown authorization and insufficient camera evidence cannot be scored as normal compliance negatives.",
+            "Never claim a zero false-positive rate without independently observed negative opportunities.",
             "Report UNCERTAIN operability outputs as abstentions and disclose coverage.",
             "Apparent operability is visual activity evidence, not mechanical/electrical diagnosis.",
             (

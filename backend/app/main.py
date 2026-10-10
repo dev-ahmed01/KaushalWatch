@@ -7,7 +7,7 @@ import json
 import logging
 import tempfile
 import cv2
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import Response
@@ -28,6 +28,9 @@ from app.services.operability import apparent_motion_state
 from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
+from app.services.edge_ingest import normalize_event
+from app.services.edge_access import resolve_edge_actor
+from app.services.edge_event_ledger import EdgeEventLedger
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
     load_demo_equipment_metadata,
@@ -49,6 +52,10 @@ from app.services.activity_intelligence import build_activity_intelligence, acti
 from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
+from app.services.review_access import review_access_status, resolve_review_actor
+from app.services.protected_access import protected_read_boundary
+from app.services.officer_permissions import require_centre, visible, request_principal
+from app.services.api_redaction import redact_local_evidence_paths
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 
 logger = logging.getLogger(__name__)
@@ -214,6 +221,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# No sensitive API/evidence reads are public on a protected network. This
+# outermost gate is intentionally separate from edge-device ingestion auth.
+# Development SIH walk-throughs are unaffected.
+app.middleware("http")(protected_read_boundary)
 EVIDENCE.mkdir(parents=True, exist_ok=True)
 app.mount("/evidence", StaticFiles(directory=str(EVIDENCE)), name="evidence")
 
@@ -339,12 +351,13 @@ def practical_work_zones(profile: str = "authorized"):
 
 
 @app.get("/api/centres")
-def list_centres():
+def list_centres(request: Request):
     rows = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
         history_by_centre=_network_history(),
     )
+    rows = visible(request, rows)
     return {
         "centres": rows,
         "total": len(rows),
@@ -352,7 +365,7 @@ def list_centres():
 
 
 @app.get("/api/actions")
-def action_queue(period: str = "yesterday"):
+def action_queue(request: Request, period: str = "yesterday"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -360,9 +373,9 @@ def action_queue(period: str = "yesterday"):
     )
     try:
         return build_action_queue(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -370,7 +383,7 @@ def action_queue(period: str = "yesterday"):
 
 
 @app.get("/api/insights")
-def network_insights(period: str = "last_7_days"):
+def network_insights(request: Request, period: str = "last_7_days"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -378,9 +391,9 @@ def network_insights(period: str = "last_7_days"):
     )
     try:
         return build_network_insights(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -388,7 +401,7 @@ def network_insights(period: str = "last_7_days"):
 
 
 @app.get("/api/kaushalai/brief")
-def kaushalai_brief(period: str = "yesterday"):
+def kaushalai_brief(request: Request, period: str = "yesterday"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -396,9 +409,9 @@ def kaushalai_brief(period: str = "yesterday"):
     )
     try:
         return build_network_brief(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -453,17 +466,16 @@ def centre_detail(centre_id: str):
 
 @app.get("/api/analysis-history")
 def analysis_history(
+    request: Request,
     centre_id: str | None = None,
     batch_id: str | None = None,
     limit: int = 100,
 ):
-    return {
-        "rows": HISTORY.list(
-            centre_id=centre_id,
-            batch_id=batch_id,
-            limit=min(max(limit, 1), 500),
-        )
-    }
+    if centre_id:
+        require_centre(request, centre_id)
+    # Scope first: other centres cannot consume the response limit.
+    all_rows = HISTORY.list(centre_id=centre_id, batch_id=batch_id, limit=500)
+    return {"rows": visible(request, all_rows)[:min(max(limit, 1), 500)]}
 
 
 @app.get("/api/centres/{centre_id}/settings")
@@ -481,8 +493,9 @@ def update_centre_settings(centre_id: str, payload: dict = Body(...)):
 
 
 @app.post("/api/assistant/query")
-def assistant_query(payload: dict = Body(...)):
+def assistant_query(http_request: Request, payload: dict = Body(...)):
     centre_id = str(payload.get("centre_id") or "DEMO-KA-104")
+    require_centre(http_request, centre_id)
     period = str(payload.get("period") or "7d")
     question = str(payload.get("question") or "").strip()
     centre = _centre_with_settings(centre_id)
@@ -700,7 +713,7 @@ def _build_centre_report(
             "escalation": centre["escalation"],
         },
         "analyses": history,
-        "cases": [case.model_dump(mode="json") for case in cases],
+        "cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in cases],
         "privacy_note": (
             "No facial recognition is used for attendance verification. "
             "Visual outputs are aggregate or anonymous and final action requires human review."
@@ -744,10 +757,22 @@ def centre_report_pdf(
 def dashboard(
     centre_id: str | None = None,
     batch_id: str | None = None,
+    request: Request = None,
 ):
-    all_cases = STORE.list()
+    if centre_id:
+        require_centre(request, centre_id)
+    all_cases = visible(request, STORE.list())
     edge_events_path = DATA / "edge_events.json"
     edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
+    principal = request_principal(request)
+    if principal is not None and not principal.is_admin:
+        # Unknown event shapes never reveal global edge telemetry to scoped officers.
+        edge_events = [
+            row for row in edge_events
+            if isinstance(row, dict)
+            and isinstance(row.get("payload"), dict)
+            and row["payload"].get("centre_id") in principal.centres
+        ]
     pending_statuses = {"open", "under_review", "virtual_verification"}
 
     global_pending_cases = [
@@ -765,7 +790,10 @@ def dashboard(
 
     return {
         "banner": "Prototype — Simulated Operational Data",
-        "centres_monitored": 4,
+        "centres_monitored": (
+            4 if principal is None else
+            len(DEMO_CENTRES) if principal.is_admin else len(principal.centres)
+        ),
         "scope": {
             "centre_id": centre_id,
             "batch_id": batch_id,
@@ -781,37 +809,58 @@ def dashboard(
         ),
         "synced_edge_events": len(edge_events),
         "edge_sync_state": "idle" if not edge_events else "synced",
-        "pending_cases": [case.model_dump(mode="json") for case in pending_cases[-20:]],
-        "resolved_case_history": [case.model_dump(mode="json") for case in resolved_cases[-20:]],
-        "cases": [case.model_dump(mode="json") for case in cases[-40:]],
+        "pending_cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in pending_cases[-20:]],
+        "resolved_case_history": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in resolved_cases[-20:]],
+        "cases": [redact_local_evidence_paths(case.model_dump(mode="json")) for case in cases[-40:]],
     }
 
 
 @app.post("/api/process-video")
 def process_video(
+    http_request: Request,
     file: UploadFile = File(...),
     reported_attendance: int = Form(...),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-01"),
 ):
+    require_centre(http_request, centre_id, write=True)
     tmp_path = _materialize_video_upload(file)
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
         if result.case:
             result.case.details["vision_profile_id"] = VISION_PROFILE_ID
             STORE.save(result.case)
+        # A detector being installed is not sufficient to assert attendance
+        # compliance. The full temporal pipeline must explicitly decide that
+        # the video is compliant and contain no detector failures or trust gap.
+        attendance_verified = (
+            result.decision == "compliant"
+            and result.case is None
+            and result.detector_authoritative
+            and result.detector_failures == 0
+            and result.trusted_sample_ratio >= 0.5
+        )
+        attendance_blocked = (
+            result.decision in {"camera_integrity_exception", "camera_evidence_insufficient", "detector_unavailable"}
+            or not result.detector_authoritative
+            or result.detector_failures > 0
+            or result.trusted_sample_ratio < 0.5
+        )
         HISTORY.append(
             centre_id=centre_id,
             batch_id=batch_id,
             analysis_type="attendance",
-            outcome="compliant" if result.case is None and result.detector_authoritative else (
-                "blocked" if not result.detector_authoritative else "attention"
+            outcome="compliant" if attendance_verified else (
+                "blocked" if attendance_blocked or result.case is None else "attention"
             ),
             summary=(
                 "Attendance matched the reported record."
-                if result.case is None and result.detector_authoritative
-                else result.case.summary if result.case else result.detector_message
+                if attendance_verified
+                else "Attendance verification blocked by insufficient camera or detector evidence."
+                if attendance_blocked
+                else result.case.summary if result.case else
+                "Attendance verification remains unresolved and requires review."
             ),
             details={
                 "reported_attendance": result.reported_attendance,
@@ -821,7 +870,7 @@ def process_video(
                 "vision_profile_id": VISION_PROFILE_ID,
             },
         )
-        return result.model_dump(mode="json")
+        return redact_local_evidence_paths(result.model_dump(mode="json"))
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
@@ -830,6 +879,7 @@ def process_video(
 
 @app.post("/api/process-practical-activity")
 def process_practical_activity(
+    http_request: Request,
     file: UploadFile = File(...),
     zones_json: str | None = Form(None),
     authorization: str = Form("unknown"),
@@ -843,6 +893,7 @@ def process_practical_activity(
     Authorization is supplied externally. Vision does not infer identity,
     authorization, skill quality, or exact task semantics.
     """
+    require_centre(http_request, centre_id, write=True)
     source_text = zones_json
     if not source_text:
         if not DEFAULT_WORK_ZONES.exists():
@@ -946,7 +997,7 @@ def process_practical_activity(
                 ],
             },
         )
-        return result.model_dump(mode="json")
+        return redact_local_evidence_paths(result.model_dump(mode="json"))
     except RuntimeError as exc:
         message = str(exc)
         HISTORY.append(
@@ -994,8 +1045,9 @@ def process_practical_activity(
 
 
 @app.get("/api/cases")
-def list_cases():
-    return [c.model_dump(mode="json") for c in STORE.list()]
+def list_cases(request: Request):
+    return [redact_local_evidence_paths(c.model_dump(mode="json"))
+            for c in visible(request, STORE.list())]
 
 
 @app.get("/api/cases/{case_id}/evidence-pack")
@@ -1003,14 +1055,53 @@ def get_evidence_pack(case_id: str):
     case = STORE.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return build_evidence_review_pack(
+    return redact_local_evidence_paths(build_evidence_review_pack(
         case=case,
         history=HISTORY.list(centre_id=case.centre_id, limit=500),
-    )
+    ))
+
+
+@app.get("/api/review-access")
+def get_review_access():
+    return review_access_status()
+
+@app.get("/api/officer-validate")
+def validate_protected_officer_login(
+    officer_actor: str = Depends(resolve_review_actor),
+):
+    """Validate a server-mapped officer key ONLY in explicitly protected mode.
+
+    A demo/development backend must never authenticate a protected web browser
+    by allowing a public read with an arbitrary key.
+    """
+    from app.services.review_access import PROTECTED_ENVS
+    environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
+    if environment not in PROTECTED_ENVS:
+        raise HTTPException(status_code=503, detail="Protected officer login requires protected API mode.")
+    return {"authenticated": True}
+
+
+@app.get("/api/officer-context")
+def officer_context(request: Request):
+    """Expose only non-secret role/centre grants to the protected UI."""
+    principal = request_principal(request)
+    if principal is None:
+        return {"mode": "demo", "role": "demo_officer", "centre_ids": [],
+                "can_review": True, "can_use_network_assistant": True}
+    return {
+        "mode": "protected", "role": principal.role,
+        "centre_ids": sorted(principal.centres),
+        "can_review": principal.can_write,
+        "can_use_network_assistant": principal.is_admin,
+    }
 
 
 @app.post("/api/cases/{case_id}/review")
-def review_case(case_id: str, request: ReviewRequest):
+def review_case(
+    case_id: str,
+    request: ReviewRequest,
+    officer_actor: str = Depends(resolve_review_actor),
+):
     terminal_actions = {"confirmed", "false_positive", "resolved"}
     note = (request.note or "").strip()
     if request.action.value in terminal_actions and not note:
@@ -1020,16 +1111,17 @@ def review_case(case_id: str, request: ReviewRequest):
         )
 
     try:
-        case = STORE.update_status(
+        case = STORE.apply_review_action(
             case_id,
             request.action,
             note=note or None,
+            actor=officer_actor,
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
-    return case.model_dump(mode="json")
+    return redact_local_evidence_paths(case.model_dump(mode="json"))
 
 
 @app.get("/api/demo/infrastructure")
@@ -1068,6 +1160,7 @@ def infrastructure_demo(profile: str = "compliant"):
 
 @app.post("/api/process-infrastructure-video")
 def process_infrastructure_video(
+    http_request: Request,
     file: UploadFile = File(...),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
@@ -1087,6 +1180,7 @@ def process_infrastructure_video(
     Equipment observations are currently sourced from the cached detector adapter;
     GroundingDINO can replace that adapter without changing the case workflow.
     """
+    require_centre(http_request, centre_id, write=True)
     try:
         manifest, rows = load_demo_manifest_and_cache()
         equipment_profile = load_demo_equipment_metadata()
@@ -1214,7 +1308,7 @@ def process_infrastructure_video(
             "equipment_profile": equipment_profile if demo_profile == "discrepancy" else {},
             "profile_source_match": source_match,
             "items": preview_items,
-            "case": case.model_dump(mode="json"),
+            "case": redact_local_evidence_paths(case.model_dump(mode="json")),
         }
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -1282,30 +1376,42 @@ def create_demo_infrastructure_case(
     return {
         "created": True,
         "banner": "Prototype — case derived from cached/simulated equipment detections",
-        "case": case.model_dump(mode="json"),
+        "case": redact_local_evidence_paths(case.model_dump(mode="json")),
     }
 
 
 
 @app.post("/api/edge/sync")
-def edge_sync(request: EdgeSyncRequest):
-    """Receive compact edge telemetry and fold it into the same audit stores.
+def edge_sync(request: EdgeSyncRequest, edge_actor: str = Depends(resolve_edge_actor)):
+    """Ingest sanitized, explicitly unverified edge telemetry atomically per worker."""
+    with EdgeEventLedger._lock:
+        return _edge_sync_locked(request, edge_actor)
 
-    Raw video remains local. Analysis summaries update history and exception case
-    telemetry becomes reviewable centrally without pretending the raw frame was uploaded.
-    """
-    events_path = DATA / "edge_events.json"
-    rows = json.loads(events_path.read_text()) if events_path.exists() else []
-    accepted = []
+
+def _edge_sync_locked(request: EdgeSyncRequest, edge_actor: str):
+    # Process-local idempotency (not a multi-replica transaction).
+    ledger = EdgeEventLedger(DATA / "edge_events.json")
+    rows = ledger.load()
+    accepted: list[str] = []
+    rejected: list[dict[str, str]] = []
+    skipped_existing_case_ids: list[str] = []
     existing = {row.get("event_id") for row in rows}
 
-    for event in request.events:
-        event_id = event.get("event_id")
-        if not event_id or event_id in existing:
+    for incoming in request.events:
+        event, rejection = normalize_event(incoming)
+        if rejection:
+            rejected.append({
+                "event_id": str(incoming.get("event_id") or "")[:96] if isinstance(incoming, dict) else "",
+                "reason": rejection,
+            })
             continue
+        event_id = event["event_id"]
+        if event_id in existing:
+            continue
+        event["server_resolved_edge_actor"] = edge_actor
 
-        event_type = event.get("event_type")
-        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        event_type = event["event_type"]
+        payload = event["payload"]
 
         if event_type == "analysis_summary":
             centre_id = str(payload.get("centre_id") or "")
@@ -1313,7 +1419,8 @@ def edge_sync(request: EdgeSyncRequest):
             analysis_type = str(payload.get("analysis_type") or "")
             outcome = str(payload.get("outcome") or "")
             if centre_id and batch_id and analysis_type and outcome:
-                HISTORY.append(
+                HISTORY.append_edge_once(
+                    edge_event_id=event_id,
                     centre_id=centre_id,
                     batch_id=batch_id,
                     analysis_type=analysis_type,
@@ -1323,6 +1430,8 @@ def edge_sync(request: EdgeSyncRequest):
                         **(payload.get("details") or {}),
                         "edge_synced": True,
                         "raw_video_uploaded": False,
+                        "edge_receipt_unverified": True,
+                        "edge_actor": edge_actor,
                         "edge_event_id": event_id,
                     },
                 )
@@ -1337,12 +1446,25 @@ def edge_sync(request: EdgeSyncRequest):
                 "summary",
             }
             if required.issubset(payload):
+                incoming_case_id = str(payload["case_id"])
+                # Each edge event may have its own event_id. Do not replace a
+                # persisted case (especially its officer review/audit history)
+                # just because the same case_id appears in a later sync.
+                if STORE.get(incoming_case_id) is not None:
+                    skipped_existing_case_ids.append(incoming_case_id)
+                    rows.append(event)
+                    existing.add(event_id)
+                    accepted.append(event_id)
+                    continue
+
                 case = ComplianceCase(
-                    case_id=str(payload["case_id"]),
+                    case_id=incoming_case_id,
                     centre_id=str(payload["centre_id"]),
                     batch_id=str(payload["batch_id"]),
                     case_type=str(payload["case_type"]),
-                    status=str(payload.get("status") or "open"),
+                    # Edge inference is never an officer decision. Imported
+                    # cases must start open regardless of any source status.
+                    status="open",
                     severity=str(payload["severity"]),
                     summary=str(payload["summary"]),
                     reported_attendance=payload.get("reported_attendance"),
@@ -1354,22 +1476,32 @@ def edge_sync(request: EdgeSyncRequest):
                         **(payload.get("details") or {}),
                         "edge_synced": True,
                         "raw_video_uploaded": False,
+                        "edge_receipt_unverified": True,
+                        "edge_actor": edge_actor,
                         "edge_event_id": event_id,
+                        "edge_reported_status_unverified": str(payload.get("status") or "open"),
                         "edge_evidence_integrity": payload.get("evidence_integrity") or [],
                     },
                     created_at=str(payload.get("created_at") or event.get("created_at") or datetime.now(timezone.utc).isoformat()),
                 )
-                STORE.save(case)
+                # Atomic against officer review in the same process. The
+                # earlier existence check is only a fast path, never a
+                # substitute for this compare-and-insert critical section.
+                if not STORE.save_if_absent(case):
+                    skipped_existing_case_ids.append(incoming_case_id)
 
         rows.append(event)
         existing.add(event_id)
         accepted.append(event_id)
 
-    events_path.parent.mkdir(parents=True, exist_ok=True)
-    events_path.write_text(json.dumps(rows, indent=2))
+    if accepted:
+        ledger.save(rows)
     return {
         "accepted_event_ids": accepted,
         "accepted_count": len(accepted),
+        "rejected_events": rejected,
+        "rejected_count": len(rejected),
+        "skipped_existing_case_ids": skipped_existing_case_ids,
         "received_payload_bytes": json_payload_bytes(request.events),
         "raw_video_required": False,
     }
