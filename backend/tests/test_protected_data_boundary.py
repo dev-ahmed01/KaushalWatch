@@ -27,6 +27,8 @@ def _client(tmp_path, monkeypatch):
     monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "token")
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_TOKENS_JSON", json.dumps({"reviewer-01": OFFICER}))
+    monkeypatch.setenv("KAUSHALWATCH_OFFICER_PERMISSIONS_JSON",
+                       json.dumps({"reviewer-01": {"role": "network_admin", "centres": []}}))
     monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_AUTH_MODE", "token")
     monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON", json.dumps({"edge-01": EDGE}))
     monkeypatch.setattr(main, "DATA", tmp_path)

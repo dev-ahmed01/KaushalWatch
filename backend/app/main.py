@@ -54,6 +54,7 @@ from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
+from app.services.officer_permissions import require_centre, visible, request_principal
 from app.services.api_redaction import redact_local_evidence_paths
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 
@@ -350,12 +351,13 @@ def practical_work_zones(profile: str = "authorized"):
 
 
 @app.get("/api/centres")
-def list_centres():
+def list_centres(request: Request):
     rows = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
         history_by_centre=_network_history(),
     )
+    rows = visible(request, rows)
     return {
         "centres": rows,
         "total": len(rows),
@@ -363,7 +365,7 @@ def list_centres():
 
 
 @app.get("/api/actions")
-def action_queue(period: str = "yesterday"):
+def action_queue(request: Request, period: str = "yesterday"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -371,9 +373,9 @@ def action_queue(period: str = "yesterday"):
     )
     try:
         return build_action_queue(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -381,7 +383,7 @@ def action_queue(period: str = "yesterday"):
 
 
 @app.get("/api/insights")
-def network_insights(period: str = "last_7_days"):
+def network_insights(request: Request, period: str = "last_7_days"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -389,9 +391,9 @@ def network_insights(period: str = "last_7_days"):
     )
     try:
         return build_network_insights(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -399,7 +401,7 @@ def network_insights(period: str = "last_7_days"):
 
 
 @app.get("/api/kaushalai/brief")
-def kaushalai_brief(period: str = "yesterday"):
+def kaushalai_brief(request: Request, period: str = "yesterday"):
     centres = centre_rows(
         STORE.list(),
         settings_by_centre=_network_settings(),
@@ -407,9 +409,9 @@ def kaushalai_brief(period: str = "yesterday"):
     )
     try:
         return build_network_brief(
-            centres=centres,
-            cases=STORE.list(),
-            history=HISTORY.list(limit=500),
+            centres=visible(request, centres),
+            cases=visible(request, STORE.list()),
+            history=visible(request, HISTORY.list(limit=500)),
             period=period,
         )
     except ValueError as exc:
@@ -464,17 +466,16 @@ def centre_detail(centre_id: str):
 
 @app.get("/api/analysis-history")
 def analysis_history(
+    request: Request,
     centre_id: str | None = None,
     batch_id: str | None = None,
     limit: int = 100,
 ):
-    return {
-        "rows": HISTORY.list(
-            centre_id=centre_id,
-            batch_id=batch_id,
-            limit=min(max(limit, 1), 500),
-        )
-    }
+    if centre_id:
+        require_centre(request, centre_id)
+    # Scope first: other centres cannot consume the response limit.
+    all_rows = HISTORY.list(centre_id=centre_id, batch_id=batch_id, limit=500)
+    return {"rows": visible(request, all_rows)[:min(max(limit, 1), 500)]}
 
 
 @app.get("/api/centres/{centre_id}/settings")
@@ -492,8 +493,9 @@ def update_centre_settings(centre_id: str, payload: dict = Body(...)):
 
 
 @app.post("/api/assistant/query")
-def assistant_query(payload: dict = Body(...)):
+def assistant_query(http_request: Request, payload: dict = Body(...)):
     centre_id = str(payload.get("centre_id") or "DEMO-KA-104")
+    require_centre(http_request, centre_id)
     period = str(payload.get("period") or "7d")
     question = str(payload.get("question") or "").strip()
     centre = _centre_with_settings(centre_id)
@@ -753,12 +755,22 @@ def centre_report_pdf(
 
 @app.get("/api/dashboard")
 def dashboard(
+    request: Request,
     centre_id: str | None = None,
     batch_id: str | None = None,
 ):
-    all_cases = STORE.list()
+    if centre_id:
+        require_centre(request, centre_id)
+    all_cases = visible(request, STORE.list())
     edge_events_path = DATA / "edge_events.json"
     edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
+    principal = request_principal(request)
+    if principal is not None and not principal.is_admin:
+        # Unknown event shapes never reveal global edge telemetry to scoped officers.
+        edge_events = [
+            row for row in edge_events
+            if isinstance(row, dict) and row.get("centre_id") in principal.centres
+        ]
     pending_statuses = {"open", "under_review", "virtual_verification"}
 
     global_pending_cases = [
@@ -776,7 +788,10 @@ def dashboard(
 
     return {
         "banner": "Prototype — Simulated Operational Data",
-        "centres_monitored": 4,
+        "centres_monitored": (
+            4 if principal is None else
+            len(DEMO_CENTRES) if principal.is_admin else len(principal.centres)
+        ),
         "scope": {
             "centre_id": centre_id,
             "batch_id": batch_id,
@@ -800,12 +815,14 @@ def dashboard(
 
 @app.post("/api/process-video")
 def process_video(
+    http_request: Request,
     file: UploadFile = File(...),
     reported_attendance: int = Form(...),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
     camera_id: str = Form("LAB-CAM-01"),
 ):
+    require_centre(http_request, centre_id, write=True)
     tmp_path = _materialize_video_upload(file)
     try:
         result = PIPELINE.run(tmp_path, reported_attendance, centre_id, batch_id, camera_id=camera_id)
@@ -860,6 +877,7 @@ def process_video(
 
 @app.post("/api/process-practical-activity")
 def process_practical_activity(
+    http_request: Request,
     file: UploadFile = File(...),
     zones_json: str | None = Form(None),
     authorization: str = Form("unknown"),
@@ -873,6 +891,7 @@ def process_practical_activity(
     Authorization is supplied externally. Vision does not infer identity,
     authorization, skill quality, or exact task semantics.
     """
+    require_centre(http_request, centre_id, write=True)
     source_text = zones_json
     if not source_text:
         if not DEFAULT_WORK_ZONES.exists():
@@ -1024,8 +1043,9 @@ def process_practical_activity(
 
 
 @app.get("/api/cases")
-def list_cases():
-    return [redact_local_evidence_paths(c.model_dump(mode="json")) for c in STORE.list()]
+def list_cases(request: Request):
+    return [redact_local_evidence_paths(c.model_dump(mode="json"))
+            for c in visible(request, STORE.list())]
 
 
 @app.get("/api/cases/{case_id}/evidence-pack")
@@ -1123,6 +1143,7 @@ def infrastructure_demo(profile: str = "compliant"):
 
 @app.post("/api/process-infrastructure-video")
 def process_infrastructure_video(
+    http_request: Request,
     file: UploadFile = File(...),
     centre_id: str = Form("DEMO-KA-104"),
     batch_id: str = Form("ELEC-DEMO-01"),
@@ -1142,6 +1163,7 @@ def process_infrastructure_video(
     Equipment observations are currently sourced from the cached detector adapter;
     GroundingDINO can replace that adapter without changing the case workflow.
     """
+    require_centre(http_request, centre_id, write=True)
     try:
         manifest, rows = load_demo_manifest_and_cache()
         equipment_profile = load_demo_equipment_metadata()

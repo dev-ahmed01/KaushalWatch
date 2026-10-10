@@ -148,6 +148,7 @@ jobs:
           KAUSHALWATCH_ENV: staging
           KAUSHALWATCH_REVIEW_AUTH_MODE: token
           KAUSHALWATCH_REVIEW_TOKENS_JSON: '{"browser-ci-officer":"CI_Synthetic_Officer_AccessKey_0123456789abcdef"}'
+          KAUSHALWATCH_OFFICER_PERMISSIONS_JSON: '{"browser-ci-officer":{"role":"network_admin","centres":[]}}'
           KAUSHALWATCH_EDGE_SYNC_AUTH_MODE: token
           KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON: '{"browser-ci-edge":"CI_Synthetic_Edge_DeviceKey_0123456789abcdef"}'
         run: |
