@@ -89,7 +89,7 @@ export async function getOfficerContext() {
   }>(await officerFetch(`${API}/api/officer-context`, { cache: 'no-store' }));
 }
 
-export async function getReviewAccess() {
+export async function getReviewAccess(): Promise<ReviewAccessStatus> {
   // Protected login already bound an officer actor on the server; the case
   // page must never ask for a second raw bearer secret in its client state.
   if (SECURE_PROXY) {
