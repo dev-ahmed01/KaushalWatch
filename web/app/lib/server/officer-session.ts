@@ -12,7 +12,14 @@ type OfficerSession = {
   expiresAt: number;
 };
 
-const sessions = new Map<string, OfficerSession>();
+// Next.js may bundle each route handler separately even in one Node process.
+// Use one process-wide registry so login, status, proxy and logout agree.
+// This still DOES NOT work across processes, serverless instances or restarts.
+const registry = globalThis as typeof globalThis & {
+  __kaushalwatchOfficerSessions?: Map<string, OfficerSession>;
+};
+const sessions = registry.__kaushalwatchOfficerSessions
+  ?? (registry.__kaushalwatchOfficerSessions = new Map<string, OfficerSession>());
 
 export function protectedMode(): boolean {
   return process.env.KAUSHALWATCH_WEB_AUTH_MODE === 'protected';
