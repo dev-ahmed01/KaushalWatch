@@ -187,3 +187,21 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   hard login throttling, transactional backend persistence and final-stage
   real-media quality gates remain **open**. See
   `docs/release/distributed-session-store.md`. PR #55 remains draft.
+
+
+### Next release continuation — centre-scoped officer grants (synthetic CI)
+
+- Backend maps each server-configured token actor to exactly one validated
+  `network_admin`, `centre_reviewer`, or `centre_viewer` grant. Missing,
+  extra or invalid grant definitions fail closed on protected API access.
+- Scoped officers see only assigned cases, centres, histories, action queues,
+  insights and briefs. Centre reports/PDF, case review/evidence packs, evidence
+  images, settings writes and uploaded video centre IDs are enforced server-side.
+- Read-only case UI disables decision controls; a forged or direct review
+  remains rejected by the backend. Scoped assistant chat with global tools is
+  intentionally denied; scoped deterministic queries are available.
+- New isolated synthetic integration tests and protected-browser centre-viewer
+  E2E cover legitimate access and cross-centre negative cases. No external
+  identity provider, real-centre grants, backend transaction store, login
+  throttling or independent pilot security review is claimed.
+- Runbook: `docs/release/centre-scoped-officer-access.md`.

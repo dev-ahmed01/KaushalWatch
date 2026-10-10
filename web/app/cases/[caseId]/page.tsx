@@ -68,6 +68,10 @@ export default function CaseDetailPage() {
 
   async function apply(action: DecisionAction) {
     if (!record || busy) return;
+    if (reviewAccess?.can_write === false) {
+      setError('Your officer role has read-only access. No decision was recorded.');
+      return;
+    }
     if (action !== 'virtual_verification' && !note.trim()) {
       setError('Add a short review note before a final decision.');
       return;
@@ -197,6 +201,11 @@ export default function CaseDetailPage() {
             {reviewAccessError && <div role="alert" className="mt-3 text-[12px] text-[#B42318]">{reviewAccessError}</div>}
 
             {!terminal ? (
+              reviewAccess?.can_write === false ? (
+                <div className="mt-4 rounded-xl bg-[#F8FAFC] px-4 py-4 text-[12px] leading-5 text-[#667085]">
+                  Read-only officer access. You can inspect evidence and the audit trail, but cannot record a review decision.
+                </div>
+              ) : (
               <>
                 {reviewAccess?.required && (
                   <div className="mt-4">

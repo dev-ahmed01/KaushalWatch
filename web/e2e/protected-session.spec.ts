@@ -171,4 +171,49 @@ test.describe('Protected browser officer session', () => {
     await expect(page).toHaveURL(/\/login\?next=/);
   });
 
+
+  test('centre viewer sees only permitted records and cannot record a decision', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel('Officer access key').fill('CI_Synthetic_Viewer_AccessKey_0123456789abcdef');
+    await page.getByRole('button', { name: 'Sign in securely' }).click();
+    await expect(page).toHaveURL('http://127.0.0.1:3001/');
+    const scoped = await page.evaluate(async () => {
+      const [cases, profile, deniedReport] = await Promise.all([
+        fetch('/api/proxy/api/cases', { credentials: 'same-origin' }),
+        fetch('/api/proxy/api/officer-context', { credentials: 'same-origin' }),
+        fetch('/api/proxy/api/centres/DEMO-KA-207/report.pdf', { credentials: 'same-origin' }),
+      ]);
+      return {
+        casesCode: cases.status, records: await cases.json(),
+        profile: await profile.json(), reportCode: deniedReport.status,
+      };
+    });
+    expect(scoped.casesCode).toBe(200);
+    expect(scoped.records.length).toBeGreaterThan(0);
+    expect(scoped.records.every((record: { centre_id: string }) =>
+      record.centre_id === 'DEMO-KA-104')).toBe(true);
+    expect(scoped.profile.role).toBe('centre_viewer');
+    expect(scoped.profile.can_review).toBe(false);
+    expect(scoped.reportCode).toBe(404);
+    await page.goto('/cases/SIM-KA-104-ATT');
+    await expect(page.getByText('Read-only officer access.', { exact: false })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Confirm discrepancy' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Ask KaushalAI' })).toHaveCount(0);
+    const csrf = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/status', { credentials: 'same-origin' });
+      return (await response.json()).csrfToken as string;
+    });
+    const denied = await page.evaluate(async token => {
+      const response = await fetch('/api/proxy/api/cases/SIM-KA-104-ATT/review', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-KaushalWatch-CSRF': token },
+        body: JSON.stringify({ action: 'confirmed', note: 'Unauthorized test write' }),
+      });
+      return response.status;
+    }, csrf);
+    expect(denied).toBe(403);
+    await page.goto('/cases/SIM-KA-207-ATT');
+    await expect(page.getByRole('alert')).toBeVisible();
+  });
+
 });

@@ -23,7 +23,7 @@ SCOPED_READS = frozenset({
     "/api/centres", "/api/cases", "/api/actions", "/api/insights",
     "/api/kaushalai/brief", "/api/analysis-history", "/api/dashboard",
     "/api/runtime-readiness", "/api/vision/governance", "/api/practical-work-zones",
-    "/api/assistant/status", "/api/officer-validate",
+    "/api/assistant/status", "/api/officer-validate", "/api/officer-context",
 })
 SCOPED_WRITES = frozenset({
     "/api/process-video", "/api/process-practical-activity",
@@ -108,7 +108,9 @@ async def protected_read_boundary(request: Request, call_next):
             content={"detail": exc.detail},
             headers=exc.headers or {},
         )
-        response.headers["Cache-Control"] = "no-store"
+        response.headers["Cache-Control"] = (
+            "private, no-store" if exc.status_code in {403, 404} else "no-store"
+        )
         return response
     response = await call_next(request)
     response.headers["Cache-Control"] = "private, no-store"

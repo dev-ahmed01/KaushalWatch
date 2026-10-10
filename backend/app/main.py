@@ -755,9 +755,9 @@ def centre_report_pdf(
 
 @app.get("/api/dashboard")
 def dashboard(
-    request: Request,
     centre_id: str | None = None,
     batch_id: str | None = None,
+    request: Request = None,
 ):
     if centre_id:
         require_centre(request, centre_id)
@@ -1077,6 +1077,21 @@ def validate_protected_officer_login(
     if environment not in PROTECTED_ENVS:
         raise HTTPException(status_code=503, detail="Protected officer login requires protected API mode.")
     return {"authenticated": True}
+
+
+@app.get("/api/officer-context")
+def officer_context(request: Request):
+    """Expose only non-secret role/centre grants to the protected UI."""
+    principal = request_principal(request)
+    if principal is None:
+        return {"mode": "demo", "role": "demo_officer", "centre_ids": [],
+                "can_review": True, "can_use_network_assistant": True}
+    return {
+        "mode": "protected", "role": principal.role,
+        "centre_ids": sorted(principal.centres),
+        "can_review": principal.can_write,
+        "can_use_network_assistant": principal.is_admin,
+    }
 
 
 @app.post("/api/cases/{case_id}/review")

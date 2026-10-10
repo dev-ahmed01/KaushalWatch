@@ -56,7 +56,7 @@ def configured_principals() -> dict[str, OfficerPrincipal]:
         if not isinstance(spec, dict) or set(spec) != {"role", "centres"}:
             raise _configuration_error()
         role, centres = spec["role"], spec["centres"]
-        if role not in ROLES or not isinstance(centres, list):
+        if not isinstance(role, str) or role not in ROLES or not isinstance(centres, list):
             raise _configuration_error()
         if len(centres) != len(set(str(c) for c in centres)):
             raise _configuration_error()

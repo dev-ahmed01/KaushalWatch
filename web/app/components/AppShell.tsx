@@ -19,7 +19,7 @@ import { cn } from '../lib/cn';
 import { PeriodProvider, useBriefPeriod } from '../lib/period';
 import AssistantDrawer from './AssistantDrawer';
 import SecureSessionGate from './SecureSessionGate';
-import { SECURE_PROXY, logoutOfficer } from '../lib/api';
+import { SECURE_PROXY, logoutOfficer, getReviewAccess } from '../lib/api';
 import { Button } from './ui/button';
 
 const NAV = [
@@ -52,6 +52,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantAllowed, setAssistantAllowed] = useState(!SECURE_PROXY);
   const [signOutError, setSignOutError] = useState('');
   const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
@@ -62,10 +63,22 @@ function AppShellContent({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const open = () => setAssistantOpen(true);
-    window.addEventListener('kaushalwatch:assistant', open);
-    return () => window.removeEventListener('kaushalwatch:assistant', open);
+    if (!SECURE_PROXY) return;
+    let active = true;
+    getReviewAccess()
+      .then(policy => {
+        if (active) setAssistantAllowed(policy.can_use_network_assistant === true);
+      })
+      .catch(() => { if (active) setAssistantAllowed(false); });
+    return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    const open = () => { if (assistantAllowed) setAssistantOpen(true); };
+    window.addEventListener('kaushalwatch:assistant', open);
+    if (!assistantAllowed) setAssistantOpen(false);
+    return () => window.removeEventListener('kaushalwatch:assistant', open);
+  }, [assistantAllowed]);
 
   if (SECURE_PROXY && pathname === '/login') return <>{children}</>;
 
@@ -190,10 +203,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 Sign out
               </button>
             )}
-            <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
-              <Sparkles size={15} />
-              <span className="hidden sm:inline">Ask KaushalAI</span>
-            </Button>
+            {assistantAllowed && (
+              <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
+                <Sparkles size={15} />
+                <span className="hidden sm:inline">Ask KaushalAI</span>
+              </Button>
+            )}
           </div>
         </header>
 
@@ -221,7 +236,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
         })}
       </nav>
 
-      <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} centreId={centreId} />
+      {assistantAllowed && <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} centreId={centreId} />}
     </div>
   );
 }

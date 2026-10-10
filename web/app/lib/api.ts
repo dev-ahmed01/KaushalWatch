@@ -78,12 +78,23 @@ export async function getEvidencePack(caseId: string) {
   );
 }
 
-export type ReviewAccessStatus = { mode: 'demo' | 'token'; required: boolean; prototype_only: boolean };
+export type ReviewAccessStatus = {
+  mode: 'demo' | 'token'; required: boolean; prototype_only: boolean;
+  can_write?: boolean; can_use_network_assistant?: boolean; role?: string; centre_ids?: string[];
+};
 
 export async function getReviewAccess() {
   // Protected login already bound an officer actor on the server; the case
   // page must never ask for a second raw bearer secret in its client state.
-  if (SECURE_PROXY) return { mode: 'token', required: false, prototype_only: true } as ReviewAccessStatus;
+  if (SECURE_PROXY) {
+    const permissions = await parse<{
+      role: string; centre_ids: string[]; can_review: boolean; can_use_network_assistant: boolean;
+    }>(await officerFetch(`${API}/api/officer-context`, { cache: 'no-store' }));
+    return { mode: 'token', required: false, prototype_only: true,
+      can_write: permissions.can_review, role: permissions.role,
+      centre_ids: permissions.centre_ids,
+      can_use_network_assistant: permissions.can_use_network_assistant };
+  }
   return parse<ReviewAccessStatus>(await officerFetch(`${API}/api/review-access`, { cache: 'no-store' }));
 }
 
