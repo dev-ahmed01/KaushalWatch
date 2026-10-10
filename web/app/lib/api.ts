@@ -5,7 +5,7 @@ import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus
 export const SECURE_PROXY = process.env.NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY === 'true';
 export const API = SECURE_PROXY ? '/api/proxy' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
-async function officerFetch(url: string, init: RequestInit = {}): Promise<Response> {
+export async function officerFetch(url: string, init: RequestInit = {}): Promise<Response> {
   if (!SECURE_PROXY) return fetch(url, init);
   const headers = new Headers(init.headers);
   const method = (init.method || 'GET').toUpperCase();
@@ -171,4 +171,17 @@ export function reportPdfUrl(centreId: string, period = '7d', startDate?: string
   if (startDate) params.set('start_date', startDate);
   if (endDate) params.set('end_date', endDate);
   return `${API}/api/centres/${encodeURIComponent(centreId)}/report.pdf?${params.toString()}`;
+}
+
+
+export async function logoutOfficer(): Promise<void> {
+  if (!SECURE_PROXY) return;
+  const status = await fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin' });
+  const body = status.ok ? await status.json() as { csrfToken?: string } : null;
+  if (!body?.csrfToken) throw new Error('Officer session expired.');
+  const response = await fetch('/api/auth/logout', {
+    method: 'POST', cache: 'no-store', credentials: 'same-origin',
+    headers: { 'X-KaushalWatch-CSRF': body.csrfToken },
+  });
+  if (!response.ok) throw new Error('Could not sign out.');
 }
