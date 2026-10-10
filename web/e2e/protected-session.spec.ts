@@ -5,6 +5,18 @@ const TOKEN = 'CI_Synthetic_Officer_AccessKey_0123456789abcdef';
 test.describe('Protected browser officer session', () => {
   test.skip(!PROTECTED, 'Dedicated protected session smoke requires separate protected API and web.');
 
+  test('unauthenticated login page remains stable without officer-context redirect loop', async ({ page }) => {
+    const roleReads: string[] = [];
+    page.on('request', request => {
+      if (request.url().includes('/api/proxy/api/officer-context')) roleReads.push(request.url());
+    });
+    await page.goto('/login');
+    await expect(page.getByLabel('Officer access key')).toBeVisible();
+    await page.waitForTimeout(350);
+    await expect(page).toHaveURL('http://127.0.0.1:3001/login');
+    expect(roleReads).toEqual([]);
+  });
+
   test('login persists HttpOnly session, protected records and evidence flow through BFF', async ({ page }) => {
     await page.goto('/');
     await expect(page).toHaveURL(/\/login\?next=/);

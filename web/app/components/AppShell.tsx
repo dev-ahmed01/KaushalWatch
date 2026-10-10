@@ -63,7 +63,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!SECURE_PROXY) return;
+    // The login page is public: polling officer context before authentication
+    // would trigger the API client's 401 redirect back to /login indefinitely.
+    if (!SECURE_PROXY || pathname === '/login') return;
     let active = true;
     getReviewAccess()
       .then(policy => {
@@ -71,7 +73,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
       })
       .catch(() => { if (active) setAssistantAllowed(false); });
     return () => { active = false; };
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const open = () => { if (assistantAllowed) setAssistantOpen(true); };
