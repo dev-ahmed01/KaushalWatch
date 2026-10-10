@@ -1043,6 +1043,21 @@ def get_evidence_pack(case_id: str):
 def get_review_access():
     return review_access_status()
 
+@app.get("/api/officer-validate")
+def validate_protected_officer_login(
+    officer_actor: str = Depends(resolve_review_actor),
+):
+    """Validate a server-mapped officer key ONLY in explicitly protected mode.
+
+    A demo/development backend must never authenticate a protected web browser
+    by allowing a public read with an arbitrary key.
+    """
+    from app.services.review_access import PROTECTED_ENVS
+    environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
+    if environment not in PROTECTED_ENVS:
+        raise HTTPException(status_code=503, detail="Protected officer login requires protected API mode.")
+    return {"authenticated": True}
+
 
 @app.post("/api/cases/{case_id}/review")
 def review_case(
