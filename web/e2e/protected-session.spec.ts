@@ -35,9 +35,14 @@ test.describe('Protected browser officer session', () => {
     expect(session?.httpOnly).toBe(true);
     expect(session?.sameSite).toBe('Strict');
     expect(session?.value).not.toContain(TOKEN);
-    const status = await page.request.get('/api/auth/status');
-    expect(status.status()).toBe(200);
-    const payload = await status.json();
+    const status = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/status', {
+        cache: 'no-store', credentials: 'same-origin',
+      });
+      return { code: response.status, payload: await response.json() };
+    });
+    expect(status.code).toBe(200);
+    const payload = status.payload;
     expect(payload.authenticated).toBe(true);
     expect(payload.mode).toBe('protected');
     expect(payload.csrfToken.length).toBeGreaterThan(20);
