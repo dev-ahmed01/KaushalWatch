@@ -126,3 +126,65 @@ jobs:
           E2E_VIDEO_PATH: /tmp/kaushalwatch-e2e.avi
           E2E_BASE_URL: http://127.0.0.1:3000
         run: npm run test:e2e
+
+  protected-browser:
+    runs-on: ubuntu-latest
+    needs: [hygiene, backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package.json
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Seed isolated synthetic demo records
+        run: python scripts/prepare_demo_state.py --yes
+      - name: Start protected backend with synthetic CI officer key
+        env:
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_REVIEW_AUTH_MODE: token
+          KAUSHALWATCH_REVIEW_TOKENS_JSON: '{"browser-ci-officer":"CI_Synthetic_Officer_AccessKey_0123456789abcdef"}'
+          KAUSHALWATCH_EDGE_SYNC_AUTH_MODE: token
+          KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON: '{"browser-ci-edge":"CI_Synthetic_Edge_DeviceKey_0123456789abcdef"}'
+        run: |
+          uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8011 > /tmp/kaushalwatch-protected-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8011/api/health && break
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8011/api/cases)" = "401" || {
+            cat /tmp/kaushalwatch-protected-api.log
+            exit 1
+          }
+      - name: Build protected Next.js browser (secure BFF)
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+        run: |
+          npm install
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Start protected web server
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8011
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3001 > /tmp/kaushalwatch-protected-web.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3001/login && exit 0
+            sleep 1
+          done
+          cat /tmp/kaushalwatch-protected-web.log
+          exit 1
+      - name: Test protected login, CSRF, evidence and logout
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3001
+          E2E_PROTECTED_MODE: 'true'
+        run: npx playwright test e2e/protected-session.spec.ts
