@@ -48,45 +48,74 @@ test.describe('Protected browser officer session', () => {
     expect(payload.csrfToken.length).toBeGreaterThan(20);
     expect(JSON.stringify(payload)).not.toContain(TOKEN);
 
-    const cases = await page.request.get('/api/proxy/api/cases');
-    expect(cases.status()).toBe(200);
-    expect(cases.headers()['cache-control']).toContain('no-store');
-    expect(cases.text()).resolves.not.toContain(TOKEN);
-    const records = await cases.json();
+    // Chromium accepts Secure cookies on loopback in this HTTPS-equivalent
+    // test context. Playwright's Node APIRequestContext does not send Secure
+    // cookies over plain HTTP: use real browser fetch for authenticated BFF.
+    const cases = await page.evaluate(async () => {
+      const response = await fetch('/api/proxy/api/cases', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      return { status: response.status, cache: response.headers.get('cache-control'), text: await response.text() };
+    });
+    expect(cases.status).toBe(200);
+    expect(cases.cache).toContain('no-store');
+    expect(cases.text).not.toContain(TOKEN);
+    const records = JSON.parse(cases.text);
     expect(records.length).toBeGreaterThan(0);
     expect(records.some((record: { evidence: unknown[] }) => record.evidence.length > 0)).toBe(true);
     const firstEvidence = records.flatMap((record: { evidence: { evidence_id: string }[] }) => record.evidence)[0];
-    const image = await page.request.get('/api/proxy/evidence/' + firstEvidence.evidence_id + '.jpg');
-    expect(image.status()).toBe(200);
-    expect(image.headers()['content-type']).toContain('image/');
-    const imageBytes = await image.body();
-    expect(imageBytes.length).toBeGreaterThan(100);
-    expect(imageBytes[0]).toBe(0xff);
-    expect(imageBytes[1]).toBe(0xd8);
+    const image = await page.evaluate(async evidenceId => {
+      const response = await fetch('/api/proxy/evidence/' + evidenceId + '.jpg', {
+        credentials: 'same-origin', cache: 'no-store',
+      });
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return { status: response.status, contentType: response.headers.get('content-type'),
+               length: bytes.length, first: Array.from(bytes.slice(0, 2)) };
+    }, firstEvidence.evidence_id);
+    expect(image.status).toBe(200);
+    expect(image.contentType).toContain('image/');
+    expect(image.length).toBeGreaterThan(100);
+    expect(image.first).toEqual([0xff, 0xd8]);
 
     // CSRF and same-origin required for every mutation, including review.
-    const missingCsrf = await page.request.post(
-      '/api/proxy/api/cases/SIM-KA-104-ATT/review',
-      { data: { action: 'confirmed', note: 'Synthetic only' }, headers: { Origin: 'http://127.0.0.1:3001' } },
-    );
-    expect(missingCsrf.status()).toBe(403);
+    const missingCsrf = await page.evaluate(async () => {
+      const response = await fetch('/api/proxy/api/cases/SIM-KA-104-ATT/review', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirmed', note: 'Synthetic only' }),
+      });
+      return response.status;
+    });
+    expect(missingCsrf).toBe(403);
+    // This API-request harness forwards the opaque cookie only to exercise a
+    // forged Origin; real browsers cannot override their Origin header.
     const invalidOrigin = await page.request.post('/api/proxy/api/cases/SIM-KA-104-ATT/review', {
       data: { action: 'confirmed', note: 'Synthetic only' },
-      headers: { Origin: 'https://attacker.example', 'X-KaushalWatch-CSRF': payload.csrfToken },
+      headers: { Cookie: 'kw_officer_session=' + session?.value,
+                 Origin: 'https://attacker.example', 'X-KaushalWatch-CSRF': payload.csrfToken },
     });
     expect(invalidOrigin.status()).toBe(403);
-    const edgeBlocked = await page.request.post('/api/proxy/api/edge/sync', {
-      data: { events: [] },
-      headers: { Origin: 'http://127.0.0.1:3001', 'X-KaushalWatch-CSRF': payload.csrfToken },
-    });
-    expect(edgeBlocked.status()).toBe(404);
+    const edgeBlocked = await page.evaluate(async csrf => {
+      const response = await fetch('/api/proxy/api/edge/sync', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', 'X-KaushalWatch-CSRF': csrf },
+        body: JSON.stringify({ events: [] }),
+      });
+      return response.status;
+    }, payload.csrfToken);
+    expect(edgeBlocked).toBe(404);
 
     await page.getByRole('button', { name: 'Sign out of officer session' }).click();
     await expect(page).toHaveURL(/\/login/);
-    const after = await page.request.get('/api/proxy/api/cases');
+    const after = await page.request.get('/api/proxy/api/cases', {
+      headers: { Cookie: 'kw_officer_session=' + session?.value },
+    });
     expect(after.status()).toBe(401);
-    const afterStatus = await page.request.get('/api/auth/status');
-    expect((await afterStatus.json()).authenticated).toBe(false);
+    const afterStatus = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/status', { credentials: 'same-origin' });
+      return response.json();
+    });
+    expect(afterStatus.authenticated).toBe(false);
   });
 
   test('protected browser review posts exactly one audited decision through the proxy', async ({ page }) => {
