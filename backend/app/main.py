@@ -893,6 +893,7 @@ def process_practical_activity(
     tmp_path = _materialize_video_upload(file)
 
     try:
+        analysis_started_at = datetime.now(timezone.utc)
         result = PRACTICAL_PIPELINE.run(
             video_path=tmp_path,
             zones=zones,
@@ -937,7 +938,7 @@ def process_practical_activity(
                 "vision_profile_id": VISION_PROFILE_ID,
                 "activity_buckets": [
                     activity_bucket_for_practical_run(
-                        start_at=datetime.now(timezone.utc),
+                        start_at=analysis_started_at,
                         duration_sec=result.duration_sec,
                         activity_score=result.practical_activity_fraction,
                         trusted_frame_ratio=result.trusted_frame_ratio,
