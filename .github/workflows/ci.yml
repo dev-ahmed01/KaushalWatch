@@ -44,6 +44,21 @@ jobs:
           set -e
           test "$result" -eq 2
           python -c 'import json; p=json.load(open("/tmp/kaushalwatch-heldout-denial.json")); assert p["qualified"] is False and p["status"] == "heldout_blocked"'
+      - name: Verify live equipment, visual motion and practical held-outs fail without independent sources
+        run: |
+          set +e
+          python evaluation/live_equipment_qualification.py --manifest /tmp/kw-no-live-equipment.json --out /tmp/kw-live-equipment-blocked.json
+          e_status=$?
+          python evaluation/operability_holdout.py --manifest /tmp/kw-no-independent-motion.json --out /tmp/kw-motion-blocked.json
+          o_status=$?
+          python scripts/run_live_equipment.py --manifest /tmp/kw-no-frozen-model.json --out /tmp/kw-no-live-output.json
+          r_status=$?
+          set -e
+          test "$e_status" -eq 2
+          test "$o_status" -eq 2
+          test "$r_status" -eq 2
+          python -c 'import json; a=json.load(open("/tmp/kw-live-equipment-blocked.json")); b=json.load(open("/tmp/kw-motion-blocked.json")); assert a["qualified"] is False and a["status"] == "live_equipment_blocked"; assert b["qualified"] is False and b["status"] == "visual_motion_blocked"'
+          test ! -e /tmp/kw-no-live-output.json
       - name: Verify practical-work and equipment release gates remain blocked without independent inputs
         run: |
           set +e

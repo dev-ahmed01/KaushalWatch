@@ -343,3 +343,25 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   are supplied. Nothing is changed in the frozen runtime profile or
   experimental Camera Trust PR #54.
 - Runbook: `docs/release/practical-equipment-heldout.md`.
+
+
+### Phase 2C — Optional live equipment model and multi-video visual-motion gate
+
+- Replaced unused GroundingDINO equipment adapter placeholder with an
+  optional, **offline local-SHA-pinned checkpoint** runtime for real zero-shot
+  per-item frame proposal inference. Explicit NMS/box-score validation; missing
+  model, video changes and decoder failures never become zero counts.
+- Added `scripts/run_live_equipment.py` for an operator-only, pinned-video
+  live proposal receipt. No automatic case creation; any raw proposals require
+  independent officer review and are NOT official inventory quantities.
+- Added model-only untouched-camera held-out scoring in
+  `evaluation/live_equipment_qualification.py`, plus a separate
+  multi-recording visual ROI-motion proxy qualifier in
+  `evaluation/operability_holdout.py`. Neither equates visible movement to
+  actual mechanical health.
+- CI uses synthetic model/footage/annotation fixtures only, validates fail
+  closed without private evidence and retains unmodified SIH demo behavior.
+- Real standalone model weights, independent legally usable held-out videos,
+  ground-truth counts and multi-camera ROI review remain prerequisites for
+  passing any real-world qualification.
+- Runbook: `docs/release/live-equipment-operability.md`.

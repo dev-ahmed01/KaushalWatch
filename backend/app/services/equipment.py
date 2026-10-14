@@ -21,18 +21,6 @@ class CachedEquipmentDetector:
         return closest.get("detections", [])
 
 
-class GroundingDinoAdapter:
-    """Optional adapter boundary. The core attendance demo never depends on this class."""
-
-    def __init__(self, prompts: list[str]):
-        self.prompts = prompts
-        self._ready = False
-
-    def setup(self) -> None:
-        raise RuntimeError(
-            "GroundingDINO is optional and not installed by core requirements. "
-            "Validate it separately or use cached demo detections."
-        )
-
-    def detect_at(self, second: float) -> list[dict]:
-        return [] if not self._ready else []
+# Optional model loader remains lazy inside the adapter; importing the core
+# attendance API does not import Torch/Transformers or download any checkpoints.
+from app.services.live_equipment import GroundingDinoAdapter
