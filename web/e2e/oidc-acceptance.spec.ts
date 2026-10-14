@@ -1,8 +1,24 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 const BASE = 'http://127.0.0.1:3003';
 const IDP = 'http://127.0.0.1:8371/authorize';
 const API = 'http://127.0.0.1:8013';
+
+// The APIRequestContext shares the browser's cookie jar. Capturing the
+// Next.js 303 prevents Playwright's route interception from accidentally
+// exercising the default IDP user instead of the intended negative case.
+async function followSyntheticAuthorization(page: Page, change: (url: URL) => void) {
+  const start = await page.request.get(BASE + '/api/auth/oidc/start', {
+    maxRedirects: 0,
+  });
+  expect(start.status()).toBe(303);
+  const target = new URL(start.headers()['location']);
+  expect(target.origin).toBe(new URL(IDP).origin);
+  expect(target.pathname).toBe('/authorize');
+  change(target);
+  return page.goto(target.toString());
+}
 test.describe('Synthetic OIDC browser acceptance (never production)', () => {
   test.skip(process.env.E2E_SYNTHETIC_OIDC !== 'true', 'CI-only OIDC test with ephemeral signer');
 
@@ -53,47 +69,35 @@ test.describe('Synthetic OIDC browser acceptance (never production)', () => {
   });
 
   test('forged authorization state never establishes a browser session', async ({ page }) => {
-    await page.route(IDP + '**', async route => {
-      const target = new URL(route.request().url());
+    const denial = await followSyntheticAuthorization(page, target => {
       target.searchParams.set('state', 'x'.repeat(43));
-      await route.continue({ url: target.toString() });
     });
-    await page.goto(BASE + '/api/auth/oidc/start');
-    await expect(page.getByText('The organization sign-in could not be completed.')).toBeVisible();
+    expect(denial?.status()).toBe(403);
     const status = await page.request.get(BASE + '/api/auth/status');
     expect((await status.json()).authenticated).toBe(false);
   });
 
   test('unprovisioned signed subject is denied by backend grants', async ({ page }) => {
-    await page.route(IDP + '**', async route => {
-      const target = new URL(route.request().url());
+    const denial = await followSyntheticAuthorization(page, target => {
       target.searchParams.set('synthetic_subject', 'ci-unprovisioned-subject');
-      await route.continue({ url: target.toString() });
     });
-    await page.goto(BASE + '/api/auth/oidc/start');
-    await expect(page.getByText('The organization sign-in could not be completed.')).toBeVisible();
+    expect(denial?.status()).toBe(403);
     const noSession = await page.request.get(BASE + '/api/proxy/api/cases');
     expect(noSession.status()).toBe(401);
   });
 
   test('wrong API audience access token cannot create a session', async ({ page }) => {
-    await page.route(IDP + '**', async route => {
-      const target = new URL(route.request().url());
+    const denial = await followSyntheticAuthorization(page, target => {
       target.searchParams.set('synthetic_audience', 'api://wrong-audience');
-      await route.continue({ url: target.toString() });
     });
-    await page.goto(BASE + '/api/auth/oidc/start');
-    await expect(page.getByText('The organization sign-in could not be completed.')).toBeVisible();
+    expect(denial?.status()).toBe(401);
     expect((await (await page.request.get(BASE + '/api/auth/status')).json()).authenticated).toBe(false);
   });
 
   test('signed admin claims cannot upgrade a locally provisioned viewer', async ({ page }) => {
-    await page.route(IDP + '**', async route => {
-      const target = new URL(route.request().url());
+    await followSyntheticAuthorization(page, target => {
       target.searchParams.set('synthetic_subject', 'ci-viewer-subject');
-      await route.continue({ url: target.toString() });
     });
-    await page.goto(BASE + '/api/auth/oidc/start');
     await expect(page).toHaveURL(BASE + '/');
     const observed = await page.evaluate(async () => {
       const [who, cases, forbidden] = await Promise.all([

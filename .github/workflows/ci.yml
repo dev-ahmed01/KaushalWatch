@@ -107,9 +107,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package.json
-      - run: npm install
-      - name: Expose synthetic dependency lockfile for reproducible review
-        run: node -e 'console.log("KW_LOCK_BEGIN"+JSON.stringify(require("./package-lock.json"))+"KW_LOCK_END")'
+      - run: npm ci
       - name: Reject high severity production npm advisories
         run: npm audit --omit=dev --audit-level=high
       - name: Summarize non-production dependency advisories
@@ -167,7 +165,7 @@ jobs:
       - name: Install and build web
         working-directory: web
         run: |
-          npm install
+          npm ci
           npm run build
           npx playwright install --with-deps chromium
       - name: Start web
@@ -226,7 +224,7 @@ jobs:
         env:
           NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
         run: |
-          npm install
+          npm ci
           npm run build
           npx playwright install --with-deps chromium
       - name: Start synthetic shared Redis REST session store
@@ -330,7 +328,7 @@ jobs:
         env:
           NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
         run: |
-          npm install
+          npm ci
           npm run build
           npx playwright install --with-deps chromium
       - name: Start synthetic Redis REST session store
