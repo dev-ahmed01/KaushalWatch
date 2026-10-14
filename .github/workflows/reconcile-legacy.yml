@@ -1,0 +1,38 @@
+name: One-time legacy branch reconciliation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/reconcile_legacy_branches.py
+      - scripts/test_reconcile_legacy_branches.py
+      - .github/workflows/reconcile-legacy.yml
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: phase-3a-legacy-branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  archive-superseded-branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test no-delete-before-archive invariants
+        run: python scripts/test_reconcile_legacy_branches.py
+      - name: Validate exact audited refs in read-only mode
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/reconcile_legacy_branches.py --expected-main-sha "$GITHUB_SHA"
+      - name: Archive, close superseded PRs, and prune only exact archived heads
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/reconcile_legacy_branches.py --expected-main-sha "$GITHUB_SHA" --execute
