@@ -1,5 +1,14 @@
 # Build Status
 
+## Phase 3B — Real models executed on public-source test media
+
+- **Reproducible OpenVINO**: 113 labelled EPFL Camera 0 frames; precision 91.45%, recall 89.95%, F1 90.69%, occupancy MAE 0.327. [Actual benchmark run #38606324935](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38606324935).
+- **Pinned offline GroundingDINO**: real CPU inference using model revision `a2bb814dd30d776dcf7e30523b00659f4f141c71` and nine SHA-pinned files; public image yielded two workbench and zero chair proposals, **unverified labels**. [Pinned run #38607088769](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38607088769).
+- **Full pipeline**: actual frozen-profile tiled OpenVINO on six-second EPFL excerpt across attendance/camera evidence/practical paths, each 30 samples with zero runtime detector errors. Synthetic attendance register and unknown authorization mean **no compliance inference is validated**. [Cross-pipeline run #38607088793](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38607088793).
+- Detailed claim boundaries and reproduction: `docs/release/PHASE3B_REAL_MODEL_EXECUTION.md`.
+- Pilot deployment and independent training-centre held-out accuracy remain **NOT QUALIFIED**; PR #54 Camera Trust is still draft/unmerged.
+
+
 ## Current branch integration status — 14 October 2026
 
 - **PR #53 and PR #55 have been merged into `main`**, using merge commits to preserve original history.
