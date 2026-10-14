@@ -19,9 +19,10 @@ def dependencies_ready() -> bool:
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     if env in LOCAL_ENVS:
         return True
-    # The staging JSON configuration used by the synthetic browser suite is
-    # not eligible to represent a real pilot. Production is always strict.
-    if env not in {"pilot", "production", "prod"}:
+    # Synthetic staging without PostgreSQL has only process-level readiness.
+    # If staging explicitly selects PostgreSQL+S3, verify those dependencies.
+    # Production and pilot always require every protected dependency.
+    if env == "staging" and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
         return True
     if os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
         return False

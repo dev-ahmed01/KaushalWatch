@@ -291,12 +291,17 @@ def test_inventory_scanning_fails_when_incomplete(private_env):
 
 def test_pilot_readiness_checks_schema_db_and_liveness(private_env, monkeypatch):
     main, _ = private_env
-    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    # Synthetic static-key staging can verify DB/schema health; real pilots
+    # additionally require signed OIDC subjects, so cannot claim ready.
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
     client = TestClient(main.app)
     response = client.get("/api/ready")
     assert response.status_code == 200, response.text
     assert response.json() == {"ready": True}
     assert client.get("/api/health").status_code == 200
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    assert client.get("/api/ready").status_code == 503
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
     monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL",
                        "postgresql://ci:invalid@127.0.0.1:1/kaushalwatch_ci")
     failing = client.get("/api/ready")
@@ -306,8 +311,8 @@ def test_pilot_readiness_checks_schema_db_and_liveness(private_env, monkeypatch)
     assert client.get("/api/health").status_code == 200
 
 
-def test_pilot_readiness_refuses_missing_officer_config(private_env, monkeypatch):
+def test_staging_postgres_readiness_refuses_missing_officer_config(private_env, monkeypatch):
     main, _ = private_env
-    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
     monkeypatch.delenv("KAUSHALWATCH_OFFICER_PERMISSIONS_JSON")
     assert TestClient(main.app).get("/api/ready").status_code == 503

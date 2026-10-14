@@ -11,6 +11,7 @@ import json
 import os
 import re
 import time
+from functools import lru_cache
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
@@ -69,6 +70,13 @@ def _load_jwks(uri: str) -> dict:
     return data
 
 
+@lru_cache(maxsize=8)
+def _cached_jwks(uri: str, epoch: int) -> dict:
+    # Cache public keys for <=60s per worker, while never accepting stale
+    # keys indefinitely when an identity provider goes offline.
+    return _load_jwks(uri)
+
+
 def verified_subject(token: str) -> str:
     if (not isinstance(token, str) or len(token) > 8192 or len(token) < 50
         or not token.isascii() or any(x.isspace() for x in token)):
@@ -82,7 +90,11 @@ def verified_subject(token: str) -> str:
             raise ValueError("Unsupported JWT header")
     except (jwt.PyJWTError, ValueError, TypeError):
         raise unauthorized() from None
-    document = _load_jwks(jwks_url)
+    environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
+    # Staging tests use fresh ephemeral signing keys. Protected pilots cache
+    # JWKS briefly to avoid a network request on every API call.
+    document = (_load_jwks(jwks_url) if environment == "staging"
+                else _cached_jwks(jwks_url, int(time.monotonic() // 60)))
     matches = [
         entry for entry in document["keys"]
         if isinstance(entry, dict) and entry.get("kid") == header["kid"]
@@ -90,6 +102,17 @@ def verified_subject(token: str) -> str:
         and entry.get("use", "sig") == "sig"
         and entry.get("alg", "RS256") == "RS256"
     ]
+    if len(matches) != 1 and environment != "staging":
+        # A freshly rotated signing key may not yet appear in the 60-second
+        # cache. Retry once with the same fixed issuer-bound JWKS endpoint.
+        current = _load_jwks(jwks_url)
+        matches = [
+            entry for entry in current["keys"]
+            if isinstance(entry, dict) and entry.get("kid") == header["kid"]
+            and entry.get("kty") == "RSA"
+            and entry.get("use", "sig") == "sig"
+            and entry.get("alg", "RS256") == "RS256"
+        ]
     if len(matches) != 1:
         raise unauthorized()
     try:

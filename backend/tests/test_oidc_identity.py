@@ -105,9 +105,12 @@ def test_idp_claimed_admin_role_cannot_escape_local_viewer_centre(oidc):
                       headers=auth(token)).status_code == 404
     assert client.post("/api/cases/OIDC-IN-SCOPE/review",
                        headers=auth(token), json={"action": "under_review"}).status_code == 403
-    # Assistant isn't yet scoped per tool; centre-viewers must never invoke it.
-    assert client.post("/api/assistant/query",
-                       headers=auth(token), json={"query": "all centre records"}).status_code == 403
+    # Deterministic assistant is scoped to the requested centre; global
+    # unrestricted AI chat is denied to centre officers.
+    assert client.post("/api/assistant/query", headers=auth(token),
+                       json={"centre_id": "DEMO-KA-112", "question": "cases"}).status_code == 404
+    assert client.post("/api/assistant/chat", headers=auth(token),
+                       json={"message": "network reports"}).status_code == 403
 
 
 def test_signed_unprovisioned_identity_is_not_an_authorized_officer(oidc):

@@ -30,7 +30,8 @@ SCOPED_WRITES = frozenset({
     "/api/process-infrastructure-video",
 })
 SCOPED_ASSISTANT = frozenset({
-    "/api/assistant/query", "/api/assistant/transcribe", "/api/assistant/speech",
+    # Deterministic query is centre-scoped within the endpoint itself.
+    "/api/assistant/query",
 })
 EVIDENCE_PATH = re.compile(r"^/evidence/([A-Za-z0-9_-]{1,100})\.jpg$")
 
@@ -81,9 +82,9 @@ def _scoped_route_policy(request: Request) -> None:
         require_write(request)
         return
     if method == "POST" and path in SCOPED_ASSISTANT:
-        # AI tools have network-wide access. Only a network administrator may
-        # call them until every tool is independently centre-scoped.
-        raise HTTPException(status_code=403, detail="Assistant requires network administrator")
+        # Only the deterministic centre-scoped query is accessible to
+        # centre officers. Global chat and voice remain admin-only.
+        return
     raise HTTPException(status_code=403, detail="Route requires network administrator")
 
 
