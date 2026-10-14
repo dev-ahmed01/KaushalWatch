@@ -60,6 +60,33 @@ jobs:
           print("EPFL OpenVINO real-inference evaluated frames:", report["evaluated_frames"])
           PY
 
+      - name: Execute real OpenVINO attendance, camera trust and practical activity pipelines
+        env:
+          KAUSHALWATCH_PERSON_DETECTOR: openvino
+          KAUSHALWATCH_OPENVINO_MODEL_XML: models/openvino/person-detection-retail-0013/FP16/person-detection-retail-0013.xml
+          KAUSHALWATCH_OPENVINO_DEVICE: CPU
+          KAUSHALWATCH_PERSON_CONFIDENCE: "0.45"
+          KAUSHALWATCH_OPENVINO_TILED: "true"
+          KAUSHALWATCH_OPENVINO_TILE_OVERLAP: "0.18"
+          KAUSHALWATCH_OPENVINO_TILE_NMS_IOU: "0.45"
+        run: |
+          python scripts/run_real_public_video_pipeline.py \
+            --video data/raw/epfl/6p-c0.avi \
+            --seconds 6 \
+            --out evaluation/output/epfl-real-pipeline-diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x = json.loads(Path("evaluation/output/epfl-real-pipeline-diagnostic.json").read_text())
+          assert x["status"] == "real_openvino_attendance_practical_camera_paths_executed"
+          assert x["qualified"] is False
+          assert x["attendance"]["detector_authoritative"] is True
+          assert x["practical"]["detector_authoritative"] is True
+          assert x["practical"]["authorization"] == "unknown"
+          assert x["practical"]["decision"] != "unauthorized_practical_activity"
+          print("Real model end-to-end diagnostic passed; no training-centre claims permitted")
+          PY
+
       - name: Compare detectors
         run: |
           python evaluation/compare_detectors.py             --hog evaluation/output/epfl-hog/count_metrics.json             --openvino evaluation/output/epfl-openvino/count_metrics.json             --out evaluation/output/epfl-detector-comparison.json
@@ -71,5 +98,6 @@ jobs:
             evaluation/output/epfl-hog/
             evaluation/output/epfl-openvino/
             evaluation/output/epfl-detector-comparison.json
+            evaluation/output/epfl-real-pipeline-diagnostic.json
           if-no-files-found: error
           retention-days: 14

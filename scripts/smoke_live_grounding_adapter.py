@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 from app.services.live_equipment import GroundingDinoAdapter, verify_model_snapshot
 
 MODEL_ID = "IDEA-Research/grounding-dino-tiny"
+PINNED_MODEL_REVISION = "a2bb814dd30d776dcf7e30523b00659f4f141c71"
 PUBLIC_IMAGE = (
     "https://commons.wikimedia.org/wiki/Special:Redirect/file/"
     "General%20electrical%20workroom.jpg"
@@ -41,9 +42,10 @@ def digest(path: Path) -> str:
 def prepare_offline_snapshot(repo_id: str, directory: Path) -> tuple[dict[str, str], str]:
     from huggingface_hub import HfApi, snapshot_download
 
-    revision = HfApi().model_info(repo_id).sha
-    if not isinstance(revision, str) or len(revision) != 40:
-        raise RuntimeError("Cannot pin exact GroundingDINO model revision")
+    revision = PINNED_MODEL_REVISION
+    published = HfApi().model_info(repo_id, revision=revision)
+    if published.sha != revision:
+        raise RuntimeError("Pinned GroundingDINO revision is no longer available")
     snapshot = Path(snapshot_download(repo_id=repo_id, revision=revision))
     directory.mkdir(parents=True, exist_ok=False)
     pins = {}
