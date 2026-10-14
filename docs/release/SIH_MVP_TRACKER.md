@@ -223,3 +223,20 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   still needs durable encrypted evidence storage; the local evidence directory
   is **not** replicated across backend instances.
 - Runbook: `docs/release/postgres-persistence.md`.
+
+
+### Held-out attendance accuracy qualification gate — validation machinery
+
+- Added a multi-recording, SHA-256 frozen OpenVINO attendance evaluator using
+  the **existing temporal engine**, not an alternative hand-entered count path.
+- Calibration and holdout must use disjoint recording IDs and source-video
+  digests. Every held-out opportunity needs blinded independent annotations,
+  video/file provenance and external attendance-record source references.
+- Explicit thresholds verify occupancy MAE, trusted sample coverage (overall
+  and per scene), case-level recall/FPR, decision coverage and zero detector
+  errors. Untrusted samples and camera block outcomes are abstentions, never
+  artificially correct negatives.
+- Temporary synthetic integration tests cannot produce a qualifying PASS;
+  separate real-footage acceptance remains blocked until licensed input
+  footage, independent annotations and locked real model files are supplied.
+- See `docs/release/heldout-attendance-qualification.md`.

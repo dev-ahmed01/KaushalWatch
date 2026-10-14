@@ -34,6 +34,16 @@ jobs:
       - name: Check frontend/backend officer API contracts
         run: python scripts/check_frontend_api_contracts.py
       - run: pytest -q backend/tests
+      - name: Verify held-out accuracy gate fails closed without real footage
+        run: |
+          set +e
+          python evaluation/heldout_qualification.py \
+            --manifest /tmp/kaushalwatch-no-heldout-evidence.json \
+            --out /tmp/kaushalwatch-heldout-denial.json
+          result=$?
+          set -e
+          test "$result" -eq 2
+          python -c 'import json; p=json.load(open("/tmp/kaushalwatch-heldout-denial.json")); assert p["qualified"] is False and p["status"] == "heldout_blocked"'
       - name: Smoke-test final demo evaluator
         run: |
           python evaluation/evaluate_final_demo.py \
