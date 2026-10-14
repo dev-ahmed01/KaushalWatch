@@ -18,6 +18,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/cn';
 import { PeriodProvider, useBriefPeriod } from '../lib/period';
 import AssistantDrawer from './AssistantDrawer';
+import SecureSessionGate from './SecureSessionGate';
+import { SECURE_PROXY, logoutOfficer, getReviewAccess } from '../lib/api';
 import { Button } from './ui/button';
 
 const NAV = [
@@ -38,7 +40,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   return (
     <MotionConfig reducedMotion="user">
       <PeriodProvider>
-        <AppShellContent>{children}</AppShellContent>
+        <SecureSessionGate>
+          <AppShellContent>{children}</AppShellContent>
+        </SecureSessionGate>
       </PeriodProvider>
     </MotionConfig>
   );
@@ -48,6 +52,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantAllowed, setAssistantAllowed] = useState(!SECURE_PROXY);
+  const [signOutError, setSignOutError] = useState('');
   const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
   const activeLabel = NAV.find(item => item.href === active)?.label || 'KaushalAI';
@@ -57,10 +63,26 @@ function AppShellContent({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    const open = () => setAssistantOpen(true);
+    // The login page is public: polling officer context before authentication
+    // would trigger the API client's 401 redirect back to /login indefinitely.
+    if (!SECURE_PROXY || pathname === '/login') return;
+    let active = true;
+    getReviewAccess()
+      .then(policy => {
+        if (active) setAssistantAllowed(policy.can_use_network_assistant === true);
+      })
+      .catch(() => { if (active) setAssistantAllowed(false); });
+    return () => { active = false; };
+  }, [pathname]);
+
+  useEffect(() => {
+    const open = () => { if (assistantAllowed) setAssistantOpen(true); };
     window.addEventListener('kaushalwatch:assistant', open);
+    if (!assistantAllowed) setAssistantOpen(false);
     return () => window.removeEventListener('kaushalwatch:assistant', open);
-  }, []);
+  }, [assistantAllowed]);
+
+  if (SECURE_PROXY && pathname === '/login') return <>{children}</>;
 
   return (
     <div className="min-h-screen bg-[var(--kw-page)]">
@@ -170,10 +192,25 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 );
               })}
             </div>
-            <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
-              <Sparkles size={15} />
-              <span className="hidden sm:inline">Ask KaushalAI</span>
-            </Button>
+            {signOutError && <span role="alert" className="text-[11px] text-[#B42318]">{signOutError}</span>}
+            {SECURE_PROXY && (
+              <button type="button" aria-label="Sign out of officer session"
+                onClick={() => {
+                  setSignOutError('');
+                  void logoutOfficer()
+                    .then(() => window.location.replace('/login'))
+                    .catch(() => setSignOutError('Unable to revoke this session. Try again.'));
+                }}
+                className="kw-focus rounded-lg border border-[#D0D5DD] bg-white px-3 py-2 text-[12px] font-medium text-[#344054]">
+                Sign out
+              </button>
+            )}
+            {assistantAllowed && (
+              <Button variant="primary" onClick={() => setAssistantOpen(true)} aria-label="Ask KaushalAI">
+                <Sparkles size={15} />
+                <span className="hidden sm:inline">Ask KaushalAI</span>
+              </Button>
+            )}
           </div>
         </header>
 
@@ -201,7 +238,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
         })}
       </nav>
 
-      <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} centreId={centreId} />
+      {assistantAllowed && <AssistantDrawer open={assistantOpen} onOpenChange={setAssistantOpen} centreId={centreId} />}
     </div>
   );
 }

@@ -11,13 +11,15 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
-from app.config import demo_scenario_path
+from app.config import demo_scenario_path, equipment_cache_path
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
     load_demo_equipment_metadata,
     require_equipment_profile_source,
 )
 from app.services.infrastructure_pipeline import InfrastructureCompliancePipeline
+from app.services.evidence import sha256_file
+from app.services.release_assets import qualify_release_assets
 from app.services.offline_queue import bandwidth_measurement
 from app.services.video_pipeline import VideoCompliancePipeline
 
@@ -50,6 +52,9 @@ def main() -> None:
         required=False,
     )
     parser.add_argument("--out", default="evaluation/output/final-demo/rehearsal_report.json")
+    parser.add_argument("--final", action="store_true",
+                        help="Refuse rehearsal unless the exact source and annotation inventory are frozen.")
+    parser.add_argument("--asset-manifest", default=os.getenv("KAUSHALWATCH_RELEASE_ASSET_MANIFEST"))
     args = parser.parse_args()
 
     if not args.video:
@@ -58,6 +63,26 @@ def main() -> None:
     video = Path(args.video).expanduser().resolve()
     if not video.exists():
         raise SystemExit(f"Video not found: {video}")
+
+    if args.final:
+        if not args.asset_manifest:
+            raise SystemExit("Final rehearsal requires --asset-manifest or KAUSHALWATCH_RELEASE_ASSET_MANIFEST")
+        release_path = Path(args.asset_manifest).expanduser().resolve()
+        qualification = qualify_release_assets(release_path)
+        if not qualification["ready"]:
+            print(json.dumps(qualification, indent=2))
+            raise SystemExit("Final rehearsal blocked: release asset qualification failed")
+        frozen = json.loads(release_path.read_text(encoding="utf-8"))
+        primary_id = frozen["scenario"]["primary_asset_id"]
+        selected = next(item for item in frozen["assets"] if item["id"] == primary_id)
+        if selected["sha256"].lower() != sha256_file(video):
+            raise SystemExit("Final rehearsal blocked: --video does not match frozen primary clip SHA-256")
+        if (release_path.parent / frozen["scenario"]["path"]).resolve() != demo_scenario_path().resolve():
+            raise SystemExit("Final rehearsal blocked: configured scenario differs from frozen scenario")
+        if (release_path.parent / frozen["equipment_cache"]["path"]).resolve() != equipment_cache_path().resolve():
+            raise SystemExit("Final rehearsal blocked: configured equipment cache differs from frozen cache")
+        if selected["role"] != "infrastructure":
+            raise SystemExit("Final rehearsal primary source must use the frozen infrastructure footage")
 
     scenario_path = demo_scenario_path()
     if not scenario_path.exists():
@@ -137,6 +162,7 @@ def main() -> None:
 
         report = {
             "scenario_id": scenario.get("scenario_id"),
+            "asset_qualification": ("frozen_source_and_annotations_passed" if args.final else "not_checked_synthetic_or_development"),
             "video": str(video),
             "equipment_profile_source_match": source_match,
             "detector_backend": os.getenv("KAUSHALWATCH_PERSON_DETECTOR", "hog"),

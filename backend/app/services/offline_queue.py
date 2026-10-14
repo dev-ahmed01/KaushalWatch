@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import os
+import tempfile
+from threading import RLock
 from pathlib import Path
 import uuid
 from typing import Any
 
 
 class EdgeEventQueue:
-    """Small durable prototype queue for compliance telemetry when the centre is offline."""
+    """Durable single-process edge queue; not a multi-agent message broker."""
+
+    _lock = RLock()
 
     def __init__(self, path: Path) -> None:
         self.path = path
@@ -17,10 +22,26 @@ class EdgeEventQueue:
     def _load(self) -> list[dict[str, Any]]:
         if not self.path.exists():
             return []
-        return json.loads(self.path.read_text())
+        rows = json.loads(self.path.read_text(encoding="utf-8"))
+        if not isinstance(rows, list):
+            raise ValueError("Edge queue must be a JSON array")
+        return rows
 
     def _save(self, rows: list[dict[str, Any]]) -> None:
-        self.path.write_text(json.dumps(rows, indent=2))
+        temporary: Path | None = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path.parent,
+                prefix=f".{self.path.name}.", suffix=".tmp", delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                json.dump(rows, handle, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def enqueue(self, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
         event = {
@@ -29,21 +50,25 @@ class EdgeEventQueue:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "payload": payload,
         }
-        rows = self._load()
-        rows.append(event)
-        self._save(rows)
+        with self._lock:
+            rows = self._load()
+            rows.append(event)
+            self._save(rows)
         return event
 
     def pending(self) -> list[dict[str, Any]]:
-        return self._load()
+        with self._lock:
+            return self._load()
 
     def acknowledge(self, event_ids: list[str]) -> int:
-        ids = set(event_ids)
-        rows = self._load()
-        remaining = [row for row in rows if row.get("event_id") not in ids]
-        removed = len(rows) - len(remaining)
-        self._save(remaining)
-        return removed
+        ids = {value for value in event_ids if isinstance(value, str)}
+        with self._lock:
+            rows = self._load()
+            remaining = [row for row in rows if row.get("event_id") not in ids]
+            removed = len(rows) - len(remaining)
+            if removed:
+                self._save(remaining)
+            return removed
 
 
 def json_payload_bytes(value: Any) -> int:

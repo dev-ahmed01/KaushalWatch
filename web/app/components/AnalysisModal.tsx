@@ -4,7 +4,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, CircleHelp, FileVideo2, LoaderCircle, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { API, getCentre, getDashboard, getRuntimeReadiness } from '../lib/api';
+import { API, getCentre, getDashboard, getRuntimeReadiness, officerFetch } from '../lib/api';
 import type { Centre } from '../lib/types';
 import { Button } from './ui/button';
 
@@ -37,7 +37,7 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
   }
 
   async function post(path: string, body: FormData) {
-    const response = await fetch(`${API}${path}`, { method: 'POST', body });
+    const response = await officerFetch(`${API}${path}`, { method: 'POST', body });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.detail || 'Analysis step failed');
     return payload;

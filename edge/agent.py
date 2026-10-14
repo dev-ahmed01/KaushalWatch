@@ -15,6 +15,7 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.services.offline_queue import EdgeEventQueue, json_payload_bytes
+from app.services.edge_ingest import _safe_details
 from app.services.video_pipeline import VideoCompliancePipeline
 
 
@@ -38,7 +39,7 @@ def case_to_edge_payload(case) -> dict:
         "visual_occupancy": case.visual_occupancy,
         "discrepancy_pct": case.discrepancy_pct,
         "persistence_ratio": case.persistence_ratio,
-        "details": case.details,
+        "details": _safe_details(case.details),
         "created_at": case.created_at,
         "evidence_integrity": [
             {
@@ -60,15 +61,25 @@ def case_to_edge_payload(case) -> dict:
 
 
 def analysis_to_edge_payload(result, *, centre_id: str, batch_id: str) -> dict:
-    if not result.detector_authoritative:
+    # A camera-insufficient run is not compliant, even if the person detector
+    # itself is authoritative or no attendance-discrepancy case exists.
+    trustworthy = (
+        result.detector_authoritative
+        and result.detector_failures == 0
+        and result.trusted_sample_ratio >= 0.5
+    )
+    if not trustworthy or result.decision in {"camera_evidence_insufficient", "detector_unavailable"}:
         outcome = "blocked"
-        summary = result.detector_message
+        summary = "Attendance inference blocked: camera or detector evidence is insufficient."
     elif result.case:
         outcome = "attention"
         summary = result.case.summary
-    else:
+    elif result.decision == "compliant":
         outcome = "compliant"
         summary = "Attendance matched the reported record."
+    else:
+        outcome = "blocked"
+        summary = "Attendance inference could not establish a compliant result."
 
     return {
         "centre_id": centre_id,
@@ -83,6 +94,8 @@ def analysis_to_edge_payload(result, *, centre_id: str, batch_id: str) -> dict:
             "decision": result.decision,
             "detector_backend": result.detector_backend,
             "detector_authoritative": result.detector_authoritative,
+            "detector_failures": result.detector_failures,
+            "trusted_sample_ratio": result.trusted_sample_ratio,
         },
         "privacy": {
             "raw_video_included": False,
@@ -148,13 +161,19 @@ def sync(args) -> int:
         return 0
 
     body = json.dumps({"events": events}, separators=(",", ":")).encode("utf-8")
+    # Keep device credentials out of CLI arguments and stdout; use an
+    # environment-provided opaque secret for externally exposed endpoints.
+    token = os.getenv("KAUSHALWATCH_EDGE_SYNC_TOKEN", "").strip()
+    headers = {
+        "Content-Type": "application/json",
+        "User-Agent": "KaushalWatch-Edge/1.0",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = Request(
         args.url.rstrip("/") + "/api/edge/sync",
         data=body,
-        headers={
-            "Content-Type": "application/json",
-            "User-Agent": "KaushalWatch-Edge/1.0",
-        },
+        headers=headers,
         method="POST",
     )
     try:
@@ -170,7 +189,17 @@ def sync(args) -> int:
         }, indent=2))
         return 2
 
-    accepted = payload.get("accepted_event_ids", [])
+    accepted = payload.get("accepted_event_ids", []) if isinstance(payload, dict) else None
+    sent = {event.get("event_id") for event in events}
+    if (not isinstance(accepted, list) or any(
+            not isinstance(item, str) or item not in sent for item in accepted)):
+        print(json.dumps({"synced": 0, "remaining": len(events),
+                          "error": "Invalid server event acknowledgement"}, indent=2))
+        return 2
+    # The server may reject unsafe/corrupt events. Rejected items remain on
+    # disk for explicit operator repair; never silently discard them.
+    # A malicious/incorrect response also cannot acknowledge unrelated events
+    # appended by a second local producer after this request started.
     removed = queue.acknowledge(accepted)
     print(json.dumps({
         "synced": removed,

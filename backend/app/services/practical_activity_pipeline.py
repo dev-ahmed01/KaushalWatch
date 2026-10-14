@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+import hashlib
 from pathlib import Path
+from typing import Any, Callable
 import uuid
 
 import cv2
@@ -184,6 +186,7 @@ class PracticalActivityPipeline:
         minimum_zone_overlap: float = 0.15,
         minimum_trusted_ratio: float = 0.50,
         zone_reference_size: tuple[int, int] | None = None,
+        observation_sink: Callable[[dict[str, Any]], None] | None = None,
     ) -> PracticalActivitySummary:
         authorization = authorization.strip().lower()
         if authorization not in {"valid", "absent", "unknown"}:
@@ -384,6 +387,25 @@ class PracticalActivityPipeline:
                             current_detections,
                             list(active_now),
                         )
+
+                if observation_sink is not None:
+                    # The same operational pass supplies the release trace;
+                    # keep only aggregate counts and configured zone names.
+                    # No RGB pixels, person boxes, track IDs, or inferred identity.
+                    observation_sink({
+                        "frame_index": frame_index,
+                        "second": round(timestamp, 6),
+                        "decoded_frame_sha256": hashlib.sha256(frame.tobytes()).hexdigest(),
+                        "camera_trusted": bool(trust.trusted),
+                        "camera_reasons": list(trust.reasons),
+                        "detector_available": bool(detector_info.authoritative and detector_failures == 0),
+                        "raw_person_count": len(detections) if trust.trusted and detector_failures == 0 else None,
+                        "registered_workers": (
+                            presence.registered_count if trust.trusted and detector_failures == 0 else None
+                        ),
+                        "active_work_zones": sorted(active_now) if trust.trusted and detector_failures == 0 else [],
+                        "practical_active": bool(any_active) if trust.trusted and detector_failures == 0 else None,
+                    })
 
                 previous_frame = frame.copy()
                 frame_index += 1

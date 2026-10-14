@@ -24,6 +24,8 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install --upgrade pip
       - run: pip install -r backend/requirements.txt
+      - name: Install the lightweight optional image-conversion dependency for equipment adapter unit tests
+        run: python -m pip install "pillow>=10,<13"
       - run: python -m pip install ruff
       - run: python -m compileall -q backend/app scripts
       - run: ruff check backend/app scripts --select F821
@@ -31,7 +33,55 @@ jobs:
         run: python scripts/validate_vision_profile.py
       - name: Check release readiness
         run: python scripts/check_release_readiness.py
+      - name: Check frontend/backend officer API contracts
+        run: python scripts/check_frontend_api_contracts.py
       - run: pytest -q backend/tests
+      - name: Verify held-out accuracy gate fails closed without real footage
+        run: |
+          set +e
+          python evaluation/heldout_qualification.py \
+            --manifest /tmp/kaushalwatch-no-heldout-evidence.json \
+            --out /tmp/kaushalwatch-heldout-denial.json
+          result=$?
+          set -e
+          test "$result" -eq 2
+          python -c 'import json; p=json.load(open("/tmp/kaushalwatch-heldout-denial.json")); assert p["qualified"] is False and p["status"] == "heldout_blocked"'
+      - name: Verify live equipment, visual motion and practical held-outs fail without independent sources
+        run: |
+          set +e
+          python evaluation/live_equipment_qualification.py --manifest /tmp/kw-no-live-equipment.json --out /tmp/kw-live-equipment-blocked.json
+          e_status=$?
+          python evaluation/operability_holdout.py --manifest /tmp/kw-no-independent-motion.json --out /tmp/kw-motion-blocked.json
+          o_status=$?
+          python scripts/run_live_equipment.py --manifest /tmp/kw-no-frozen-model.json --out /tmp/kw-no-live-output.json
+          r_status=$?
+          set -e
+          test "$e_status" -eq 2
+          test "$o_status" -eq 2
+          test "$r_status" -eq 2
+          python -c 'import json; a=json.load(open("/tmp/kw-live-equipment-blocked.json")); b=json.load(open("/tmp/kw-motion-blocked.json")); assert a["qualified"] is False and a["status"] == "live_equipment_blocked"; assert b["qualified"] is False and b["status"] == "visual_motion_blocked"'
+          test ! -e /tmp/kw-no-live-output.json
+      - name: Verify practical-work and equipment release gates remain blocked without independent inputs
+        run: |
+          set +e
+          python evaluation/practical_holdout.py --manifest /tmp/kw-missing-practical-holdout.json --out /tmp/kw-practical-block.json
+          p_status=$?
+          python evaluation/equipment_holdout.py --manifest /tmp/kw-missing-equipment-holdout.json --out /tmp/kw-equipment-block.json
+          e_status=$?
+          set -e
+          test "$p_status" -eq 2
+          test "$e_status" -eq 2
+          python -c 'import json; p=json.load(open("/tmp/kw-practical-block.json")); e=json.load(open("/tmp/kw-equipment-block.json")); assert p["qualified"] is False and p["status"] == "practical_blocked"; assert e["qualified"] is False and e["status"] == "equipment_shadow_blocked"'
+      - name: Verify camera trust holdout cannot pass without untouched labelled footage
+        run: |
+          set +e
+          python evaluation/camera_evidence_holdout.py \
+            --manifest /tmp/kaushalwatch-no-untouched-camera-holdout.json \
+            --out /tmp/kaushalwatch-camera-blocked.json
+          result=$?
+          set -e
+          test "$result" -eq 2
+          python -c 'import json; x=json.load(open("/tmp/kaushalwatch-camera-blocked.json")); assert x["qualified"] is False and x["status"] == "camera_evidence_blocked"'
       - name: Smoke-test final demo evaluator
         run: |
           python evaluation/evaluate_final_demo.py \
@@ -40,6 +90,48 @@ jobs:
             --operability evaluation/final_demo_operability.example.csv \
             --cases evaluation/final_demo_cases.example.csv \
             --out-dir /tmp/kaushalwatch-final-eval
+
+
+  postgres-persistence:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kaushalwatch_ci
+          POSTGRES_PASSWORD: synthetic_ci_only_987654321
+          POSTGRES_DB: kaushalwatch_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kaushalwatch_ci -d kaushalwatch_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      KAUSHALWATCH_DATABASE_URL: postgresql://kaushalwatch_ci:synthetic_ci_only_987654321@127.0.0.1:5432/kaushalwatch_ci
+      KAUSHALWATCH_STORAGE_BACKEND: postgres
+      KAUSHALWATCH_EVIDENCE_BACKEND: s3
+      KAUSHALWATCH_TEST_DATABASE: isolated_ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Apply and verify isolated PostgreSQL migration
+        run: |
+          python scripts/migrate_postgres.py --apply
+          python scripts/migrate_postgres.py --apply
+          python scripts/migrate_postgres.py --check
+      - name: Verify PostgreSQL persistence, object integrity and signed-identity cross-stack authorization
+        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py backend/tests/test_release_integration.py
+      - name: Verify a disposable PostgreSQL backup and restore
+        run: |
+          pg_dump --version
+          pg_restore --version
+          python scripts/drill_postgres_restore.py
+
 
   frontend:
     runs-on: ubuntu-latest
@@ -53,7 +145,13 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package.json
-      - run: npm install
+      - run: npm ci
+      - name: Reject high severity production npm advisories
+        run: npm audit --omit=dev --audit-level=high
+      - name: Summarize non-production dependency advisories
+        run: |
+          npm audit --json > /tmp/kw-npm-audit.json || true
+          node -e 'const x=require("/tmp/kw-npm-audit.json");console.log(JSON.stringify(Object.entries(x.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,fix:v.fixAvailable})),null,2))'
       - run: npm run build
 
   e2e:
@@ -105,7 +203,7 @@ jobs:
       - name: Install and build web
         working-directory: web
         run: |
-          npm install
+          npm ci
           npm run build
           npx playwright install --with-deps chromium
       - name: Start web
@@ -124,3 +222,195 @@ jobs:
           E2E_VIDEO_PATH: /tmp/kaushalwatch-e2e.avi
           E2E_BASE_URL: http://127.0.0.1:3000
         run: npm run test:e2e
+
+  protected-browser:
+    runs-on: ubuntu-latest
+    needs: [hygiene, backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package.json
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Seed isolated synthetic demo records
+        run: python scripts/prepare_demo_state.py --yes
+      - name: Start protected backend with synthetic CI officer key
+        env:
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_REVIEW_AUTH_MODE: token
+          KAUSHALWATCH_REVIEW_TOKENS_JSON: '{"browser-ci-officer":"CI_Synthetic_Officer_AccessKey_0123456789abcdef","browser-ci-viewer":"CI_Synthetic_Viewer_AccessKey_0123456789abcdef"}'
+          KAUSHALWATCH_OFFICER_PERMISSIONS_JSON: '{"browser-ci-officer":{"role":"network_admin","centres":[]},"browser-ci-viewer":{"role":"centre_viewer","centres":["DEMO-KA-104"]}}'
+          KAUSHALWATCH_EDGE_SYNC_AUTH_MODE: token
+          KAUSHALWATCH_EDGE_SYNC_TOKENS_JSON: '{"browser-ci-edge":"CI_Synthetic_Edge_DeviceKey_0123456789abcdef"}'
+        run: |
+          uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8011 > /tmp/kaushalwatch-protected-api.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:8011/api/health && break
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8011/api/cases)" = "401" || {
+            cat /tmp/kaushalwatch-protected-api.log
+            exit 1
+          }
+      - name: Build protected Next.js browser (secure BFF)
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Start synthetic shared Redis REST session store
+        env:
+          KAUSHALWATCH_TEST_REDIS_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
+        run: |
+          python scripts/mock_redis_rest.py --host 127.0.0.1 --port 6399 > /tmp/kaushalwatch-session-mock.log 2>&1 &
+          for i in {1..20}; do
+            if curl -fsS http://127.0.0.1:6399 -H 'Authorization: Bearer CI_Synthetic_Redis_SessionToken_0123456789abcdef' -H 'Content-Type: application/json' -d '["GET","health"]'; then break; fi
+            sleep 1
+          done
+          echo "KAUSHALWATCH_SESSION_ENCRYPTION_KEY=$(python -c 'import base64,os; print(base64.b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: Start protected web server
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8011
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6399
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3001 > /tmp/kaushalwatch-protected-web.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3001/login && exit 0
+            sleep 1
+          done
+          cat /tmp/kaushalwatch-protected-web.log
+          exit 1
+      - name: Start second protected web instance (same shared session store)
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8011
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6399
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Redis_SessionToken_0123456789abcdef
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3002 > /tmp/kaushalwatch-protected-web-2.log 2>&1 &
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:3002/login && exit 0
+            sleep 1
+          done
+          cat /tmp/kaushalwatch-protected-web-2.log
+          exit 1
+      - name: Test protected login, CSRF, evidence and logout
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3001
+          E2E_PROTECTED_MODE: 'true'
+          E2E_DISTRIBUTED_MODE: 'true'
+        run: npx playwright test e2e/protected-session.spec.ts
+
+  oidc-browser-acceptance:
+    runs-on: ubuntu-latest
+    needs: [hygiene, backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package.json
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Seed only isolated simulated SIH cases
+        run: python scripts/prepare_demo_state.py --yes
+      - name: Start temporary signed OIDC provider on loopback
+        run: |
+          python scripts/mock_oidc_provider.py --host 127.0.0.1 --port 8371 > /tmp/kw-fake-oidc.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8371/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Synthetic OIDC loopback provider did not start" >&2
+          exit 1
+      - name: Start scoped OIDC-protected FastAPI test instance
+        env:
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST: 'true'
+          KAUSHALWATCH_REVIEW_AUTH_MODE: oidc
+          KAUSHALWATCH_OIDC_ISSUER: http://127.0.0.1:8371/issuer
+          KAUSHALWATCH_OIDC_JWKS_URL: http://127.0.0.1:8371/jwks
+          KAUSHALWATCH_OIDC_AUDIENCE: api://kaushalwatch
+          KAUSHALWATCH_OIDC_GRANTS_JSON: '{"ci-admin-subject":{"actor":"ci-oidc-admin","role":"network_admin","centres":[]},"ci-viewer-subject":{"actor":"ci-oidc-viewer","role":"centre_viewer","centres":["DEMO-KA-104"]}}'
+        run: |
+          uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8013 > /tmp/kw-oidc-api.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8013/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8013/api/cases)" = "401" || exit 1
+          curl -fsS http://127.0.0.1:8013/api/review-access | python -c 'import json,sys; s=json.load(sys.stdin);assert s=={"mode":"oidc","required":True,"prototype_only":False}'
+      - name: Build protected SSO browser
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+        run: |
+          npm ci
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Start synthetic Redis REST session store
+        env:
+          KAUSHALWATCH_TEST_REDIS_TOKEN: CI_Synthetic_Oidc_RedisToken_0123456789abcdef
+        run: |
+          python scripts/mock_redis_rest.py --host 127.0.0.1 --port 6398 > /tmp/kw-oidc-redis.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:6398 -H 'Authorization: Bearer CI_Synthetic_Oidc_RedisToken_0123456789abcdef' -H 'Content-Type: application/json' -d '["GET","health"]' >/dev/null; then break; fi
+            sleep 1
+          done
+          echo "KAUSHALWATCH_SESSION_ENCRYPTION_KEY=$(python -c 'import base64,os;print(base64.b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: Start protected SSO web instance
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_WEB_IDENTITY_MODE: oidc
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8013
+          KAUSHALWATCH_OIDC_AUTHORIZATION_ENDPOINT: http://127.0.0.1:8371/authorize
+          KAUSHALWATCH_OIDC_TOKEN_ENDPOINT: http://127.0.0.1:8371/token
+          KAUSHALWATCH_OIDC_REDIRECT_URI: http://127.0.0.1:3003/api/auth/oidc/callback
+          KAUSHALWATCH_OIDC_CLIENT_ID: kaushalwatch-ci-client
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6398
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Oidc_RedisToken_0123456789abcdef
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3003 > /tmp/kw-oidc-web.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3003/login >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Synthetic SSO browser did not start" >&2
+          exit 1
+      - name: Run credential-free synthetic deployment preflight
+        run: |
+          python scripts/check_protected_staging.py \
+            --api http://127.0.0.1:8013 \
+            --web http://127.0.0.1:3003 --synthetic-loopback
+      - name: Run signed OIDC authorization and denial browser scenarios
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3003
+          E2E_SYNTHETIC_OIDC: 'true'
+        run: npx playwright test e2e/oidc-acceptance.spec.ts

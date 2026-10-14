@@ -10,6 +10,12 @@ node_modules/
 .pytest-tmp/
 
 # Runtime / generated data
+# Final-stage local clip registry and privately recorded scenario values
+demo_assets/
+demo/release-assets.local.json
+demo/release-assets.final.json
+demo/scenarios/*.local.json
+demo/scenarios/*.final.json
 data/cases.json
 data/evidence/
 data/evidence_index.json
