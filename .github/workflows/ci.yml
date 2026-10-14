@@ -108,6 +108,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package.json
       - run: npm install
+      - name: Expose synthetic dependency lockfile for reproducible review
+        run: node -e 'console.log("KW_LOCK_BEGIN"+JSON.stringify(require("./package-lock.json"))+"KW_LOCK_END")'
       - name: Reject high severity production npm advisories
         run: npm audit --omit=dev --audit-level=high
       - name: Summarize non-production dependency advisories
