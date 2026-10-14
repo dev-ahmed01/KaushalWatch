@@ -44,6 +44,17 @@ jobs:
           set -e
           test "$result" -eq 2
           python -c 'import json; p=json.load(open("/tmp/kaushalwatch-heldout-denial.json")); assert p["qualified"] is False and p["status"] == "heldout_blocked"'
+      - name: Verify practical-work and equipment release gates remain blocked without independent inputs
+        run: |
+          set +e
+          python evaluation/practical_holdout.py --manifest /tmp/kw-missing-practical-holdout.json --out /tmp/kw-practical-block.json
+          p_status=$?
+          python evaluation/equipment_holdout.py --manifest /tmp/kw-missing-equipment-holdout.json --out /tmp/kw-equipment-block.json
+          e_status=$?
+          set -e
+          test "$p_status" -eq 2
+          test "$e_status" -eq 2
+          python -c 'import json; p=json.load(open("/tmp/kw-practical-block.json")); e=json.load(open("/tmp/kw-equipment-block.json")); assert p["qualified"] is False and p["status"] == "practical_blocked"; assert e["qualified"] is False and e["status"] == "equipment_shadow_blocked"'
       - name: Verify camera trust holdout cannot pass without untouched labelled footage
         run: |
           set +e

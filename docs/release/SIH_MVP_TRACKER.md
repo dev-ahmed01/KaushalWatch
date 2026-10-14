@@ -323,3 +323,23 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   attendance and other visual-compliance categories also remain subject to
   their respective distinct held-out gates.
 - Runbook: `docs/release/camera-evidence-holdout.md`.
+
+
+### Phase 2B — Practical-activity qualification and equipment shadow
+
+- New `evaluation/practical_holdout.py` can replay the actual
+  frozen-profile OpenVINO practical pipeline on independently labelled
+  multi-site, multi-camera held-out recordings with camera-specific zones,
+  external work-authorization context and fail-closed abstention accounting.
+- New `evaluation/equipment_holdout.py` measures SHA-pinned original
+  proposal counts versus separate human-reviewed counts and independent
+  labels; every result remains NON-QUALIFYING for live model accuracy since
+  `GroundingDinoAdapter` is not implemented in production.
+- Synthetic CI assertions reject leaked/tampered evidence, missing class
+  coverage, unexpected definitive authorization violations, and invented
+  zero counts for missing equipment predictions.
+- Real practical-work/equipment acceptance remains blocked until legal,
+  independent real recordings and a reproducible live equipment detector
+  are supplied. Nothing is changed in the frozen runtime profile or
+  experimental Camera Trust PR #54.
+- Runbook: `docs/release/practical-equipment-heldout.md`.
