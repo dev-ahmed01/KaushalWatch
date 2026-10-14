@@ -30,6 +30,10 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 
 def configuration() -> tuple[str, str, str]:
+    if os.getenv("KAUSHALWATCH_ENV", "development").strip().lower() in {
+        "development", "dev", "local", "test"
+    }:
+        raise RuntimeError("Private evidence requires protected officer authentication mode")
     if os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
         raise RuntimeError("Private evidence requires PostgreSQL persistence")
     bucket = os.getenv("KAUSHALWATCH_EVIDENCE_S3_BUCKET", "").strip()

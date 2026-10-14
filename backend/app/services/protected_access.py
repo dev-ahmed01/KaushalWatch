@@ -102,6 +102,17 @@ async def protected_read_boundary(request: Request, call_next):
             content={"detail": "Protected pilot requires PostgreSQL and private evidence storage."},
             headers={"Cache-Control": "no-store"},
         )
+    if (env in {"production", "prod", "pilot"} and request.method != "OPTIONS"
+            and is_sensitive_path(path) and path != "/api/health"):
+        try:
+            from app.services.object_evidence import configuration
+            configuration()
+        except RuntimeError:
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Private evidence storage is not configured."},
+                headers={"Cache-Control": "no-store"},
+            )
     if env in LOCAL_ENVS or request.method == "OPTIONS" or not is_sensitive_path(path):
         return await call_next(request)
     if path in PUBLIC_PATHS or path in EDGE_ONLY_PATHS:

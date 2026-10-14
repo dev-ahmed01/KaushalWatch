@@ -213,3 +213,22 @@ def test_production_rejects_json_or_local_storage(private_env, monkeypatch):
     r = TestClient(main.app).get("/api/cases",
                                   headers={"Authorization": "Bearer " + ADMIN_KEY})
     assert r.status_code == 503
+
+
+def test_s3_evidence_does_not_become_public_in_local_demo_mode(private_env, monkeypatch):
+    main, fake = private_env
+    _create(private_env, evidence_id="EV-LOCAL-DENY")
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "development")
+    response = TestClient(main.app).get("/evidence/EV-LOCAL-DENY.jpg")
+    assert response.status_code == 503
+    assert fake.read_requests == []
+
+
+def test_pilot_requires_valid_kms_configuration_for_sensitive_routes(private_env, monkeypatch):
+    main, _ = private_env
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    monkeypatch.delenv("KAUSHALWATCH_EVIDENCE_KMS_KEY_ID")
+    response = TestClient(main.app).get(
+        "/api/cases", headers={"Authorization": "Bearer " + ADMIN_KEY})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Private evidence storage is not configured."
