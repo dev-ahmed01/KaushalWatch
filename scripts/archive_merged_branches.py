@@ -169,8 +169,12 @@ def main() -> int:
             gh.delete(name)
             deleted.append(name)
         except (urllib.error.HTTPError, ValueError, KeyError, TimeoutError) as exc:
-            # No blind retries or force pushes. All errors need review.
-            failed.append({"branch": name, "type": type(exc).__name__})
+            # No blind retries or force pushes. Record a safe error code only,
+            # never response headers, token values or private API bodies.
+            reason = {"branch": name, "type": type(exc).__name__}
+            if isinstance(exc, urllib.error.HTTPError):
+                reason["http_status"] = exc.code
+            failed.append(reason)
     result = {
         "mode": "archived_and_pruned" if args.execute else "dry_run",
         "base_sha": args.expected_main_sha,
