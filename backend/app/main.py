@@ -57,19 +57,33 @@ from app.services.protected_access import protected_read_boundary
 from app.services.officer_permissions import require_centre, visible, request_principal
 from app.services.api_redaction import redact_local_evidence_paths
 from app.services.vision_profile import build_vision_governance, load_vision_profile
+from app.services.postgres_store import (
+    PostgresCaseStore, PostgresAnalysisHistoryStore, PostgresCentreSettingsStore,
+    PostgresEdgeEventLedger, unit_of_work,
+)
 
 logger = logging.getLogger(__name__)
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
-STORE = CaseStore(DATA / "cases.json")
+STORAGE_BACKEND = os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower()
+if STORAGE_BACKEND not in {"json", "postgres"}:
+    raise RuntimeError("Invalid KaushalWatch storage backend")
+if STORAGE_BACKEND == "postgres":
+    if not os.getenv("KAUSHALWATCH_DATABASE_URL", "").startswith(("postgres://", "postgresql://")):
+        raise RuntimeError("Postgres backend requires KAUSHALWATCH_DATABASE_URL")
+    STORE = PostgresCaseStore()
+else:
+    STORE = CaseStore(DATA / "cases.json")
 PIPELINE = VideoCompliancePipeline(EVIDENCE, DATA / "evidence_index.json")
 PRACTICAL_PIPELINE = PracticalActivityPipeline(EVIDENCE, DATA / "evidence_index.json", detector=PIPELINE.detector)
 DEFAULT_WORK_ZONES = ROOT / "backend" / "app" / "demo_configs" / "work_zones.json"
 INFRA_PIPELINE = InfrastructureCompliancePipeline(EVIDENCE, DATA / "evidence_index.json", privacy_detector=PIPELINE.detector)
-HISTORY = AnalysisHistoryStore(DATA / "analysis_history.json")
-CENTRE_SETTINGS = CentreSettingsStore(DATA / "centre_settings.json")
+HISTORY = (PostgresAnalysisHistoryStore() if STORAGE_BACKEND == "postgres"
+           else AnalysisHistoryStore(DATA / "analysis_history.json"))
+CENTRE_SETTINGS = (PostgresCentreSettingsStore() if STORAGE_BACKEND == "postgres"
+                   else CentreSettingsStore(DATA / "centre_settings.json"))
 ASSISTANT_SERVICE: AssistantService | None = None
 VOICE_SERVICE = None
 CONVERSATIONS = InMemoryConversationStore()
@@ -762,8 +776,11 @@ def dashboard(
     if centre_id:
         require_centre(request, centre_id)
     all_cases = visible(request, STORE.list())
-    edge_events_path = DATA / "edge_events.json"
-    edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
+    if STORAGE_BACKEND == "postgres":
+        edge_events = PostgresEdgeEventLedger().load()
+    else:
+        edge_events_path = DATA / "edge_events.json"
+        edge_events = json.loads(edge_events_path.read_text()) if edge_events_path.exists() else []
     principal = request_principal(request)
     if principal is not None and not principal.is_admin:
         # Unknown event shapes never reveal global edge telemetry to scoped officers.
@@ -1389,8 +1406,17 @@ def edge_sync(request: EdgeSyncRequest, edge_actor: str = Depends(resolve_edge_a
 
 
 def _edge_sync_locked(request: EdgeSyncRequest, edge_actor: str):
-    # Process-local idempotency (not a multi-replica transaction).
-    ledger = EdgeEventLedger(DATA / "edge_events.json")
+    if STORAGE_BACKEND == "postgres":
+        # Receipt acknowledgment, case insert and history insert commit as one
+        # transaction, serialized across backend processes by an advisory lock.
+        with unit_of_work(edge=True):
+            return _edge_sync_execute(request, edge_actor)
+    return _edge_sync_execute(request, edge_actor)
+
+
+def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
+    ledger = (PostgresEdgeEventLedger() if STORAGE_BACKEND == "postgres"
+              else EdgeEventLedger(DATA / "edge_events.json"))
     rows = ledger.load()
     accepted: list[str] = []
     rejected: list[dict[str, str]] = []

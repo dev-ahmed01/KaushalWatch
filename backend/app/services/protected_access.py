@@ -90,6 +90,15 @@ def _scoped_route_policy(request: Request) -> None:
 async def protected_read_boundary(request: Request, call_next):
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     path = request.scope.get("path", "")
+    if (env in {"production", "prod", "pilot"}
+            and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower() != "postgres"
+            and request.method != "OPTIONS" and is_sensitive_path(path)
+            and path != "/api/health"):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Protected pilot requires durable PostgreSQL storage."},
+            headers={"Cache-Control": "no-store"},
+        )
     if env in LOCAL_ENVS or request.method == "OPTIONS" or not is_sensitive_path(path):
         return await call_next(request)
     if path in PUBLIC_PATHS or path in EDGE_ONLY_PATHS:
