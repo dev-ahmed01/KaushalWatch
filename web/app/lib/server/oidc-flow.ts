@@ -21,7 +21,12 @@ function requiredUrl(key: string): URL {
   let url: URL;
   try { url = new URL(value); }
   catch { throw new Error('Identity provider URL is not configured'); }
-  if (url.protocol !== 'https:' || !url.hostname || url.username || url.password
+  const allowCiLoopback = process.env.KAUSHALWATCH_ENV === 'staging'
+    && process.env.KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST === 'true'
+    && process.env.KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT !== 'true'
+    && url.protocol === 'http:' && url.hostname === '127.0.0.1';
+  if ((url.protocol !== 'https:' && !allowCiLoopback)
+      || !url.hostname || url.username || url.password
       || url.hash || url.search) {
     throw new Error('Identity provider must use a fixed HTTPS URL');
   }

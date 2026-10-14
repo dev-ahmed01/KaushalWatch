@@ -173,3 +173,11 @@ def test_login_validation_refuses_demo_server_even_with_a_configured_officer_tok
     assert valid.status_code == 200
     assert valid.json() == {"authenticated": True}
     assert OFFICER not in valid.text
+
+
+def test_strict_staging_requires_postgres_private_evidence_before_reads(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    monkeypatch.setenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT", "true")
+    assert client.get("/api/cases").status_code == 503
+    assert client.get("/api/ready").status_code == 503
+    assert client.get("/api/health").status_code == 200

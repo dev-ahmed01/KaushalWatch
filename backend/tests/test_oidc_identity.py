@@ -200,3 +200,30 @@ def test_missing_authorization_header_is_unauthorized(oidc):
     response = oidc["client"].get("/api/cases")
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Bearer"
+
+
+def test_loopback_oidc_is_disabled_by_default_and_never_allowed_in_strict_staging(
+    oidc, monkeypatch,
+):
+    from app.services.oidc_identity import identity_settings
+    monkeypatch.setenv("KAUSHALWATCH_OIDC_ISSUER", "http://127.0.0.1:8371/issuer")
+    monkeypatch.setenv("KAUSHALWATCH_OIDC_JWKS_URL", "http://127.0.0.1:8371/jwks")
+    with pytest.raises(Exception):
+        identity_settings()
+    monkeypatch.setenv("KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST", "true")
+    assert identity_settings()[0] == "http://127.0.0.1:8371/issuer"
+    monkeypatch.setenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT", "true")
+    with pytest.raises(Exception):
+        identity_settings()
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "production")
+    monkeypatch.delenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT")
+    with pytest.raises(Exception):
+        identity_settings()
+
+
+def test_strict_staging_rejects_static_officer_credentials(oidc, monkeypatch):
+    monkeypatch.setenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT", "true")
+    monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "token")
+    monkeypatch.setenv("KAUSHALWATCH_REVIEW_TOKENS_JSON",
+                       '{"test-officer":"synthetic_staging_token_0123456789012345"}')
+    assert oidc["client"].get("/api/review-access").status_code == 503

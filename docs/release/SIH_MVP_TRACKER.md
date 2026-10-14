@@ -287,3 +287,19 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   federation acceptance, MFA, account provisioning/revocation and org logout
   integration remain required before pilot deployment.
 - Runbook: `docs/release/organization-oidc-identity.md`.
+
+
+### Protected staging deployment acceptance phase
+
+- Added complete synthetic OIDC browser acceptance with a loopback-only,
+  ephemeral signed-JWT IdP and one-use PKCE grant exchange. CI tests full
+  browser login, backend signature/grant enforcement, logout and negative
+  cases instead of merely building the SSO callback.
+- Added a separate, public-only HTTPS staging preflight script verifying
+  anonymous denial, OIDC mode, PKCE redirect and generic readiness.
+- `KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT=true` requires PostgreSQL/S3
+  and OIDC, rejecting static keys and synthetic HTTP identity endpoints.
+- CI simulation is NOT a real IdP, KMS or HA acceptance. Actual provider
+  integration, real AWS policy/recovery, and held-out CCTV accuracy remain
+  explicit operator-blocking gates.
+- Runbook: `docs/release/staging-deployment-acceptance.md`.

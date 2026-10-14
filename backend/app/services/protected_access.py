@@ -91,7 +91,11 @@ def _scoped_route_policy(request: Request) -> None:
 async def protected_read_boundary(request: Request, call_next):
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     path = request.scope.get("path", "")
-    if (env in {"production", "prod", "pilot"}
+    strict_staging = (
+        env == "staging"
+        and os.getenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT") == "true"
+    )
+    if ((env in {"production", "prod", "pilot"} or strict_staging)
             and (
                 os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower() != "postgres"
                 or os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local").strip().lower() != "s3"
@@ -103,7 +107,8 @@ async def protected_read_boundary(request: Request, call_next):
             content={"detail": "Protected pilot requires PostgreSQL and private evidence storage."},
             headers={"Cache-Control": "no-store"},
         )
-    if (env in {"production", "prod", "pilot"} and request.method != "OPTIONS"
+    if ((env in {"production", "prod", "pilot"} or strict_staging)
+            and request.method != "OPTIONS"
             and is_sensitive_path(path) and path not in {"/api/health", "/api/ready"}):
         try:
             from app.services.object_evidence import configuration

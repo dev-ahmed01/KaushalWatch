@@ -31,7 +31,10 @@ def _configuration() -> tuple[str, dict[str, str]]:
     environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     # Static officer access keys are staging-only. Production/pilot requires
     # independently signed, short-lived OIDC access tokens.
-    if environment in {"production", "prod", "pilot"} and mode != "oidc":
+    if (environment in {"production", "prod", "pilot"} or (
+        environment == "staging"
+        and os.getenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT") == "true"
+    )) and mode != "oidc":
         raise _unavailable()
     if mode == "oidc":
         if environment in LOCAL_ENVS:

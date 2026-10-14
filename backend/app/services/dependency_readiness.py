@@ -22,7 +22,9 @@ def dependencies_ready() -> bool:
     # Synthetic staging without PostgreSQL has only process-level readiness.
     # If staging explicitly selects PostgreSQL+S3, verify those dependencies.
     # Production and pilot always require every protected dependency.
-    if env == "staging" and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
+    if (env == "staging" and
+            os.getenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT") != "true" and
+            os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres"):
         return True
     if os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
         return False
@@ -33,6 +35,12 @@ def dependencies_ready() -> bool:
         from app.services.object_evidence import configuration
         from app.services.postgres_store import connection
         configured_principals()
+        if os.getenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT") == "true" or env in {
+            "pilot", "production", "prod"
+        }:
+            from app.services.review_access import _configuration
+            if _configuration()[0] != "oidc":
+                return False
         configuration()  # Configuration check; real IAM requires cloud validation.
         with connection() as db:
             versions = db.execute(

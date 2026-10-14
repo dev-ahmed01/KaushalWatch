@@ -39,14 +39,23 @@ def identity_settings() -> tuple[str, str, str]:
         keys = urlsplit(jwks)
         # Require HTTPS, the same trusted host and ports for JWKS, and no
         # credentials, fragments, query strings, or wildcard audiences.
-        if (origin.scheme != "https" or keys.scheme != "https"
+        synthetic_loopback = (
+            os.getenv("KAUSHALWATCH_ENV") == "staging"
+            and os.getenv("KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST") == "true"
+            and os.getenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT") != "true"
+            and origin.scheme == "http" and keys.scheme == "http"
+            and origin.hostname == keys.hostname == "127.0.0.1"
+        )
+        if (not synthetic_loopback and
+            (origin.scheme != "https" or keys.scheme != "https")
             or not origin.hostname or origin.hostname != keys.hostname
             or origin.port != keys.port or origin.username or keys.username
             or origin.password or keys.password
             or origin.query or origin.fragment or keys.query or keys.fragment
             or not keys.path.startswith("/") or not audience
             or len(audience) > 256 or any(x.isspace() for x in audience)
-            or not issuer.startswith("https://") or not jwks.startswith("https://")):
+            or (not synthetic_loopback and
+                (not issuer.startswith("https://") or not jwks.startswith("https://")))):
             raise ValueError("Bad identity configuration")
     except (TypeError, ValueError):
         raise unavailable() from None

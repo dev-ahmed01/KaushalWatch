@@ -36,15 +36,17 @@ class Handler(BaseHTTPRequestHandler):
             name = command[0]
             with lock:
                 now = time.monotonic()
-                if name == "SET" and len(command) == 6 and command[3:] == ["EX", 1800, "NX"]:
-                    _, key, value, *_ = command
+                if (name == "SET" and len(command) == 6
+                        and command[3] == "EX" and command[5] == "NX"
+                        and type(command[4]) is int and 30 <= command[4] <= 1800):
+                    _, key, value, _, ttl, _ = command
                     if not isinstance(key, str) or not isinstance(value, str):
                         raise ValueError("Invalid SET args")
                     old = records.get(key)
                     if old and old[1] > now:
                         result = None
                     else:
-                        records[key] = (value, now + 1800)
+                        records[key] = (value, now + ttl)
                         result = "OK"
                 elif name == "GET" and len(command) == 2:
                     old = records.get(command[1])

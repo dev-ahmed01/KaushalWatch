@@ -274,3 +274,99 @@ jobs:
           E2E_PROTECTED_MODE: 'true'
           E2E_DISTRIBUTED_MODE: 'true'
         run: npx playwright test e2e/protected-session.spec.ts
+
+  oidc-browser-acceptance:
+    runs-on: ubuntu-latest
+    needs: [hygiene, backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package.json
+      - run: python -m pip install -r backend/requirements.txt
+      - name: Seed only isolated simulated SIH cases
+        run: python scripts/prepare_demo_state.py --yes
+      - name: Start temporary signed OIDC provider on loopback
+        run: |
+          python scripts/mock_oidc_provider.py --host 127.0.0.1 --port 8371 > /tmp/kw-fake-oidc.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8371/health >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Synthetic OIDC loopback provider did not start" >&2
+          exit 1
+      - name: Start scoped OIDC-protected FastAPI test instance
+        env:
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST: 'true'
+          KAUSHALWATCH_REVIEW_AUTH_MODE: oidc
+          KAUSHALWATCH_OIDC_ISSUER: http://127.0.0.1:8371/issuer
+          KAUSHALWATCH_OIDC_JWKS_URL: http://127.0.0.1:8371/jwks
+          KAUSHALWATCH_OIDC_AUDIENCE: api://kaushalwatch
+          KAUSHALWATCH_OIDC_GRANTS_JSON: '{"ci-admin-subject":{"actor":"ci-oidc-admin","role":"network_admin","centres":[]},"ci-viewer-subject":{"actor":"ci-oidc-viewer","role":"centre_viewer","centres":["DEMO-KA-104"]}}'
+        run: |
+          uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8013 > /tmp/kw-oidc-api.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:8013/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8013/api/cases)" = "401" || exit 1
+          curl -fsS http://127.0.0.1:8013/api/review-access | python -c 'import json,sys; s=json.load(sys.stdin);assert s=={"mode":"oidc","required":True,"prototype_only":False}'
+      - name: Build protected SSO browser
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+        run: |
+          npm install
+          npm run build
+          npx playwright install --with-deps chromium
+      - name: Start synthetic Redis REST session store
+        env:
+          KAUSHALWATCH_TEST_REDIS_TOKEN: CI_Synthetic_Oidc_RedisToken_0123456789abcdef
+        run: |
+          python scripts/mock_redis_rest.py --host 127.0.0.1 --port 6398 > /tmp/kw-oidc-redis.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:6398 -H 'Authorization: Bearer CI_Synthetic_Oidc_RedisToken_0123456789abcdef' -H 'Content-Type: application/json' -d '["GET","health"]' >/dev/null; then break; fi
+            sleep 1
+          done
+          echo "KAUSHALWATCH_SESSION_ENCRYPTION_KEY=$(python -c 'import base64,os;print(base64.b64encode(os.urandom(32)).decode())')" >> "$GITHUB_ENV"
+      - name: Start protected SSO web instance
+        working-directory: web
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          KAUSHALWATCH_ENV: staging
+          KAUSHALWATCH_ALLOW_LOOPBACK_OIDC_TEST: 'true'
+          KAUSHALWATCH_WEB_AUTH_MODE: protected
+          KAUSHALWATCH_WEB_IDENTITY_MODE: oidc
+          KAUSHALWATCH_API_INTERNAL_URL: http://127.0.0.1:8013
+          KAUSHALWATCH_OIDC_AUTHORIZATION_ENDPOINT: http://127.0.0.1:8371/authorize
+          KAUSHALWATCH_OIDC_TOKEN_ENDPOINT: http://127.0.0.1:8371/token
+          KAUSHALWATCH_OIDC_REDIRECT_URI: http://127.0.0.1:3003/api/auth/oidc/callback
+          KAUSHALWATCH_OIDC_CLIENT_ID: kaushalwatch-ci-client
+          KAUSHALWATCH_SESSION_STORE: redis-rest
+          KAUSHALWATCH_SESSION_REDIS_REST_URL: http://127.0.0.1:6398
+          KAUSHALWATCH_SESSION_REDIS_REST_TOKEN: CI_Synthetic_Oidc_RedisToken_0123456789abcdef
+        run: |
+          npm run start -- -H 127.0.0.1 -p 3003 > /tmp/kw-oidc-web.log 2>&1 &
+          for i in {1..30}; do
+            if curl -fsS http://127.0.0.1:3003/login >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          echo "Synthetic SSO browser did not start" >&2
+          exit 1
+      - name: Run credential-free synthetic deployment preflight
+        run: |
+          python scripts/check_protected_staging.py \
+            --api http://127.0.0.1:8013 \
+            --web http://127.0.0.1:3003 --synthetic-loopback
+      - name: Run signed OIDC authorization and denial browser scenarios
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3003
+          E2E_SYNTHETIC_OIDC: 'true'
+        run: npx playwright test e2e/oidc-acceptance.spec.ts
