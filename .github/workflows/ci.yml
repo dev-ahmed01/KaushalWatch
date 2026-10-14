@@ -88,6 +88,11 @@ jobs:
           python scripts/migrate_postgres.py --check
       - name: Verify PostgreSQL persistence and multi-connection races
         run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py
+      - name: Verify a disposable PostgreSQL backup and restore
+        run: |
+          pg_dump --version
+          pg_restore --version
+          python scripts/drill_postgres_restore.py
 
 
   frontend:

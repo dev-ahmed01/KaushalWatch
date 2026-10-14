@@ -256,3 +256,18 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   orphan refusal and duplicate collision. This does NOT validate real cloud
   IAM/bucket/KMS configuration, legal retention, backups or restore drills.
 - Runbook: `docs/release/private-evidence-storage.md`.
+
+
+### Operational resilience phase — inventory, readiness and isolated restore
+
+- Added a safe read-only PostgreSQL/S3 evidence inventory with object/metadata/
+  persisted-case reconciliation, bounded pagination and no automatic deletion.
+- Added a public generic `/api/ready` probe separate from process liveness.
+  Pilot-mode readiness requires configured officer permissions, DB migrations
+  and S3/KMS configuration; this is not a live cloud permissions check.
+- Added disposable CI PostgreSQL `pg_dump`/`pg_restore` validation with
+  table-hash comparison and persisted officer audit verification; no production
+  database, Redis or real S3 objects are touched.
+- A separate Python interpreter verifies durable case/review visibility from
+  another process. Real deployment load/failover drills remain outstanding.
+- Operator runbook: `docs/release/operational-resilience.md`.

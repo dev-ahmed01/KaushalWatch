@@ -337,6 +337,17 @@ def health():
     return {"ok": True, "service": "kaushalwatch-api", "prototype": True}
 
 
+@app.get("/api/ready")
+def readiness():
+    from app.services.dependency_readiness import dependencies_ready
+    if not dependencies_ready():
+        return JSONResponse(
+            {"ready": False}, status_code=503,
+            headers={"Cache-Control": "no-store"},
+        )
+    return JSONResponse({"ready": True}, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/runtime-readiness")
 def runtime_readiness():
     detector = PIPELINE.detector.info

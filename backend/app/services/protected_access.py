@@ -17,7 +17,7 @@ from app.services.officer_permissions import (
     configured_principals, evidence_centre, require_centre, require_write,
 )
 
-PUBLIC_PATHS = frozenset({"/api/health", "/api/review-access"})
+PUBLIC_PATHS = frozenset({"/api/health", "/api/ready", "/api/review-access"})
 EDGE_ONLY_PATHS = frozenset({"/api/edge/sync"})
 SCOPED_READS = frozenset({
     "/api/centres", "/api/cases", "/api/actions", "/api/insights",
@@ -96,14 +96,14 @@ async def protected_read_boundary(request: Request, call_next):
                 or os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local").strip().lower() != "s3"
             )
             and request.method != "OPTIONS" and is_sensitive_path(path)
-            and path != "/api/health"):
+            and path not in {"/api/health", "/api/ready"}):
         return JSONResponse(
             status_code=503,
             content={"detail": "Protected pilot requires PostgreSQL and private evidence storage."},
             headers={"Cache-Control": "no-store"},
         )
     if (env in {"production", "prod", "pilot"} and request.method != "OPTIONS"
-            and is_sensitive_path(path) and path != "/api/health"):
+            and is_sensitive_path(path) and path not in {"/api/health", "/api/ready"}):
         try:
             from app.services.object_evidence import configuration
             configuration()

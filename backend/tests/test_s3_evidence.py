@@ -51,6 +51,17 @@ class FakeObjectStorage:
         return {"Body": io.BytesIO(self.objects[kw["Key"]])}
 
 
+    def list_objects_v2(self, **kw):
+        keys = sorted(k for k in self.objects if k.startswith(kw["Prefix"]))
+        start = int(kw.get("ContinuationToken", "0"))
+        stop = min(len(keys), start + min(kw.get("MaxKeys", 1000), 1000))
+        return {
+            "Contents": [{"Key": key} for key in keys[start:stop]],
+            "IsTruncated": stop < len(keys),
+            **({"NextContinuationToken": str(stop)} if stop < len(keys) else {}),
+        }
+
+
 @pytest.fixture
 def private_env(monkeypatch):
     dsn = os.getenv("KAUSHALWATCH_DATABASE_URL", "")
@@ -232,3 +243,71 @@ def test_pilot_requires_valid_kms_configuration_for_sensitive_routes(private_env
         "/api/cases", headers={"Authorization": "Bearer " + ADMIN_KEY})
     assert response.status_code == 503
     assert response.json()["detail"] == "Private evidence storage is not configured."
+
+def test_evidence_inventory_is_read_only_and_detects_orphans(private_env):
+    from app.services.evidence_inventory import audit_private_evidence
+    _, fake = private_env
+    _create(private_env, evidence_id="EV-INV-001")
+    baseline = audit_private_evidence()
+    assert baseline["status"] == "consistent"
+    assert baseline["counts"]["case_evidence_ids"] == 1
+    assert all(v == 0 for v in baseline["findings"].values())
+    _create(private_env, evidence_id="EV-INV-002", persist_case=False)
+    fake.objects["evidence/v1/DEMO-KA-104/EV-ORPHAN.jpg"] = b"orphan"
+    findings = audit_private_evidence()
+    assert findings["status"] == "attention"
+    assert findings["findings"]["index_without_case"] == 1
+    assert findings["findings"]["object_without_index"] == 1
+    assert findings["read_only"] and len(fake.objects) == 3
+
+
+def test_inventory_detects_corrupt_index_and_missing_objects(private_env):
+    from app.services.evidence_inventory import audit_private_evidence
+    _, fake = private_env
+    _create(private_env, evidence_id="EV-INV-MISS")
+    fake.objects.clear()
+    assert audit_private_evidence()["findings"]["index_without_object"] == 1
+    fake.objects["evidence/v1/DEMO-KA-104/EV-INV-MISS.jpg"] = b"returned"
+    with psycopg.connect(os.environ["KAUSHALWATCH_DATABASE_URL"]) as db:
+        db.execute("UPDATE kw_evidence_objects SET sha256 = %s WHERE evidence_id = %s",
+                   ("e" * 64, "EV-INV-MISS"))
+    assert audit_private_evidence()["findings"]["mismatched_identity_or_digest"] == 1
+
+
+def test_inventory_scanning_fails_when_incomplete(private_env):
+    from app.services.evidence_inventory import audit_private_evidence
+    _, fake = private_env
+    _create(private_env, evidence_id="EV-INV-NOIDX")
+    with psycopg.connect(os.environ["KAUSHALWATCH_DATABASE_URL"]) as db:
+        db.execute("DELETE FROM kw_evidence_objects WHERE evidence_id=%s",
+                   ("EV-INV-NOIDX",))
+    findings = audit_private_evidence()
+    assert findings["findings"]["case_without_index"] == 1
+    assert findings["findings"]["object_without_index"] == 1
+    fake.objects["evidence/v1/DEMO-KA-104/EV-EXTRA.jpg"] = b"untracked"
+    with pytest.raises(RuntimeError, match="audit bound"):
+        audit_private_evidence(limit=1)
+
+
+def test_pilot_readiness_checks_schema_db_and_liveness(private_env, monkeypatch):
+    main, _ = private_env
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    client = TestClient(main.app)
+    response = client.get("/api/ready")
+    assert response.status_code == 200, response.text
+    assert response.json() == {"ready": True}
+    assert client.get("/api/health").status_code == 200
+    monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL",
+                       "postgresql://ci:invalid@127.0.0.1:1/kaushalwatch_ci")
+    failing = client.get("/api/ready")
+    assert failing.status_code == 503
+    assert failing.json() == {"ready": False}
+    assert "postgresql://" not in failing.text
+    assert client.get("/api/health").status_code == 200
+
+
+def test_pilot_readiness_refuses_missing_officer_config(private_env, monkeypatch):
+    main, _ = private_env
+    monkeypatch.setenv("KAUSHALWATCH_ENV", "pilot")
+    monkeypatch.delenv("KAUSHALWATCH_OFFICER_PERMISSIONS_JSON")
+    assert TestClient(main.app).get("/api/ready").status_code == 503

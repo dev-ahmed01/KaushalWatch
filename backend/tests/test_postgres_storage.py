@@ -6,6 +6,7 @@ Never point this test suite at a real or shared database.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import subprocess
 from datetime import datetime, timezone
 import json
 import os
@@ -216,3 +217,29 @@ def test_postgres_case_access_uses_existing_officer_centre_permissions():
                           json={"action": "under_review"})
     assert allowed.status_code == 200
     assert allowed.json()["review_history"][-1]["actor"] == "pg-reviewer"
+
+
+def test_separate_python_process_observes_officer_audit_and_centre_scope():
+    # The second Python process connects using new interpreter state/DB
+    # connections, not a shared module-level CaseStore or in-memory cache.
+    PostgresCaseStore().save_if_absent(_case("PG-INTERPROCESS-1"))
+    PostgresCaseStore().apply_review_action(
+        "PG-INTERPROCESS-1", CaseStatus.confirmed,
+        note="Confirmed in first backend worker", actor="pg-reviewer",
+    )
+    script = (
+        "import sys; sys.path.insert(0, 'backend'); "
+        "from app.services.postgres_store import PostgresCaseStore; "
+        "case=PostgresCaseStore().get('PG-INTERPROCESS-1'); "
+        "assert case.centre_id=='DEMO-KA-104'; "
+        "assert case.status.value=='confirmed'; "
+        "assert len(case.review_history)==2; "
+        "print('separate-process-review-audit-verified')"
+    )
+    runner = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=str(Path(__file__).resolve().parents[2]),
+        env=os.environ.copy(), capture_output=True, text=True, timeout=15,
+    )
+    assert runner.returncode == 0, runner.stderr
+    assert runner.stdout.strip() == "separate-process-review-audit-verified"
