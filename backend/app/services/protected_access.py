@@ -81,9 +81,9 @@ def _scoped_route_policy(request: Request) -> None:
         require_write(request)
         return
     if method == "POST" and path in SCOPED_ASSISTANT:
-        # Chat has a global toolset and can return network data; it remains
-        # network-admin-only until all tool calls enforce caller scope.
-        return
+        # AI tools have network-wide access. Only a network administrator may
+        # call them until every tool is independently centre-scoped.
+        raise HTTPException(status_code=403, detail="Assistant requires network administrator")
     raise HTTPException(status_code=403, detail="Route requires network administrator")
 
 

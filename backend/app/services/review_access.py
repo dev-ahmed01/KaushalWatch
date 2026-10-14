@@ -29,6 +29,16 @@ def _unavailable() -> HTTPException:
 def _configuration() -> tuple[str, dict[str, str]]:
     mode = os.getenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "demo").strip().lower()
     environment = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
+    # Static officer access keys are staging-only. Production/pilot requires
+    # independently signed, short-lived OIDC access tokens.
+    if environment in {"production", "prod", "pilot"} and mode != "oidc":
+        raise _unavailable()
+    if mode == "oidc":
+        if environment in LOCAL_ENVS:
+            raise _unavailable()
+        from app.services.oidc_identity import identity_settings
+        identity_settings()
+        return "oidc", {}
     if mode == "demo":
         if environment not in LOCAL_ENVS:
             raise _unavailable()
@@ -61,8 +71,8 @@ def review_access_status() -> dict[str, str | bool]:
     mode, _ = _configuration()
     return {
         "mode": mode,
-        "required": mode == "token",
-        "prototype_only": True,
+        "required": mode in {"token", "oidc"},
+        "prototype_only": mode != "oidc",
     }
 
 
@@ -71,6 +81,24 @@ def resolve_review_actor(request: Request) -> str:
     mode, tokens = _configuration()
     if mode == "demo":
         return "prototype_officer"
+
+    if mode == "oidc":
+        from app.services.oidc_identity import verified_subject
+        from app.services.officer_permissions import oidc_grants
+        authorization = request.headers.get("authorization", "")
+        scheme, delimiter, supplied = authorization.partition(" ")
+        if not delimiter or scheme.lower() != "bearer" or supplied != supplied.strip():
+            raise HTTPException(
+                status_code=401, detail="An active verified officer identity is required.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        subject = verified_subject(supplied)
+        principal = oidc_grants().get(subject)
+        if principal is None:
+            # A correctly signed identity is NOT proof of authorization.
+            raise HTTPException(status_code=403, detail="Officer access is not provisioned.")
+        request.state.oidc_subject = subject
+        return principal.actor
 
     header = request.headers.get("authorization", "")
     scheme, delimiter, supplied = header.partition(" ")

@@ -40,6 +40,8 @@ def _configuration_error() -> HTTPException:
 
 def configured_principals() -> dict[str, OfficerPrincipal]:
     mode, tokens = _configuration()
+    if mode == "oidc":
+        return {principal.actor: principal for principal in oidc_grants().values()}
     if mode != "token":
         raise _configuration_error()
     try:
@@ -117,3 +119,40 @@ def evidence_centre(evidence_id: str) -> str | None:
     # Reject cross-centre collisions rather than allowing whichever case was
     # iterated first to decide authorization for a shared static filename.
     return next(iter(centres)) if len(centres) == 1 else None
+
+
+def oidc_grants() -> dict[str, OfficerPrincipal]:
+    """Only trusted server-provisioned issuer subjects can gain centre access.
+
+    Every subject is bound to the *one pinned issuer*. Display names, emails,
+    IdP-supplied groups, and self-declared roles never grant permissions.
+    """
+    from app.services.review_access import OFFICER_ID
+    from app.services.oidc_identity import identity_settings, SUB_PATTERN
+    identity_settings()
+    try:
+        raw = json.loads(os.environ.get("KAUSHALWATCH_OIDC_GRANTS_JSON", ""))
+    except (TypeError, ValueError):
+        raise _configuration_error() from None
+    if not isinstance(raw, dict) or not raw or len(raw) > 500:
+        raise _configuration_error()
+    from app.services.demo_network import DEMO_CENTRES
+    valid_centres = {c["centre_id"] for c in DEMO_CENTRES}
+    output: dict[str, OfficerPrincipal] = {}
+    actors: set[str] = set()
+    for subject, value in raw.items():
+        if (not isinstance(subject, str) or not SUB_PATTERN.fullmatch(subject)
+            or not isinstance(value, dict)
+            or set(value) != {"actor", "role", "centres"}):
+            raise _configuration_error()
+        actor, role, centres = value["actor"], value["role"], value["centres"]
+        if (not isinstance(actor, str) or not OFFICER_ID.fullmatch(actor)
+            or actor in actors or not isinstance(role, str) or role not in ROLES or not isinstance(centres, list)
+            or any(not isinstance(c, str) or c not in valid_centres for c in centres)
+            or len(set(centres)) != len(centres)
+            or (role == "network_admin" and centres)
+            or (role != "network_admin" and not centres)):
+            raise _configuration_error()
+        actors.add(actor)
+        output[subject] = OfficerPrincipal(actor, role, frozenset(centres))
+    return output

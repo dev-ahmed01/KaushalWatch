@@ -8,6 +8,10 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   if (!protectedMode()) return NextResponse.json({ detail: 'Protected officer login is disabled.' }, { status: 503 });
+  if (process.env.KAUSHALWATCH_WEB_IDENTITY_MODE === 'oidc') {
+    return NextResponse.json({ detail: 'Use organization SSO instead of access keys.' },
+      { status: 403, headers: { 'Cache-Control': 'no-store' } });
+  }
   if (!sameOrigin(request)) return NextResponse.json({ detail: 'Invalid login origin.' }, { status: 403 });
   if (Number(request.headers.get('content-length') || 0) > 2048) {
     return NextResponse.json({ detail: 'Invalid login request.' }, { status: 413 });

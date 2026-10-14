@@ -271,3 +271,19 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
 - A separate Python interpreter verifies durable case/review visibility from
   another process. Real deployment load/failover drills remain outstanding.
 - Operator runbook: `docs/release/operational-resilience.md`.
+
+
+### Organization SSO authentication foundation
+
+- API supports pinned-issuer/audience OIDC RS256 signed access tokens and
+  centrally configured subject->officer role and centre assignments. Token
+  claims/groups/email cannot grant privileges; unknown subjects are denied.
+- Pilot/production API rejects legacy static-key officer authentication;
+  local SIH demo and synthetic protected staging retain existing flows.
+- Added encrypted short-lived PKCE browser transaction and server-side
+  authorization-code exchange with backend token verification and encrypted,
+  expiring Redis REST session. No access tokens are stored in browsers.
+- OIDC signature/replay/expiry/grant tests are synthetic; actual IdP and
+  federation acceptance, MFA, account provisioning/revocation and org logout
+  integration remain required before pilot deployment.
+- Runbook: `docs/release/organization-oidc-identity.md`.

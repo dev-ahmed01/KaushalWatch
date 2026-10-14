@@ -13,16 +13,21 @@ function OfficerLoginForm() {
   const next = query.get('next') || '/';
   const safeNext = next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/';
   const [key, setKey] = useState('');
+  const [identityMode, setIdentityMode] = useState<'key' | 'oidc' | 'loading'>('loading');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!SECURE_PROXY) return;
     fetch('/api/auth/status', { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.json())
       .then(status => {
+        setIdentityMode(status?.identityMode === 'oidc' ? 'oidc' : 'key');
         if (status?.authenticated && status.mode === 'protected') window.location.replace(safeNext);
-      }).catch(() => {});
+      }).catch(() => {
+        setError('Sign-in configuration is temporarily unavailable.');
+        setIdentityMode('loading');
+      });
   }, [safeNext]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -58,9 +63,19 @@ function OfficerLoginForm() {
             <p className="mt-0.5 text-[12px] text-[#667085]">KaushalWatch · protected evidence console</p>
           </div>
         </div>
-        <p className="mb-6 text-[13px] leading-6 text-[#667085]">Enter the access key assigned by your administrator. The key is exchanged for a short-lived, HttpOnly browser session. It is not saved in local storage.</p>
+        <p className="mb-6 text-[13px] leading-6 text-[#667085]">{identityMode === 'oidc'
+          ? 'Sign in with your organization identity provider. Your permissions are checked by KaushalWatch before any centre evidence is shown.'
+          : 'In staging, enter the access key assigned by your administrator. The key is exchanged for a short-lived, HttpOnly browser session.'}</p>
         {!SECURE_PROXY ? (
           <p role="alert" className="text-[13px] text-[#B42318]">Protected browser sign-in is disabled for this local demo build.</p>
+        ) : identityMode === 'loading' ? (
+          <p role="status" className="text-[13px] text-[#667085]">Checking sign-in configuration…</p>
+        ) : identityMode === 'oidc' ? (
+          <a
+            href={'/api/auth/oidc/start?next=' + encodeURIComponent(safeNext)}
+            className="kw-focus block w-full rounded-xl bg-[#2563EB] px-4 py-3 text-center text-[14px] font-semibold text-white">
+            Continue with organization SSO
+          </a>
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <label htmlFor="kw-officer-key" className="block text-[13px] font-medium text-[#344054]">Officer access key</label>
@@ -74,7 +89,7 @@ function OfficerLoginForm() {
             </button>
           </form>
         )}
-        <p className="mt-6 text-[11px] leading-5 text-[#98A2B3]">No official government identity integration is implied. All sensitive reads and evidence require server-side authorization.</p>
+        <p className="mt-6 text-[11px] leading-5 text-[#98A2B3]">Access is controlled by provisioned centre permissions. Organization SSO is available only when an identity provider is configured by the operator.</p>
       </section>
     </main>
   );

@@ -13,11 +13,14 @@ export async function GET(request: NextRequest) {
   }
   let session = null;
   try { session = protectedMode() ? await getSession(request) : null; }
-  catch { return NextResponse.json({ mode, authenticated: false,
+  catch { return NextResponse.json({ mode,
+    identityMode: process.env.KAUSHALWATCH_WEB_IDENTITY_MODE === 'oidc' ? 'oidc' : 'key',
+    authenticated: false,
     detail: 'Officer session storage unavailable.' },
     { status: 503, headers: { 'Cache-Control': 'no-store' } }); }
   return NextResponse.json({
     mode,
+    identityMode: process.env.KAUSHALWATCH_WEB_IDENTITY_MODE === 'oidc' ? 'oidc' : 'key',
     authenticated: mode === 'demo' || Boolean(session),
     // CSRF is NOT the officer credential. Never expose the backend token here.
     csrfToken: session?.csrf || null,

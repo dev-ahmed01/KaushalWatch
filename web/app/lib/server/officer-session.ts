@@ -145,17 +145,23 @@ function sweepMemory(): void {
   }
 }
 
-export async function createSession(token: string): Promise<{ id: string; csrf: string }> {
+export async function createSession(token: string, tokenTtlSeconds?: number): Promise<{ id: string; csrf: string }> {
   const store = storeConfig();
+  // OIDC sessions cannot outlive the short-lived upstream access token.
+  const expiresIn = tokenTtlSeconds === undefined ? TTL_SECONDS
+    : Math.min(TTL_SECONDS, Math.floor(tokenTtlSeconds));
+  if (!Number.isSafeInteger(expiresIn) || expiresIn < 30) {
+    throw new Error('Officer access token is too close to expiry');
+  }
   const id = randomBytes(32).toString('base64url');
   const csrf = randomBytes(32).toString('base64url');
-  const session = { token, csrf, expiresAt: Date.now() + TTL_MS };
+  const session = { token, csrf, expiresAt: Date.now() + expiresIn * 1000 };
   if (store.kind === 'memory') {
     sweepMemory();
     sessions.set(id, session);
   } else {
     const result = await redisCommand(store, ['SET', redisKey(id),
-      seal(session, store.key, redisKey(id)), 'EX', TTL_SECONDS, 'NX']);
+      seal(session, store.key, redisKey(id)), 'EX', expiresIn, 'NX']);
     if (result !== 'OK') throw new Error('Officer session creation refused');
   }
   return { id, csrf };
