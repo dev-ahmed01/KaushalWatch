@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import cv2
 import numpy as np
@@ -39,6 +40,12 @@ def find_duplicate(phash: str, index_path: Path, max_distance: int = 4) -> str |
 
 
 def persist_evidence(frame: np.ndarray, evidence_dir: Path, index_path: Path, evidence_id: str, metadata: dict) -> EvidenceRecord:
+    mode = os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local").strip().lower()
+    if mode == "s3":
+        from app.services.object_evidence import persist_private_evidence
+        return persist_private_evidence(frame, evidence_id, metadata)
+    if mode != "local":
+        raise RuntimeError("Unsupported evidence storage backend")
     evidence_dir.mkdir(parents=True, exist_ok=True)
     path = evidence_dir / f"{evidence_id}.jpg"
     if not cv2.imwrite(str(path), frame):

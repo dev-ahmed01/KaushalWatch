@@ -56,6 +56,8 @@ from app.services.review_access import review_access_status, resolve_review_acto
 from app.services.protected_access import protected_read_boundary
 from app.services.officer_permissions import require_centre, visible, request_principal
 from app.services.api_redaction import redact_local_evidence_paths
+from app.services.officer_permissions import evidence_centre
+from app.services.object_evidence import fetch_private_evidence, EVIDENCE_ID
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 from app.services.postgres_store import (
     PostgresCaseStore, PostgresAnalysisHistoryStore, PostgresCentreSettingsStore,
@@ -67,6 +69,11 @@ logger = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 EVIDENCE = DATA / "evidence"
+EVIDENCE_BACKEND = os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local").strip().lower()
+if EVIDENCE_BACKEND not in {"local", "s3"}:
+    raise RuntimeError("Invalid evidence storage backend")
+if EVIDENCE_BACKEND == "s3" and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json") != "postgres":
+    raise RuntimeError("Private S3 evidence storage requires PostgreSQL")
 STORAGE_BACKEND = os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower()
 if STORAGE_BACKEND not in {"json", "postgres"}:
     raise RuntimeError("Invalid KaushalWatch storage backend")
@@ -240,8 +247,44 @@ app.add_middleware(
 # outermost gate is intentionally separate from edge-device ingestion auth.
 # Development SIH walk-throughs are unaffected.
 app.middleware("http")(protected_read_boundary)
-EVIDENCE.mkdir(parents=True, exist_ok=True)
-app.mount("/evidence", StaticFiles(directory=str(EVIDENCE)), name="evidence")
+if EVIDENCE_BACKEND == "local":
+    EVIDENCE.mkdir(parents=True, exist_ok=True)
+    app.mount("/evidence", StaticFiles(directory=str(EVIDENCE)), name="evidence")
+else:
+    @app.get("/evidence/{evidence_id}.jpg")
+    def get_private_evidence(evidence_id: str, request: Request):
+        # Re-check persisted case membership at each read. Never trust an
+        # S3 key or caller-provided centre to decide image authorization.
+        if not EVIDENCE_ID.fullmatch(evidence_id):
+            raise HTTPException(status_code=404, detail="Evidence not found")
+        centre = evidence_centre(evidence_id)
+        if not centre:
+            raise HTTPException(status_code=404, detail="Evidence not found")
+        require_centre(request, centre)
+        records = [
+            record for case in STORE.list() if case.centre_id == centre
+            for record in case.evidence if record.evidence_id == evidence_id
+        ]
+        if len(records) != 1:
+            raise HTTPException(status_code=404, detail="Evidence not found")
+        try:
+            content = fetch_private_evidence(records[0], centre)
+        except Exception as exc:
+            # Fail closed for integrity, object-store and DB errors. Never
+            # leak internal bucket names, paths or credentials to browsers.
+            logger.error("Evidence read unavailable: %s", type(exc).__name__)
+            raise HTTPException(status_code=503, detail="Evidence is temporarily unavailable") from None
+        if content is None:
+            raise HTTPException(status_code=404, detail="Evidence not found")
+        return Response(
+            content, media_type="image/jpeg",
+            headers={
+                "Cache-Control": "private, no-store, max-age=0",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Security-Policy": "default-src 'none'; sandbox",
+                "Content-Disposition": 'inline; filename="evidence.jpg"',
+            },
+        )
 
 SUPPORTED_VIDEO_SUFFIXES = {".mp4", ".avi", ".mov", ".mkv", ".mpeg", ".mpg"}
 

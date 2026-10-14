@@ -240,3 +240,19 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   separate real-footage acceptance remains blocked until licensed input
   footage, independent annotations and locked real model files are supplied.
 - See `docs/release/heldout-attendance-qualification.md`.
+
+
+### Private evidence-storage continuation
+
+- Private S3-backed JPEG retention with SSE-KMS and conditional immutable object
+  keys is supported when `KAUSHALWATCH_EVIDENCE_BACKEND=s3`; metadata is
+  persisted in the PostgreSQL v2 evidence index.
+- Images are resolved only for authorized officers through the existing
+  `/evidence/{id}.jpg` path after case membership, centre access, metadata
+  and SHA-256 checks. No browser bucket URL or presigned access is issued.
+- Local SIH demo retains existing filesystem storage; pilot/production
+  protected endpoints require both PostgreSQL and private S3 mode.
+- Synthetic mocked-S3/real-Postgres CI validates read denial, tampering,
+  orphan refusal and duplicate collision. This does NOT validate real cloud
+  IAM/bucket/KMS configuration, legal retention, backups or restore drills.
+- Runbook: `docs/release/private-evidence-storage.md`.

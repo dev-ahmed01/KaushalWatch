@@ -73,6 +73,7 @@ jobs:
     env:
       KAUSHALWATCH_DATABASE_URL: postgresql://kaushalwatch_ci:synthetic_ci_only_987654321@127.0.0.1:5432/kaushalwatch_ci
       KAUSHALWATCH_STORAGE_BACKEND: postgres
+      KAUSHALWATCH_EVIDENCE_BACKEND: s3
       KAUSHALWATCH_TEST_DATABASE: isolated_ci
     steps:
       - uses: actions/checkout@v4
@@ -86,7 +87,7 @@ jobs:
           python scripts/migrate_postgres.py --apply
           python scripts/migrate_postgres.py --check
       - name: Verify PostgreSQL persistence and multi-connection races
-        run: pytest -q backend/tests/test_postgres_storage.py
+        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py
 
 
   frontend:

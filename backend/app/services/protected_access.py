@@ -91,12 +91,15 @@ async def protected_read_boundary(request: Request, call_next):
     env = os.getenv("KAUSHALWATCH_ENV", "development").strip().lower()
     path = request.scope.get("path", "")
     if (env in {"production", "prod", "pilot"}
-            and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower() != "postgres"
+            and (
+                os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "json").strip().lower() != "postgres"
+                or os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local").strip().lower() != "s3"
+            )
             and request.method != "OPTIONS" and is_sensitive_path(path)
             and path != "/api/health"):
         return JSONResponse(
             status_code=503,
-            content={"detail": "Protected pilot requires durable PostgreSQL storage."},
+            content={"detail": "Protected pilot requires PostgreSQL and private evidence storage."},
             headers={"Cache-Control": "no-store"},
         )
     if env in LOCAL_ENVS or request.method == "OPTIONS" or not is_sensitive_path(path):
