@@ -10,7 +10,7 @@ import cv2
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Body, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response
+from fastapi.responses import Response, JSONResponse
 from app.models import (
     AssistantChatRequest,
     AssistantChatResponse,

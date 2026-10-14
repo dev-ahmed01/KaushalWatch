@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from app.services.object_evidence import _client, configuration
+from app.services import object_evidence as storage
 from app.services.postgres_store import connection
 
 PREFIX = "evidence/v1/"
@@ -19,7 +19,7 @@ MAX_OBJECTS = 50_000
 def audit_private_evidence(*, limit: int = MAX_OBJECTS) -> dict:
     if type(limit) is not int or not 1 <= limit <= MAX_OBJECTS:
         raise ValueError("Evidence audit object limit out of range")
-    bucket, _, _ = configuration()
+    bucket, _, _ = storage.configuration()
 
     with connection() as db:
         metadata = db.execute(
@@ -63,7 +63,7 @@ def audit_private_evidence(*, limit: int = MAX_OBJECTS) -> dict:
     missing_index = 0
     mismatched_records = 0
     missing_objects = 0
-    client = _client()
+    client = storage._client()
     continuation: str | None = None
     scanned = 0
     while True:
