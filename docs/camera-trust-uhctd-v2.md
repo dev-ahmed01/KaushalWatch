@@ -1,0 +1,159 @@
+# UHCTD Camera Trust v2 — candidate results
+
+This branch improves evidence quality checks, NOT proof of camera sabotage.
+Only synthetic regression examples are committed; UHCTD footage remains local.
+
+## Changes
+- Stream-scoped temporal state in attendance and practical-work pipelines.
+- Relative blur measurement avoids misclassifying naturally soft CCTV footage.
+- Persistent scene-composition loss may identify obstruction or movement.
+- Exact repeated frames for three seconds flag possible frozen/replayed video.
+- Sustained blur, darkness, obstruction and movement gate visual conclusions.
+
+## Development-set probe (NOT held-out evaluation)
+Source: four short clips from UHCTD Day 3, 3 FPS, 680x510 pixels.
+Three tampering clips each include 12 seconds of normal baseline.
+The tampering clip counts below refer to their 106 post-onset frames.
+
+| Clip | Old untrusted frames | Candidate untrusted frames |
+|---|---:|---:|
+| Normal 106-frame clip | 44 (false positives) | 0 (false positives) |
+| Covered | 91/106 | 90/106 |
+| Defocused | 40/106 | 90/106 |
+| Moved | 0/106 | 93/106 |
+
+Candidate first-event delays: 5.33 seconds covered, 5.33 seconds
+defocused, 4.33 seconds moved, measured after annotated onset.
+These are small development-set results only.
+
+## Before promotion
+1. Test Day 4 or another camera as a held-out source, without retuning.
+2. Measure false alarms per hour, event-level detection, detection delay.
+3. Check crowded scenes, lighting/shadow changes, low-light and indoor labs.
+4. Verify evidence suspension in attendance AND practical-work flows.
+5. Version new candidate thresholds in a separate vision profile. Do NOT
+   alter the existing frozen fixed-camera-v1 profile until validated.
+6. Respect dataset research-only licensing: do not publish its videos.
+
+Limitations: frozen scene vs replay cannot be reliably proven by pixels alone;
+a camera that starts obstructed lacks a reliable initial reference; foreground
+changes can resemble a scene shift. Treat warnings as evidence-quality
+flags requiring officer review, never punitive determinations.
+
+
+## Phase 3 — development-only conservative candidate
+The complete Day 4 Camera B recording showed **52.2%** false untrusted
+samples and 5.30 false-alarm episodes per normal hour under the v2
+evidence-quality metric. The scorecard also counted alarms already active
+at event onset as detected; 37 of 70 marked detections had zero delay.
+That event-recall definition is no longer appropriate for new incidents.
+
+Candidate changes on this branch:
+- Separate low-visibility **evidence usability** from suspected camera
+  **tampering**. Dark footage can still suspend attendance without
+  automatically becoming a tamper alert.
+- Do not infer obstruction from changing brightness alone.
+- Require a coherent translated scene (phase correlation on edge maps)
+  before treating raw reference dissimilarity as camera displacement.
+- Add counters for normal scene failure reasons and separate evidence
+  quality metrics in the UHCTD evaluator.
+- Require a **fresh rising tamper alert** to count as event detection. An
+  already-active alert is reported, but no longer credited to a new event.
+
+Development inspection only: on the FOUR uploaded Day 3 clips the
+candidate flagged 0/106 normal, 90/106 covered, 90/106 defocused and
+93/106 moved post-onset frames. This is a small, selected development set,
+not a statistically valid result for 24-hour surveillance.
+
+**Do not reuse Day 4 as an untouched test of this candidate.** Its failure
+details have already influenced the design, even if its frames were not
+available for local tuning. Before promotion, find a new, truly untouched
+recording from another day/camera with full labels, evaluate under the
+frozen candidate, and inspect false alarms/hour plus new-alert
+event recall. Neither old full-recording Day 4 results nor short
+Day 3 clip scores establish deployment suitability.
+
+Camera trust based on visual evidence cannot reliably authenticate true
+stream freshness or prove malicious tampering. Human review remains
+the final decision.
+
+## Phase 4 — diagnosing Day 4 obstruction false alarms
+
+Previous Day 4 v3 (Camera B) diagnostic: 166,629 normal samples were
+flagged. 164,647 have reason "camera view may be obstructed" and 1,982
+have "image excessively blurred" (these counts sum to the total; do not
+generalize outside this recording). Tamper recall fell to 64.6%.
+
+The proposed first-frame-reference drift hypothesis is **not proven**.
+Run the added diagnostic probe to identify which factor drives the
+obstruction condition without changing any detection thresholds:
+
+  python scripts/diagnose_uhctd_obstruction.py \
+    --video "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/video.avi" \
+    --annotations "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/annotations.csv" \
+    --out "C:/Users/Admin/Desktop/MEVA/UHCTD_Day4/obstruction_probe"
+
+The probe selects 12 spread-out, completely normal, 90-second windows
+from the original annotated video with a 20-second margin from labels.
+It samples both the original first-frame reference and an intentionally
+window-local reference at identical video times, using fresh state for
+each window. It reports scene correlation, texture ratio, luminance,
+raw obstruction candidacy, and sustained camera-alert reasons.
+
+Outputs (no images/videos):
+- obstruction_diagnostics_summary.json: aggregate paired evidence.
+- obstruction_windows.csv: timestamped per-window incident counts.
+- obstruction_samples.csv: per-frame numerical traces for diagnosis.
+
+IMPORTANT: Local-reference improvement is *not* permission to update
+production baseline automatically: doing so could allow slow obstruction
+or camera movement to become the new 'trusted' reference. This is a
+targeted normal-only diagnostic, not a full-day scoring run or new
+held-out test. Day 4 is contaminated for independent v3/v4 validation.
+
+
+## Phase 4 counterfactual: reference-regime mismatch
+
+This is an **experimental, unpromoted** safeguard. From 12 annotated-normal
+windows on UHCTD Day 4, Camera B:
+
+- 5,400 sampled frames per reference mode (90 seconds × 12 at 5 Hz).
+- Fixed first-frame reference: 2,428 / 5,400 false obstruction flags.
+- Window-local reference: 0 / 5,400 flags; this is a *diagnostic
+  counterfactual*, not proof that blindly updating references is safe.
+- Each of the 2,428 false alarms was associated with sharpness ratio
+  below 0.12, reduced luminance relative to the first frame, and low
+  reference-scene correlation. None of the selected samples triggered
+  the high-texture branch.
+- Absolute median sharpness in falsely flagged samples: approximately
+  6.89; first-frame sharpness approximately 188.
+- A counterfactual rule that avoids obstruction accusations when both
+  luminance has fallen by at least 25% versus the fixed reference and
+  the texture ratio is under 0.15 would suppress all 2,428 of these
+  particular normal-window flags. This DOES NOT establish full-day
+  precision or tampering recall.
+
+Candidate implementation intentionally excludes such dimmed low-detail
+frames from *suspected lens obstruction*. Separate low-luminance and
+defocus evidence-quality checks still run, and an entirely dark camera
+continues to be unusable. The candidate does NOT automatically trust
+unknown camera positions or authenticate a live feed.
+
+Critical trade-off: **a dark translucent lens obstruction may satisfy
+the very same dimming signature and be missed by this safeguard**.
+Some camera mode switches are not due to ambient light at all.
+This is why a second independent cue (stream metadata, officer-confirmed
+baseline, or verified structural landmarks) is necessary before promotion.
+
+On the three selected Day 3 positive onset clips, the safeguard does
+not activate during covered/defocused/moved intervals because their
+post-onset brightness does not fall by 25% relative to each clip's
+first frame; this is narrow development-only negative-regression
+evidence, not cross-camera validation.
+
+Do NOT merge or promote based on the targeted 12-window counterfactual.
+When comparing variants, report separately: normal tamper-alert
+frequency, normal evidence-untrusted fraction, event onset recall,
+false alarm duration, and dark-obstruction misses. Day 4 has already
+been used for diagnosis and must not be called untouched held-out
+evidence for this candidate.
