@@ -303,3 +303,23 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   integration, real AWS policy/recovery, and held-out CCTV accuracy remain
   explicit operator-blocking gates.
 - Runbook: `docs/release/staging-deployment-acceptance.md`.
+
+
+### Phase 2A — Camera evidence-usability held-out evaluation
+
+- Added a frozen, digest-pinned, independent multi-camera UHCTD-format
+  evaluator for the **current released** camera evidence gate. It does not
+  merge the separate Camera Trust v2 candidate.
+- Measures normal false evidence suspension, false-alarm onset rate per
+  normal hour, fresh event recall, per-class support and onset latency.
+  Pre-existing alerts do not receive credit for a new event.
+- Known previously inspected UHCTD Day 3/4 footage must not be used as an
+  untouched validation set. Dataset attestation is not independently
+  authenticated by code; actual external review remains mandatory.
+- Synthetic CI tests exercise leakage, file tamper, annotation integrity,
+  source identity, false acceptance and input-gate denial. They never
+  count as real-camera model accuracy.
+- Until new independent footage passes, Camera Trust remains UNQUALIFIED;
+  attendance and other visual-compliance categories also remain subject to
+  their respective distinct held-out gates.
+- Runbook: `docs/release/camera-evidence-holdout.md`.

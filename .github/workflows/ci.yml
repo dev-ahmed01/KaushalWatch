@@ -44,6 +44,16 @@ jobs:
           set -e
           test "$result" -eq 2
           python -c 'import json; p=json.load(open("/tmp/kaushalwatch-heldout-denial.json")); assert p["qualified"] is False and p["status"] == "heldout_blocked"'
+      - name: Verify camera trust holdout cannot pass without untouched labelled footage
+        run: |
+          set +e
+          python evaluation/camera_evidence_holdout.py \
+            --manifest /tmp/kaushalwatch-no-untouched-camera-holdout.json \
+            --out /tmp/kaushalwatch-camera-blocked.json
+          result=$?
+          set -e
+          test "$result" -eq 2
+          python -c 'import json; x=json.load(open("/tmp/kaushalwatch-camera-blocked.json")); assert x["qualified"] is False and x["status"] == "camera_evidence_blocked"'
       - name: Smoke-test final demo evaluator
         run: |
           python evaluation/evaluate_final_demo.py \
