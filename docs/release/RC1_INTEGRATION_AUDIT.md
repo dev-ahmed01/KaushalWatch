@@ -1,5 +1,7 @@
 # KaushalWatch RC1 — Release Integration Audit
 
+**Historical snapshot notice (14 October 2026):** This document records the state *before* consolidation. PR #53 and PR #55 have since been merged into `main` (merge commits `5b2dc7c` and `62f7a67`). PR #54 remains experimental and unmerged. See `docs/release/MAIN_CONSOLIDATION.md` for the current disposition.
+
 **Date:** 14 October 2026  
 **Source branch:** `release/kaushalwatch-sih-mvp` (draft PR #55)  
 **Direct target:** `restructure/kaushalai-first-v1` (PR #53, still unmerged)  

@@ -1,5 +1,14 @@
 # Build Status
 
+## Current branch integration status — 14 October 2026
+
+- **PR #53 and PR #55 have been merged into `main`**, using merge commits to preserve original history.
+- The release code and AI-evaluation tooling are integrated, but **real-world pilot accuracy, external SSO/MFA, and live KMS/IAM deployment remain unqualified**.
+- Experimental Camera Trust PR #54 is **not** merged. Older conflicted open PRs require manual content review and were not force-merged.
+- Historical audit sections below describe the *pre-merge* repository state and must not be mistaken for current PR status.
+- Repository cleanup/archival instructions and scope: `docs/release/MAIN_CONSOLIDATION.md`.
+
+
 ## Release candidate integration audit — 14 October 2026
 
 **Scope:** Draft PR #55 targeting `restructure/kaushalai-first-v1`, not

@@ -1,0 +1,46 @@
+name: Archive and prune merged source branches
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/archive_merged_branches.py
+      - scripts/test_archive_merged_branches.py
+      - .github/workflows/archive-merged-branches.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: archive-merged-branches
+  cancel-in-progress: false
+
+jobs:
+  branch-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Test safety and preserve open/experimental work
+        run: python scripts/test_archive_merged_branches.py
+      - name: Classify branches (no writes)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          python scripts/archive_merged_branches.py \
+            --repo "$REPO" --expected-main-sha "$MAIN_SHA"
+      - name: Archive exact merged heads and prune only verified source branches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          MAIN_SHA: ${{ github.sha }}
+        run: |
+          python scripts/archive_merged_branches.py \
+            --repo "$REPO" --expected-main-sha "$MAIN_SHA" --execute

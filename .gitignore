@@ -45,3 +45,28 @@ models/openvino/**/FP*/
 # OS / editor noise
 .DS_Store
 Thumbs.db
+
+# Private model snapshots and evaluation recordings (never commit source video)
+*.safetensors
+*.ckpt
+*.weights
+*.tflite
+*.h5
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.zip
+*.sqlite
+*.sqlite3
+*.db
+*.log
+*.tsbuildinfo
+.env.*
+!.env.example
+!backend/.env.example
+!web/.env.example
+playwright-report/
+test-results/
+coverage/
