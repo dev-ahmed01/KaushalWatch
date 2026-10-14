@@ -62,9 +62,16 @@ tests; existing protected officer workflows and model pipelines are untouched.
 
 ## Verification and remaining release work
 
-The latest merged main passed 7/7 CI jobs before this cleanup. After
-publishing the reconciliation workflow, verify a new main run and its cleanup
-report; do not claim success without both.
+**Verified branch reconciliation:** [GitHub Actions run #38602907177](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38602907177)
+completed successfully. All eleven fixed-SHA legacy branches were archived at
+`archive/reconciled-20261014/<branch>`, then removed. The previously open
+legacy PRs #25, #31 and #34 were closed as superseded, **not merged**.
+GitHub now reports only `main` and the unmerged Camera Trust candidate.
+Total across the two cleanup passes: **59 deleted branch refs**, all archived.
+
+**CI after first reconciliation commit:** [GitHub Actions run #38602907134](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38602907134).
+The real-world evaluation and pilot readiness gates remain separate; consult
+the workflow run for its latest pass/fail status.
 
 Real-camera accuracy (attendance, camera evidence, practical activity,
 equipment and visual motion) and live IdP/AWS pilot acceptance are still

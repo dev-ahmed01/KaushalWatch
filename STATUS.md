@@ -4,7 +4,9 @@
 
 - **PR #53 and PR #55 have been merged into `main`**, using merge commits to preserve original history.
 - The release code and AI-evaluation tooling are integrated, but **real-world pilot accuracy, external SSO/MFA, and live KMS/IAM deployment remain unqualified**.
-- Experimental Camera Trust PR #54 is **not** merged. Older conflicted open PRs require manual content review and were not force-merged.
+- Experimental Camera Trust PR #54 is **not** merged, remains draft and is the **only** remaining non-main branch.
+- Legacy PRs #25, #31 and #34 were reviewed and closed as superseded, **not merged**; their source commits were archived before deleting their branches.
+- **Phase 3A reconciliation completed:** 61 original live branches were reduced to **two** across both cleanup passes. **59 deleted tips were preserved by archive tags**. See `docs/release/PHASE3A_BRANCH_RECONCILIATION.md`.
 - Historical audit sections below describe the *pre-merge* repository state and must not be mistaken for current PR status.
 - Repository cleanup/archival instructions and scope: `docs/release/MAIN_CONSOLIDATION.md`.
 
