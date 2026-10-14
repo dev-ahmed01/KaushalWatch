@@ -73,6 +73,7 @@ jobs:
       - name: Apply and verify isolated PostgreSQL migration
         run: |
           python scripts/migrate_postgres.py --apply
+          python scripts/migrate_postgres.py --apply
           python scripts/migrate_postgres.py --check
       - name: Verify PostgreSQL persistence and multi-connection races
         run: pytest -q backend/tests/test_postgres_storage.py

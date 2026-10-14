@@ -117,18 +117,24 @@ class PostgresCaseStore:
         return _case_from_row(row)
 
     def save(self, case: ComplianceCase) -> ComplianceCase:
-        payload = Jsonb(case.model_dump(mode="json"))
+        # Processing results are immutable insertions. An accidental duplicate
+        # case ID must never overwrite an officer decision or change its centre.
         with connection() as db:
-            db.execute(
+            inserted = db.execute(
                 """INSERT INTO kw_cases(case_id, centre_id, payload)
                    VALUES (%s, %s, %s)
-                   ON CONFLICT(case_id) DO UPDATE
-                     SET payload = EXCLUDED.payload,
-                         centre_id = EXCLUDED.centre_id,
-                         updated_at = CURRENT_TIMESTAMP""",
-                (case.case_id, case.centre_id, payload),
-            )
-        return case
+                   ON CONFLICT(case_id) DO NOTHING RETURNING case_id""",
+                (case.case_id, case.centre_id, Jsonb(case.model_dump(mode="json"))),
+            ).fetchone()
+            if inserted:
+                return case
+            previous = db.execute(
+                "SELECT payload FROM kw_cases WHERE case_id = %s",
+                (case.case_id,),
+            ).fetchone()
+            if previous is None:
+                raise RuntimeError("Case disappeared after insert conflict")
+            return ComplianceCase.model_validate(previous["payload"])
 
     def save_if_absent(self, case: ComplianceCase) -> bool:
         with connection() as db:

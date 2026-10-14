@@ -34,6 +34,8 @@ REVIEWER = "SyntheticPgReviewer_0123456789abcdefghijklmnopqrstuvwxyz"
 @pytest.fixture(autouse=True)
 def _isolated_db(monkeypatch):
     dsn = os.environ.get("KAUSHALWATCH_DATABASE_URL", "")
+    if not dsn and not os.environ.get("KAUSHALWATCH_TEST_DATABASE"):
+        pytest.skip("PostgreSQL-only integration test (run in isolated DB job)")
     if (os.environ.get("KAUSHALWATCH_TEST_DATABASE") != "isolated_ci"
             or "kaushalwatch_ci" not in dsn):
         pytest.fail("PostgreSQL tests require explicitly isolated kaushalwatch_ci database")
@@ -78,6 +80,12 @@ def test_cases_and_review_audit_survive_new_store_instance():
     with pytest.raises(ValueError, match="Invalid case transition"):
         b.update_status("PG-CASE-1", CaseStatus.under_review)
     assert len(a.get("PG-CASE-1").review_history) == 2
+    # A delayed inference job or colliding case ID cannot erase audited state.
+    collision = _case("PG-CASE-1", C2)
+    persisted_collision = a.save(collision)
+    assert persisted_collision.centre_id == C1
+    assert persisted_collision.status == CaseStatus.confirmed
+    assert len(b.get("PG-CASE-1").review_history) == 2
 
 
 def test_concurrent_reviewers_cannot_both_finalize_case():

@@ -205,3 +205,21 @@ The initial baseline PR #53 recorded 14/14 passing browser tests and green CI. T
   identity provider, real-centre grants, backend transaction store, login
   throttling or independent pilot security review is claimed.
 - Runbook: `docs/release/centre-scoped-officer-access.md`.
+
+
+### Protected backend continuation — PostgreSQL structured-data store
+
+- Added an explicit `postgres` storage selector and v1 schema migration for
+  cases (including embedded review audit), analysis history, centre settings
+  and offline edge receipt ledger; JSON remains the local SIH default.
+- PostgreSQL applies row locks for officer decisions, uniqueness for event
+  replay, and a shared advisory transaction across edge receipts and the
+  cases/history they create. A colliding inference case must never overwrite
+  existing reviewed data.
+- Dedicated isolated PostgreSQL 16 CI tests verify transactions, cross-worker
+  race handling, rollback, replay and centre-scoped permissions. A database
+  backup/restore drill and real operational load test remain pending.
+- Pilot/production API paths refuse JSON-only storage. Real-centre media
+  still needs durable encrypted evidence storage; the local evidence directory
+  is **not** replicated across backend instances.
+- Runbook: `docs/release/postgres-persistence.md`.
