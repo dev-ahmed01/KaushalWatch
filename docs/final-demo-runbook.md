@@ -61,25 +61,64 @@ Before presentation, precompute the reviewed equipment cache for the exact video
 Before treating equipment metrics as final, confirm that the exact camera view genuinely contains the manifest classes you intend to score. Attendance/practical-work footage can still be useful even when it is not an appropriate Construction Electrician infrastructure scene. Do not turn unrelated industrial machinery into a "training panel" or "drill machine" merely to obtain a positive detection.
 
 
-## Command Centre rehearsal state
+## Judge-day release sequence
 
-Before a judge-facing UI rehearsal, prepare the deterministic simulated runtime state:
+Run these from the repository root before the UI walkthrough:
 
 ```bash
-python scripts/prepare_demo_state.py
 python scripts/prepare_demo_state.py --yes
+python scripts/validate_vision_profile.py
+python scripts/check_release_readiness.py
 ```
 
-The first command is a dry run. The second clears only mutable runtime files (`cases.json`, `analysis_history.json`, `centre_settings.json`, `edge_events.json`, `evidence_index.json` and generated `data/evidence/` contents) and writes the marked-simulated judge seed. It **does not** delete `data/raw/`, manifests or reviewed detector assets.
+Then start the calibrated backend:
 
-Expected Network story after preparation:
+```bash
+python scripts/start_demo_backend.py
+```
+
+In a second terminal:
+
+```bash
+cd web
+npm run dev
+```
+
+The release-readiness command is non-destructive: it creates its own temporary runtime state and verifies the five-centre AI-first scope, deterministic network states, action ranking, duplicate-evidence fixture and frozen vision profile.
+
+The `prepare_demo_state.py --yes` command clears only mutable runtime files (`cases.json`, `analysis_history.json`, `centre_settings.json`, `edge_events.json`, `evidence_index.json` and generated `data/evidence/` contents) and writes the marked-simulated judge seed. It **does not** delete `data/raw/`, manifests or reviewed detector assets.
+
+Expected **primary five-centre** story after preparation:
 - Bengaluru TC-04 — NEEDS REVIEW (attendance)
 - Mysuru TC-12 — VERIFIED
 - Tumakuru TC-07 — UNCERTAIN (camera integrity)
 - Hubballi TC-03 — NEEDS REVIEW / regional escalation (infrastructure)
 - Belagavi TC-09 — VERIFIED
-- Mangaluru TC-01 — ANALYSIS UNAVAILABLE
+
+A legacy Mangaluru unavailable fixture remains in backend demo data for compatibility testing, but it is intentionally excluded from the redesigned KaushalAI/Centres/Insights/Actions primary scope.
 
 The prepared seed includes synthetic integrity evidence only for demonstrating SHA-256 and duplicate detection. It is watermarked and tagged simulated; it must never be described as real centre footage.
 
-Run the strict final-video readiness gate independently. Preparing the UI seed does not validate the final video, detector accuracy or infrastructure cache.
+### Strict real-video gate
+
+Preparing the UI seed and passing the release-readiness check do **not** validate the final camera footage or create accuracy claims.
+
+When the authoritative OpenVINO runtime and exact reviewed demo video are present, run:
+
+```bash
+python scripts/check_demo_readiness.py --video <exact-video> --final
+```
+
+For the reviewed DOD infrastructure clip, the SHA-bound equipment cache must continue to match the exact source video.
+
+### 60-second judge path
+
+1. **KaushalAI** — explain what changed and which centre needs attention first.
+2. **Centres → Bengaluru** — show the six verification engines and Activity timing.
+3. **Evidence** — show Reported vs Observed, Temporal Proof, SHA-256 and duplicate handling.
+4. **Officer review** — record a decision and show the persistent audit trail.
+5. **Insights** — show attendance variance, activity heatmap, camera trust and report exports.
+6. **Actions** — show why Hubballi ranks first, then Tumakuru, Bengaluru attendance and the low-activity follow-up.
+7. **Run analysis** — expand Technical details only if asked; show the frozen vision profile and runtime alignment.
+
+Close with: **“Track position, not identity. Missing or untrusted evidence never becomes a verified conclusion. AI surfaces evidence. Officers decide.”**

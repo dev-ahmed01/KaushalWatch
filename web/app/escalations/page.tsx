@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation';
-export default function EscalationsRedirect(){ redirect('/cases?tab=escalations'); }
+export default function EscalationsRedirect(){ redirect('/actions'); }

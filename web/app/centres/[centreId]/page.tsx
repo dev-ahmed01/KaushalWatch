@@ -1,85 +1,80 @@
 'use client';
 
 import Link from 'next/link';
-import { Bot, ChevronRight, Clock3, Play, RefreshCw } from 'lucide-react';
+import {
+  Activity,
+  ArrowLeft,
+  ArrowRight,
+  Bot,
+  Building2,
+  Camera,
+  CheckCircle2,
+  FileCheck2,
+  Gauge,
+  HardHat,
+  Play,
+  Users,
+} from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AnalysisModal from '../../components/AnalysisModal';
 import CentreTabs from '../../components/CentreTabs';
-import { EmptyState, EvidenceFrame, PageTitle, PersistenceTimeline, StatusPill, TechnicalDetails } from '../../components/CalmUi';
+import { StatusPill } from '../../components/CalmUi';
 import { Button } from '../../components/ui/button';
-import { API, getCases, getCentre } from '../../lib/api';
-import { centreUiState, effectivePillarValue, FALLBACK_CENTRES, pillarState, statusReason } from '../../lib/presentation';
-import { DEMO_CASES } from '../../lib/demoCases';
-import type { CaseRecord, Centre } from '../../lib/types';
+import { getCentre, getCentreIntelligence } from '../../lib/api';
+import { useBriefPeriod } from '../../lib/period';
+import { FALLBACK_CENTRES } from '../../lib/presentation';
+import type { Centre, CentreEngine, CentreIntelligence } from '../../lib/types';
 
 const FALLBACK = FALLBACK_CENTRES[0];
 
-function nextAnalysisLabel(windows: string[]) {
-  const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const parsed = windows
-    .map(value => {
-      const normalized = value.replaceAll('–', '-').trim();
-      const [start, end] = normalized.split('-', 2).map(part => part.trim());
-      const [hours, minutes] = start.split(':').map(Number);
-      return {
-        label: end ? `${start}–${end}` : start,
-        minutes: hours * 60 + minutes,
-      };
-    })
-    .filter(item => Number.isFinite(item.minutes))
-    .sort((a, b) => a.minutes - b.minutes);
-  const laterToday = parsed.find(item => item.minutes > currentMinutes);
-  const target = laterToday || parsed[0];
-  if (!target) return 'Schedule unavailable';
-  return `${laterToday ? 'Today' : 'Tomorrow'} · ${target.label}`;
-}
+const ENGINE_ICONS: Record<string, typeof Users> = {
+  attendance: Users,
+  practical_activity: Activity,
+  infrastructure: HardHat,
+  camera_integrity: Camera,
+  evidence_integrity: FileCheck2,
+  apparent_operability: Gauge,
+};
 
-export default function CentreCockpit() {
+export default function CentreOverview() {
   const { centreId } = useParams<{ centreId: string }>();
   const id = String(centreId);
+  const { period } = useBriefPeriod();
   const [centre, setCentre] = useState<Centre | null>(null);
-  const [cases, setCases] = useState<CaseRecord[]>([]);
+  const [intelligence, setIntelligence] = useState<CentreIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
+  const [degraded, setDegraded] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
   async function load() {
     setLoading(true);
+    setDegraded(false);
     try {
-      const [c, allCases] = await Promise.all([getCentre(id), getCases().catch(() => [])]);
-      setCentre(c);
-      const centreCases = allCases.filter(item => item.centre_id === id);
-      const demoCases = DEMO_CASES.filter(item => item.centre_id === id);
-      setCases(centreCases.length ? centreCases : demoCases);
+      const [current, currentIntelligence] = await Promise.all([
+        getCentre(id),
+        getCentreIntelligence(id, period),
+      ]);
+      setCentre(current);
+      setIntelligence(currentIntelligence);
     } catch {
       setCentre(FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK);
-      setCases(DEMO_CASES.filter(item => item.centre_id === id));
-    } finally { setLoading(false); }
+      setIntelligence(null);
+      setDegraded(true);
+    } finally {
+      setLoading(false);
+    }
   }
 
-  useEffect(() => { void load(); }, [id]);
+  useEffect(() => {
+    void load();
+  }, [id, period]);
 
   const current = centre || FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK;
-  const uiState = centreUiState(current);
-  const openCases = cases.filter(item => ['open', 'under_review', 'virtual_verification'].includes(item.status));
-  const priorityCase = openCases[0];
-  const cameraTrusted = !['attention', 'blocked'].includes(String(effectivePillarValue(current, 'camera')).toLowerCase());
-  const evidence = priorityCase?.evidence?.[0];
-  const evidenceSrc = evidence?.evidence_id ? `${API}/evidence/${evidence.evidence_id}.jpg` : undefined;
-  const schedule = (current.settings || {}) as any;
-  const automatic = schedule.automatic_analysis !== false && schedule.frequency !== 'manual';
-  const windows: string[] = Array.isArray(schedule.monitoring_windows) && schedule.monitoring_windows.length ? schedule.monitoring_windows : ['10:30', '15:30'];
-  const next = automatic ? nextAnalysisLabel(windows) : 'Manual only';
-  const last = current.last_analysis ? new Date(current.last_analysis).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'No trusted run yet';
-
-  const pillars = useMemo(() => [
-    ['Attendance', effectivePillarValue(current, 'attendance')],
-    ['Practical Activity', effectivePillarValue(current, 'practical')],
-    ['Infrastructure', effectivePillarValue(current, 'infrastructure')],
-    ['Camera Integrity', effectivePillarValue(current, 'camera')],
-    ['Evidence Integrity', effectivePillarValue(current, 'evidence')],
-  ] as const, [current]);
+  const meta = intelligence?.centre;
+  const engines = intelligence?.engines || [];
+  const actions = intelligence?.actions || [];
+  const recent = intelligence?.period_activity.recent_analyses || [];
 
   function askAssistant() {
     window.dispatchEvent(new Event('kaushalwatch:assistant'));
@@ -87,81 +82,181 @@ export default function CentreCockpit() {
 
   return (
     <div>
-      <PageTitle
-        title={current.name}
-        description={`${current.job_role} · ${current.batch_id}`}
-        action={<><Button variant="ghost" onClick={askAssistant}><Bot size={17} /> Ask assistant</Button><Button variant="primary" onClick={() => setAnalysisOpen(true)}><Play size={17} /> Run analysis now</Button></>}
-      />
+      <Link href="/centres" className="kw-focus mb-5 inline-flex items-center gap-1.5 rounded-md text-[12px] font-medium text-[#667085] hover:text-[#344054]">
+        <ArrowLeft size={14} />
+        Centres
+      </Link>
 
-      <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-[#667085]">
-        <StatusPill state={uiState} />
-        <span>Last analysis · {last}</span>
-        <span>Next analysis · {next}</span>
-        <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[11px]">Simulated records</span>
-      </div>
+      <header className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">{meta?.name || current.name}</h1>
+            {(intelligence?.simulated || degraded) && (
+              <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">
+                {degraded ? 'Simulated centre metadata' : 'Simulated demo data'}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[14px] text-[var(--kw-muted)]">{meta?.job_role || current.job_role} · {meta?.batch_id || current.batch_id}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] text-[#98A2B3]">
+            <span>{meta?.location || current.location}</span>
+            <span>Camera {meta?.camera_id || current.camera_id}</span>
+            <span>{intelligence?.period_label || 'Current'} view</span>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="ghost" onClick={askAssistant}><Bot size={16} /> Ask KaushalAI</Button>
+          <Button variant="primary" onClick={() => setAnalysisOpen(true)}><Play size={16} /> Run analysis</Button>
+        </div>
+      </header>
 
       <CentreTabs centreId={id} />
 
-      <section className="rounded-2xl bg-white px-2 py-1 shadow-[0_1px_2px_rgba(16,24,40,.04)] ring-1 ring-[#E6EAF0]">
-        <div className="grid gap-1 lg:grid-cols-5">
-          {pillars.map(([label, value]) => {
-            const state = label === 'Camera Integrity' || label === 'Evidence Integrity' ? pillarState(value, true) : pillarState(value, cameraTrusted);
-            return <div key={label} className="px-5 py-5">
-              <div className="text-[13px] font-medium text-[#667085]">{label}</div>
-              <div className="mt-3"><StatusPill state={state} /></div>
-              <div className="mt-2 text-[13px] leading-5 text-[#667085]">{statusReason(label, value, current)}</div>
-            </div>;
-          })}
+      {degraded && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          Live centre intelligence is unavailable. Centre identity metadata is simulated fallback data; verification states, recommendations and recent analysis are not being inferred.
+        </div>
+      )}
+
+      <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-7 py-7 shadow-[var(--kw-shadow)]">
+        <div className="relative z-10 max-w-[760px]">
+          <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
+            <Bot size={14} />
+            KaushalAI centre brief
+          </div>
+          <h2 className="mt-3 text-[26px] font-semibold leading-[1.25] tracking-[-0.03em] text-[var(--kw-text)]">
+            {loading
+              ? 'Refreshing centre intelligence…'
+              : intelligence?.brief.headline || 'Live centre intelligence is unavailable.'}
+          </h2>
+          <div className="mt-5 space-y-2.5">
+            {(intelligence?.brief.bullets || [loading ? 'Centre intelligence is loading from the latest trusted evidence.' : 'No verification conclusion is shown while the intelligence service is unavailable.']).slice(0, 4).map(line => (
+              <div key={line} className="flex items-start gap-3 text-[13px] leading-5 text-[#475467]">
+                <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#6B8AB5]" />
+                <span>{line}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-5 text-[11px] text-[#98A2B3]">
+            {loading
+              ? 'Refreshing centre intelligence…'
+              : intelligence
+                ? 'Grounded in ' + intelligence.period_activity.analysis_runs + ' analysis runs for ' + intelligence.period_label.toLowerCase() + '.'
+                : 'Live centre intelligence is unavailable; showing centre metadata only.'}
+          </div>
+        </div>
+        <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-[#F1F6FD]" />
+        <div className="pointer-events-none absolute right-10 top-1/2 flex h-20 w-20 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F9FBFF] text-[#9CB5D7]">
+          <Building2 size={32} strokeWidth={1.2} />
         </div>
       </section>
 
-      <section className="mt-14">
-        <div className="mb-5 flex items-end justify-between"><div><div className="text-[13px] font-medium text-[#667085]">Officer review</div><h2 className="mt-1 text-xl font-medium text-[#172033]">Needs your decision</h2></div>{loading && <RefreshCw size={17} className="animate-spin text-[#98A2B3]" />}</div>
-        {priorityCase ? (
-          <Link href={`/cases/${priorityCase.case_id}`} className="kw-focus block rounded-2xl border border-[#F2D3A7] bg-[#FFFCF5] p-7 transition-colors hover:bg-[#FFF9EC]">
-            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-              <div className="max-w-2xl">
-                <div className="flex items-center gap-2"><StatusPill state="review" />{priorityCase.case_id.startsWith('SIM-') && <span className="rounded-full bg-white px-2 py-1 text-[11px] text-[#667085] ring-1 ring-[#E6EAF0]">Simulated</span>}</div>
-                <h3 className="mt-4 text-xl font-medium text-[#172033]">{priorityCase.summary || 'Evidence needs officer review'}</h3>
-                <p className="mt-2 text-[15px] leading-6 text-[#667085]">Temporal evidence persisted long enough to create a reviewable case. No automated final decision was issued.</p>
-              </div>
-              <span className="flex items-center gap-2 text-[14px] font-medium text-[#B54708]">Review evidence <ChevronRight size={16} /></span>
-            </div>
-          </Link>
-        ) : uiState === 'verified' ? (
-          <EmptyState title="All checks verified" body="No open evidence-backed cases for this centre." action={<Link href={`/reports?centre=${id}`} className="text-[14px] font-medium text-[#2563EB]">View previous reports</Link>} />
-        ) : uiState === 'uncertain' ? (
-          <EmptyState state="uncertain" title="Conclusion suspended" body="Camera trust is insufficient, so dependent conclusions remain uncertain." />
-        ) : uiState === 'unavailable' ? (
-          <EmptyState state="unavailable" title="Analysis unavailable" body="No trusted analysis is available for an officer decision yet." />
+      <section className="mt-7">
+        <div className="mb-3">
+          <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Verification engines</h2>
+          <p className="mt-0.5 text-[12px] text-[#98A2B3]">Status, reason, then drill down only when needed.</p>
+        </div>
+
+        {engines.length ? (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {engines.map(engine => <EngineCard key={engine.key} engine={engine} centreId={id} />)}
+          </div>
         ) : (
-          <EmptyState state="review" title="Officer review needed" body="A discrepancy exists, but reviewable case evidence is not available yet." />
+          <div className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-8 text-[13px] text-[#667085]">
+            Engine summaries are unavailable until the centre intelligence service responds.
+          </div>
         )}
       </section>
 
-      <section className="mt-16 grid gap-8 lg:grid-cols-[1.2fr_.8fr]">
-        <EvidenceFrame
-          src={evidenceSrc}
-          timestamp={evidence?.created_at ? new Date(evidence.created_at).toLocaleString() : undefined}
-          trusted={cameraTrusted}
-          emptyText={priorityCase?.case_id.startsWith('SIM-') ? 'Simulated case · no retained frame bundled' : 'No retained evidence preview available'}
-        />
-        <div>
-          <PersistenceTimeline
-            points={uiState === 'review' ? [{ label: '09:00', state: 'ok' }, { label: '11:00', state: 'miss' }, { label: '13:00', state: 'miss' }, { label: '15:00', state: 'miss' }] : [{ label: '09:00', state: 'ok' }, { label: '11:00', state: 'ok' }, { label: '13:00', state: cameraTrusted ? 'ok' : 'uncertain' }, { label: '15:00', state: cameraTrusted ? 'ok' : 'uncertain' }]}
-            summary={uiState === 'review' ? 'Discrepancy persisted across multiple periods' : uiState === 'uncertain' ? 'Conclusion suspended after camera trust changed' : 'No persistent discrepancy recorded'}
-          />
-          <TechnicalDetails>
-            <p>Camera ID: {current.camera_id}</p>
-            <p>Evidence integrity: {String(effectivePillarValue(current, 'evidence')).replaceAll('_', ' ')}</p>
-            {evidence?.sha256 && <p className="break-all">SHA-256: {evidence.sha256}</p>}
-          </TechnicalDetails>
-        </div>
-      </section>
+      <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_340px]">
+        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
+          <div className="flex items-start justify-between">
+            <div>
+              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Recent analysis</h2>
+              <p className="mt-0.5 text-[12px] text-[#98A2B3]">{intelligence?.period_label || 'Selected period'} · latest recorded runs</p>
+            </div>
+            <span className="text-[12px] text-[#98A2B3]">{intelligence?.period_activity.analysis_runs || 0} runs</span>
+          </div>
 
-      <div className="mt-16 flex items-center gap-2 text-[13px] text-[#667085]"><Clock3 size={15} /> Scheduled analysis is the default; manual runs are available for targeted verification.</div>
+          {recent.length ? (
+            <div className="mt-3 divide-y divide-[#EEF2F6]">
+              {recent.slice(0, 4).map(row => (
+                <div key={row.analysis_id} className="grid gap-2 py-4 md:grid-cols-[130px_1fr_auto] md:items-center">
+                  <div>
+                    <div className="text-[12px] font-semibold capitalize text-[var(--kw-text)]">{row.analysis_type.replaceAll('_', ' ')}</div>
+                    <div className="mt-0.5 text-[10px] text-[#98A2B3]">{new Date(row.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
+                  </div>
+                  <div className="truncate text-[12px] text-[var(--kw-muted)]">{row.summary}</div>
+                  <StatusPill state={analysisState(row.outcome)} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-6 text-[13px] text-[#667085]">
+              {intelligence ? 'No new analysis runs were recorded in this period.' : 'Recent analysis is unavailable until centre intelligence responds.'}
+            </div>
+          )}
+        </section>
+
+        <aside className="space-y-4">
+          <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
+            <h2 className="text-[16px] font-semibold text-[var(--kw-text)]">Recommended next</h2>
+            {actions.length ? (
+              <div className="mt-3 divide-y divide-[#EEF2F6]">
+                {actions.map((action, index) => (
+                  <Link href={action.href} key={action.title} className="kw-focus flex items-start gap-3 rounded-md py-3.5">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-[11px] font-semibold text-[var(--kw-accent-strong)]">{index + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold text-[var(--kw-text)]">{action.title}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-[var(--kw-muted)]">{action.reason}</div>
+                    </div>
+                    <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-[12px] leading-5 text-[#667085]">
+                {intelligence ? 'No immediate officer action is recommended.' : 'Recommendations are unavailable until centre intelligence responds.'}
+              </p>
+            )}
+          </section>
+
+          <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
+            <h2 className="text-[16px] font-semibold text-[var(--kw-text)]">Centre contact</h2>
+            <div className="mt-3 text-[13px] font-medium text-[#475467]">{intelligence?.contact.role || 'Centre Head'}</div>
+            <p className="mt-1 text-[12px] leading-5 text-[#98A2B3]">{intelligence?.contact.note || 'Contact details are not connected in this prototype.'}</p>
+            <button type="button" disabled className="mt-4 h-9 cursor-not-allowed rounded-lg border border-[#E4E7EC] px-3 text-[12px] font-medium text-[#98A2B3]">
+              Contact unavailable
+            </button>
+          </section>
+        </aside>
+      </div>
 
       <AnalysisModal open={analysisOpen} onOpenChange={setAnalysisOpen} centre={current} onComplete={updated => { setCentre(updated); void load(); }} />
     </div>
   );
+}
+
+function EngineCard({ engine, centreId }: { engine: CentreEngine; centreId: string }) {
+  const Icon = ENGINE_ICONS[engine.key] || Activity;
+  return (
+    <Link href={'/centres/' + centreId + engine.href_suffix} className="kw-focus group rounded-[16px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)] transition-colors hover:border-[#CFD9E8]">
+      <div className="flex items-start justify-between gap-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#F5F8FD] text-[#5E7DA8]"><Icon size={17} /></span>
+        <StatusPill state={engine.state} label={engine.label || undefined} />
+      </div>
+      <div className="mt-4 text-[14px] font-semibold text-[var(--kw-text)]">{engine.name}</div>
+      <p className="mt-1.5 min-h-10 text-[12px] leading-5 text-[var(--kw-muted)]">{engine.summary}</p>
+      <div className="mt-3 flex items-center gap-1 text-[11px] font-medium text-[#98A2B3] group-hover:text-[var(--kw-accent-strong)]">View detail <ArrowRight size={12} /></div>
+    </Link>
+  );
+}
+
+function analysisState(outcome: string): 'verified' | 'review' | 'uncertain' | 'unavailable' {
+  const value = String(outcome || '').toLowerCase();
+  if (value === 'compliant') return 'verified';
+  if (value === 'attention') return 'review';
+  if (value === 'blocked') return 'uncertain';
+  return 'unavailable';
 }

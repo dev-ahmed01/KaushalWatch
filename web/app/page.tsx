@@ -1,132 +1,251 @@
 'use client';
 
 import Link from 'next/link';
-import { List, Map as MapIcon, MapPin, RotateCcw } from 'lucide-react';
+import { ArrowRight, Building2, CheckCircle2, CircleAlert, CircleHelp, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { StatusPill } from './components/CalmUi';
 import { buttonVariants } from './components/ui/button';
-import { Button } from './components/ui/button';
-import { PageTitle, StatusPill } from './components/CalmUi';
-import { getCentres } from './lib/api';
-import { cn } from './lib/cn';
-import { centreReason, centreUiState, FALLBACK_CENTRES, NETWORK_SEED, simulatedFacts } from './lib/presentation';
-import type { Centre } from './lib/types';
+import { getKaushalBrief } from './lib/api';
+import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from './lib/presentation';
+import { useBriefPeriod } from './lib/period';
+import type { KaushalBrief, KaushalBriefCentre } from './lib/types';
 
-export default function NetworkPage() {
-  const [centres, setCentres] = useState<Centre[]>(FALLBACK_CENTRES);
+type BriefState = 'verified' | 'review' | 'uncertain' | 'unavailable';
+
+export default function KaushalAIHome() {
+  const { period, label: selectedPeriodLabel } = useBriefPeriod();
+  const [brief, setBrief] = useState<KaushalBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [view, setView] = useState<'map' | 'list'>('map');
 
-  async function load() {
+  useEffect(() => {
+    let active = true;
     setLoading(true);
     setError('');
-    try {
-      const payload = await getCentres();
-      setCentres(payload.centres.length ? payload.centres : FALLBACK_CENTRES);
-    } catch (err) {
-      setCentres(FALLBACK_CENTRES);
-      setError('Live centre summaries are unavailable. Showing simulated demo states.');
-    } finally {
-      setLoading(false);
-    }
-  }
+    getKaushalBrief(period)
+      .then(payload => {
+        if (active) setBrief(payload);
+      })
+      .catch(() => {
+        if (!active) return;
+        setBrief(null);
+        setError('Live grounded briefing is unavailable. The values below are clearly marked simulated demo fallback data.');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [period]);
 
-  useEffect(() => { void load(); }, []);
+  const fallbackCentres = useMemo(() => aiFirstCentres(FALLBACK_CENTRES), []);
 
-  const ordered = useMemo(() => [...centres].sort((a, b) => {
-    const rank = { review: 0, uncertain: 1, unavailable: 2, verified: 3 } as const;
-    return rank[centreUiState(a) as keyof typeof rank] - rank[centreUiState(b) as keyof typeof rank];
+  const centres: KaushalBriefCentre[] = useMemo(() => {
+    if (brief?.centres?.length) return brief.centres;
+    return fallbackCentres.map(centre => ({
+      centre_id: centre.centre_id,
+      name: centre.name,
+      location: centre.location,
+      district: centre.district,
+      job_role: centre.job_role,
+      state: centreUiState(centre) as BriefState,
+      reason: centreReason(centre),
+      period_analysis_count: 0,
+      period_attention_count: 0,
+      analysis_types: {},
+      open_case_count: centre.pending_cases || 0,
+      escalation_level: centre.escalation?.level || 0,
+      recommended_action: {
+        label: 'View centre',
+        href: '/centres/' + centre.centre_id,
+      },
+      simulated: true,
+      href: '/centres/' + centre.centre_id,
+    }));
+  }, [brief, fallbackCentres]);
+
+  const fallbackCounts = useMemo(() => ({
+    total: centres.length,
+    verified: centres.filter(item => item.state === 'verified').length,
+    review: centres.filter(item => item.state === 'review').length,
+    uncertain: centres.filter(item => item.state === 'uncertain').length,
+    unavailable: centres.filter(item => item.state === 'unavailable').length,
   }), [centres]);
-  const needsAttention = ordered.filter(c => centreUiState(c) !== 'verified').slice(0, 3);
-  const counts = useMemo(() => ({
-    verified: centres.filter(c => centreUiState(c) === 'verified').length,
-    review: centres.filter(c => centreUiState(c) === 'review').length,
-    uncertain: centres.filter(c => centreUiState(c) === 'uncertain').length,
-    unavailable: centres.filter(c => centreUiState(c) === 'unavailable').length,
-  }), [centres]);
-  const priority = ordered[0] || FALLBACK_CENTRES[0];
+
+  const counts = brief?.counts || fallbackCounts;
+  const usingFallback = !brief;
+  const fallbackAttention = centres
+    .filter(item => item.state !== 'verified')
+    .slice(0, 3)
+    .map(item => ({
+      centre_id: item.centre_id,
+      centre_name: item.name,
+      state: item.state,
+      reason: item.reason,
+      label: item.recommended_action.label,
+      href: item.recommended_action.href,
+    }));
+  const recommendations = brief?.recommendations?.length ? brief.recommendations : fallbackAttention;
+  const priority = brief?.priority || recommendations[0] || null;
+  const periodLabel = brief?.period_label || selectedPeriodLabel;
+  const bullets = brief?.bullets?.length
+    ? brief.bullets.slice(0, 3)
+    : [
+        counts.verified + ' centres had no persistent discrepancy requiring action.',
+        counts.review + ' centres need officer review based on persistent evidence.',
+        counts.uncertain + ' centre has an uncertain conclusion because camera trust dropped.',
+      ];
 
   return (
     <div>
-      <PageTitle
-        title="Network"
-        description="Exceptions first across Karnataka training centres."
-        action={<Link href={`/centres/${priority.centre_id}`} className={buttonVariants({ variant: 'primary' })}>Open priority centre</Link>}
-      />
+      <header className="mb-7">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
+          <Sparkles size={14} />
+          Grounded daily intelligence
+        </div>
+        <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">KaushalAI</h1>
+        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">What changed, what needs attention, and what to do next.</p>
+      </header>
 
-      <section className="kw-surface overflow-hidden">
-        <div className="flex items-center justify-between border-b border-[#EEF1F4] px-6 py-5">
-          <div>
-            <div className="text-[14px] font-medium text-[#172033]">Karnataka network</div>
-            <div className="mt-1 text-[13px] text-[#667085]">{centres.length} centres · Simulated prototype data</div>
+      {error && !loading && (
+        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          {error}
+        </div>
+      )}
+
+      <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-8 py-8 shadow-[var(--kw-shadow)]">
+        <div className="relative z-10 max-w-[720px]">
+          <div className="flex items-center gap-2">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7C8AA5]">{periodLabel}</div>
+            {(brief?.simulated || usingFallback) && (
+              <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[10px] font-medium text-[#667085]">
+                {usingFallback ? 'Simulated fallback' : 'Simulated demo data'}
+              </span>
+            )}
           </div>
-          <div className="flex rounded-xl bg-[#F2F4F7] p-1" aria-label="Network view">
-            <button type="button" onClick={() => setView('map')} className={cn('kw-focus flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-medium', view === 'map' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#667085]')}><MapIcon size={15} /> Map</button>
-            <button type="button" onClick={() => setView('list')} className={cn('kw-focus flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] font-medium', view === 'list' ? 'bg-white text-[#172033] shadow-sm' : 'text-[#667085]')}><List size={15} /> List</button>
+
+          <h2 className="mt-3 text-[30px] font-semibold leading-[1.18] tracking-[-0.035em] text-[var(--kw-text)]">
+            {brief?.headline || counts.verified + ' of ' + counts.total + ' centres are verified.'}
+          </h2>
+
+          <div className="mt-6 space-y-3">
+            {bullets.map((text, index) => (
+              <BriefLine
+                key={text}
+                icon={index === 0 ? CheckCircle2 : index === 1 ? CircleAlert : CircleHelp}
+                tone={index === 0 ? 'verified' : index === 1 ? 'review' : 'uncertain'}
+                text={text}
+              />
+            ))}
+          </div>
+
+          {priority && (
+            <div className="mt-7 flex items-center gap-4">
+              <Link href={priority.href} className={buttonVariants({ variant: 'primary' })}>
+                {priority.label}
+                <ArrowRight size={15} />
+              </Link>
+              <span className="text-[12px] text-[#98A2B3]">{priority.centre_name} · recommended first</span>
+            </div>
+          )}
+
+          <div className="mt-6 border-t border-[#EEF2F6] pt-4 text-[11px] text-[#98A2B3]">
+            {loading ? (
+              <span>Refreshing grounded evidence…</span>
+            ) : brief ? (
+              <span>
+                Grounded in {brief.source_counts.analysis_rows_in_period} analysis runs in this period · {brief.source_counts.unresolved_or_confirmed_cases} active or confirmed cases
+              </span>
+            ) : (
+              <span>{error}</span>
+            )}
           </div>
         </div>
 
-        {view === 'map' ? (
-          <div className="relative min-h-[480px] overflow-hidden bg-[#FBFCFD]">
-            <svg className="absolute left-1/2 top-1/2 h-[390px] w-[540px] -translate-x-1/2 -translate-y-1/2 text-[#D8DEE7]" viewBox="0 0 500 360" aria-hidden="true">
-              <path d="M156 24 L238 35 L289 63 L315 103 L353 124 L340 166 L371 208 L350 254 L316 276 L296 328 L242 338 L198 310 L169 275 L132 252 L112 211 L128 169 L106 131 L123 89 Z" fill="#F3F5F8" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-            <div className="absolute left-8 top-7 text-[13px] text-[#667085]"><b className="font-medium text-[#344054]">Karnataka</b><br />Approximate centre positions</div>
-            {centres.map(centre => {
-              const seed = NETWORK_SEED[centre.centre_id] || NETWORK_SEED['DEMO-KA-104'];
-              const state = centreUiState(centre);
-              const dot = state === 'verified' ? 'bg-[#067647]' : state === 'review' ? 'bg-[#B54708]' : state === 'uncertain' ? 'bg-[#98A2B3]' : 'bg-[#667085]';
-              return (
-                <Link
-                  key={centre.centre_id}
-                  href={`/centres/${centre.centre_id}`}
-                  style={{ left: seed.map.left, top: seed.map.top }}
-                  aria-label={`${centre.name}: ${centreReason(centre)}`}
-                  className="group absolute -translate-x-1/2 -translate-y-1/2 text-center"
-                >
-                  <span className={cn('mx-auto block h-3.5 w-3.5 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(17,24,39,.12)] transition-transform duration-150 group-hover:scale-110', dot)} />
-                  <span className="mt-2 block whitespace-nowrap rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-medium text-[#475467] shadow-[0_1px_2px_rgba(16,24,40,.04)] ring-1 ring-[#E6EAF0]">
-                    {centre.name.replace(/ TC-.+$/, '')}
-                  </span>
-                </Link>
-              );
-            })}
-            {loading && <div className="absolute inset-x-8 bottom-7 h-2 overflow-hidden rounded-full bg-[#EEF1F4]"><div className="h-full w-1/3 animate-pulse rounded-full bg-[#CBD5E1]" /></div>}
-          </div>
-        ) : (
-          <div className="divide-y divide-[#EEF1F4] px-6">
-            {ordered.map(centre => {
-              const seed = simulatedFacts(centre.centre_id);
-              return <Link href={`/centres/${centre.centre_id}`} key={centre.centre_id} className="kw-focus grid min-h-20 grid-cols-[1fr_auto] items-center gap-4 py-4 hover:bg-[#FBFCFD]">
-                <div className="min-w-0"><div className="flex items-center gap-2"><span className="font-medium text-[#172033]">{centre.name}</span><span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[11px] text-[#667085]">Simulated</span></div><div className="mt-1 text-[13px] text-[#667085]">{centre.district} · {centreReason(centre)}</div></div>
-                <div className="flex items-center gap-6"><div className="hidden text-right text-xs text-[#667085] md:block"><div>{seed.reportedLabel}</div><b className="font-medium text-[#344054]">{seed.reportedValue} reported · {seed.observedValue} observed</b></div><StatusPill state={centreUiState(centre)} /></div>
-              </Link>;
-            })}
-          </div>
-        )}
+        <div className="pointer-events-none absolute -right-14 -top-16 h-72 w-72 rounded-full bg-[#F1F6FD]" />
+        <div className="pointer-events-none absolute right-12 top-1/2 flex h-24 w-24 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F8FBFF] text-[#94AED2]">
+          <Building2 size={38} strokeWidth={1.2} />
+        </div>
       </section>
 
-      <div className="mt-12 grid gap-12 lg:grid-cols-[1fr_320px]">
-        <section>
-          <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-medium text-[#172033]">Needs attention</h2>{error && <Button variant="ghost" size="sm" onClick={() => void load()}><RotateCcw size={15} /> Retry live data</Button>}</div>
-          <div className="space-y-2">
-            {needsAttention.map(centre => (
-              <Link href={`/centres/${centre.centre_id}`} key={centre.centre_id} className="kw-focus flex items-center gap-4 rounded-2xl bg-white px-5 py-4 shadow-[0_1px_2px_rgba(16,24,40,.04)] ring-1 ring-[#E6EAF0] transition-colors hover:bg-[#FBFCFD]">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#F8FAFC] text-[#667085]"><MapPin size={17} /></span>
-                <div className="min-w-0 flex-1"><div className="truncate text-[15px] font-medium text-[#172033]">{centre.name}</div><div className="mt-0.5 truncate text-[13px] text-[#667085]">{centreReason(centre)}</div></div>
-                <StatusPill state={centreUiState(centre)} />
+      <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_300px]">
+        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
+          <div className="mb-2 flex items-start justify-between">
+            <div>
+              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Centres at a glance</h2>
+              <p className="mt-0.5 text-[12px] text-[#98A2B3]">Current state · selected-period context</p>
+            </div>
+            <Link href="/centres" className="kw-focus rounded-md text-[12px] font-medium text-[var(--kw-accent-strong)]">View all</Link>
+          </div>
+
+          <div className="divide-y divide-[#EEF2F6]">
+            {centres.map(centre => (
+              <Link
+                href={centre.href}
+                key={centre.centre_id}
+                className="kw-focus grid gap-2 rounded-md py-4 transition-colors hover:bg-[#FBFCFE] md:grid-cols-[170px_1fr_auto] md:items-center"
+              >
+                <div>
+                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</div>
+                  <div className="mt-0.5 text-[11px] text-[#98A2B3]">{centre.district}</div>
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-[12px] text-[var(--kw-muted)]">{centre.reason}</div>
+                  {centre.period_analysis_count > 0 && (
+                    <div className="mt-0.5 text-[10px] text-[#98A2B3]">{centre.period_analysis_count} analysis runs in {periodLabel.toLowerCase()}</div>
+                  )}
+                </div>
+                <StatusPill state={centre.state} />
               </Link>
             ))}
           </div>
-          {error && <p className="mt-4 text-[13px] text-[#667085]">{error}</p>}
         </section>
 
-        <aside className="pt-1 text-[14px] leading-7 text-[#667085]">
-          <div className="font-medium text-[#344054]">Network summary</div>
-          <p className="mt-2">{counts.verified} verified · {counts.review} need review · {counts.uncertain} uncertain · {counts.unavailable} unavailable</p>
-          <p className="mt-3 text-xs text-[#98A2B3]">Camera trust suspends dependent conclusions when evidence is unreliable.</p>
+        <aside className="rounded-[18px] border border-[var(--kw-border)] bg-white px-5 py-5 shadow-[var(--kw-shadow)]">
+          <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Recommended next</h2>
+          <p className="mt-1 text-[12px] text-[#98A2B3]">Ranked from current evidence and escalation state.</p>
+
+          <div className="mt-3 divide-y divide-[#EEF2F6]">
+            {recommendations.map((item, index) => (
+              <Link href={item.href} key={item.centre_id} className="kw-focus flex items-start gap-3 rounded-md py-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[12px] font-semibold text-[#B54708]">{index + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{item.centre_name}</div>
+                  <div className="mt-1 text-[12px] leading-5 text-[var(--kw-muted)]">{item.reason}</div>
+                  <div className="mt-1.5 text-[11px] font-medium text-[var(--kw-accent-strong)]">{item.label}</div>
+                </div>
+                <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
+              </Link>
+            ))}
+          </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function BriefLine({
+  icon: Icon,
+  tone,
+  text,
+}: {
+  icon: typeof CheckCircle2;
+  tone: 'verified' | 'review' | 'uncertain';
+  text: string;
+}) {
+  const tones = {
+    verified: 'bg-[var(--kw-verified-bg)] text-[var(--kw-verified)]',
+    review: 'bg-[var(--kw-review-bg)] text-[var(--kw-review)]',
+    uncertain: 'bg-[var(--kw-neutral-bg)] text-[var(--kw-neutral)]',
+  };
+
+  return (
+    <div className="flex items-center gap-3">
+      <span className={'flex h-8 w-8 shrink-0 items-center justify-center rounded-full ' + tones[tone]}>
+        <Icon size={16} />
+      </span>
+      <span className="text-[14px] text-[#475467]">{text}</span>
     </div>
   );
 }

@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main, "build/**", "redesign/**"]
+    branches: [main, "build/**", "redesign/**", "restructure/**"]
 
 jobs:
   hygiene:
@@ -27,6 +27,10 @@ jobs:
       - run: python -m pip install ruff
       - run: python -m compileall -q backend/app scripts
       - run: ruff check backend/app scripts --select F821
+      - name: Validate frozen vision profile
+        run: python scripts/validate_vision_profile.py
+      - name: Check release readiness
+        run: python scripts/check_release_readiness.py
       - run: pytest -q backend/tests
       - name: Smoke-test final demo evaluator
         run: |

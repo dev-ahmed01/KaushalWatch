@@ -1,0 +1,90 @@
+{
+  "profile_id": "kaushalwatch-fixed-camera-v1",
+  "status": "frozen_sih_candidate",
+  "deployment": {
+    "camera_mode": "fixed_camera",
+    "identity_tracking": false,
+    "privacy_policy": "Track position, not identity. Retained evidence is privacy transformed."
+  },
+  "person_detection": {
+    "backend": "openvino",
+    "model": "person-detection-retail-0013",
+    "confidence": 0.45,
+    "tiled": true,
+    "tile_overlap": 0.18,
+    "tile_nms_iou": 0.45,
+    "authoritative_required": true
+  },
+  "attendance": {
+    "sample_every_seconds": 0.2,
+    "count_source": "confirmed",
+    "track_confirmation_seconds": 1.0,
+    "registration_warmup_seconds": 2.0,
+    "track_grace_seconds": 0.8,
+    "smoother_window": 3,
+    "mismatch_threshold_pct": 15.0,
+    "persistence_threshold": 0.6,
+    "minimum_trusted_ratio": 0.5
+  },
+  "practical_activity": {
+    "sample_every_seconds": 0.2,
+    "activity_window_seconds": 1.0,
+    "activity_required_ratio": 0.6,
+    "motion_threshold": 0.02,
+    "motion_pixel_delta": 18,
+    "minimum_zone_overlap": 0.15,
+    "minimum_trusted_ratio": 0.5,
+    "zone_config": "backend/app/demo_configs/work_zones.json",
+    "geometry_policy": "same_fixed_camera_view_only"
+  },
+  "camera_trust": {
+    "blur_threshold": 45.0,
+    "dark_threshold": 28.0,
+    "frozen_similarity": 0.9995,
+    "scene_shift_threshold": 0.88,
+    "trusted_score_threshold": 65.0
+  },
+  "infrastructure": {
+    "job_role_manifest": "configs/job_roles/construction_electrician.demo.json",
+    "observation_adapter": "groundingdino_human_reviewed_cache",
+    "reviewed_cache": "demo/cached_detections/dod_110930728.reviewed.json",
+    "reviewed_cache_metadata": "demo/cached_detections/dod_110930728.reviewed.json.meta.json",
+    "source_digest_required": true,
+    "quantity_claim": "Observed camera-verifiable quantities may be human reviewed; required demo quantities remain simulated unless separately sourced."
+  },
+  "operability": {
+    "method": "roi_motion_proxy",
+    "state_vocabulary": [
+      "APPARENTLY_ACTIVE",
+      "APPARENTLY_INACTIVE",
+      "UNCERTAIN",
+      "OFFICER_VERIFICATION_REQUIRED"
+    ],
+    "claim_boundary": "Visual activity proxy only; not a mechanical or electrical health diagnosis."
+  },
+  "evaluation": {
+    "detector_benchmark": {
+      "dataset_id": "epfl-laboratory-camera0",
+      "precision": 0.9145,
+      "recall": 0.8995,
+      "f1": 0.9069,
+      "occupancy_mae": 0.327,
+      "max_count_error": 2,
+      "source": "docs/benchmarks.md"
+    },
+    "attendance_dynamic_held_out": {
+      "smoothed_count_mae": 0.6667,
+      "median_absolute_error": 0.0,
+      "max_absolute_error": 3,
+      "mean_bias": -0.4444,
+      "exact_count_rate": 0.5556,
+      "source": "docs/attendance-calibration.md"
+    },
+    "promotion_policy": [
+      "Tune on calibration scenes only.",
+      "Re-run held-out scenes after any detector, temporal, camera-trust, or geometry change.",
+      "Do not promote a new profile if a claimed metric regresses without an explicit documented trade-off.",
+      "Do not generalize benchmark claims beyond the evaluated dataset and annotations."
+    ]
+  }
+}

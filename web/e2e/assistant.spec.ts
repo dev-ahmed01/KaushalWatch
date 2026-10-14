@@ -11,7 +11,7 @@ test('assistant opens only as an on-demand drawer and uses grounded starter ques
 
   await page.goto('/centres/DEMO-KA-104');
   await expect(page.getByText('KaushalWatch Assistant')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Ask assistant' }).first().click();
+  await page.getByRole('button', { name: 'Ask KaushalAI' }).first().click();
   await expect(page.getByText('KaushalWatch Assistant')).toBeVisible();
   await expect(page.getByRole('button', { name: 'What happened today?' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Why was attendance flagged?' })).toBeVisible();
@@ -29,7 +29,7 @@ test('assistant unconfigured state stays inside the drawer', async ({ page }) =>
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ enabled: true, configured: false, available: false, voice_configured: false, voice_available: false }) });
   });
   await page.goto('/centres/DEMO-KA-104');
-  await page.getByRole('button', { name: 'Ask assistant' }).first().click();
+  await page.getByRole('button', { name: 'Ask KaushalAI' }).first().click();
   await expect(page.getByText('Assistant unavailable')).toBeVisible();
   await expect(page.getByText(/Evidence review remains available throughout KaushalWatch/)).toBeVisible();
 });

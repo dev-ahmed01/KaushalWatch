@@ -1,0 +1,25 @@
+{
+  "dataset_id": "epfl-laboratory-camera0",
+  "status": "evaluated_public_benchmark",
+  "purpose": ["person_detection", "occupancy_count"],
+  "source": {
+    "name": "EPFL CVLab Laboratory 6-person sequence - Camera 0",
+    "url": "https://www.epfl.ch/labs/cvlab/data/data-pom-index-php/",
+    "usage_note": "Research-use terms and citation requirements must be reviewed before redistribution."
+  },
+  "camera": {
+    "mode": "fixed_camera",
+    "camera_count_used": 1,
+    "camera_id": "camera0"
+  },
+  "splits": [
+    {
+      "split_id": "benchmark",
+      "role": "held_out_benchmark",
+      "video": "local-only/6p-c0.avi",
+      "annotations": "local-only/epfl-camera0-ground-truth",
+      "labels": ["person_boxes", "occupancy_count"]
+    }
+  ],
+  "claim_boundary": "Validates person detection and occupancy behavior only; it does not validate PMKVY infrastructure, attendance records, or final compliance decisions."
+}

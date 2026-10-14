@@ -1,4 +1,4 @@
-import type { AssistantReply, AssistantStatus, CaseRecord, Centre } from './types';
+import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights } from './types';
 
 export const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -8,8 +8,28 @@ async function parse<T>(response: Response): Promise<T> {
   return payload as T;
 }
 
+export async function getActionQueue(period = 'yesterday') {
+  return parse<ActionQueue>(await fetch(`${API}/api/actions?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
+}
+
+export async function getNetworkInsights(period = 'last_7_days') {
+  return parse<NetworkInsights>(await fetch(`${API}/api/insights?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
+}
+
+export async function getKaushalBrief(period = 'yesterday') {
+  return parse<KaushalBrief>(await fetch(`${API}/api/kaushalai/brief?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
+}
+
 export async function getCentres() {
   return parse<{ centres: Centre[]; total: number }>(await fetch(`${API}/api/centres`, { cache: 'no-store' }));
+}
+
+export async function getActivityIntelligence(centreId: string, period = 'yesterday') {
+  return parse<ActivityIntelligence>(await fetch(`${API}/api/centres/${encodeURIComponent(centreId)}/activity-intelligence?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
+}
+
+export async function getCentreIntelligence(centreId: string, period = 'last_7_days') {
+  return parse<CentreIntelligence>(await fetch(`${API}/api/centres/${encodeURIComponent(centreId)}/intelligence?period=${encodeURIComponent(period)}`, { cache: 'no-store' }));
 }
 
 export async function getCentre(centreId: string) {
@@ -32,7 +52,7 @@ export async function getCases() {
 }
 
 export async function getEvidencePack(caseId: string) {
-  return parse<{ prototype: boolean; case: CaseRecord; integrity: any[]; decision_policy: string }>(
+  return parse<EvidenceReviewPack>(
     await fetch(`${API}/api/cases/${encodeURIComponent(caseId)}/evidence-pack`, { cache: 'no-store' }),
   );
 }

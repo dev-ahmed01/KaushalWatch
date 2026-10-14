@@ -1,2 +1,2 @@
 import { redirect } from 'next/navigation';
-export default function AnalyticsRedirect(){ redirect('/reports?tab=analytics'); }
+export default function AnalyticsRedirect(){ redirect('/insights'); }

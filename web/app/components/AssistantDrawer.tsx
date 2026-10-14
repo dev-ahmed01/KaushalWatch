@@ -84,7 +84,7 @@ export default function AssistantDrawer({ open, onOpenChange, centreId }: { open
                   <Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="Close assistant"><X size={19} /></Button></Dialog.Close>
                 </div>
 
-                <div className="kw-scrollbar flex-1 overflow-y-auto px-6 py-6">
+                <div className="kw-scrollbar flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6" aria-live="polite" aria-busy={busy}>
                   {!configured ? (
                     <div className="rounded-2xl bg-[#F8FAFC] p-6">
                       <Bot size={21} className="text-[#667085]" />
@@ -113,7 +113,7 @@ export default function AssistantDrawer({ open, onOpenChange, centreId }: { open
                       {busy && <div className="flex items-center gap-2 text-[14px] text-[#667085]"><LoaderCircle size={16} className="animate-spin" /> Reviewing recorded evidence…</div>}
                     </div>
                   )}
-                  {error && <div className="mt-5 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[14px] text-[#B42318]">{error}</div>}
+                  {error && <div role="alert" className="mt-5 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[14px] text-[#B42318]">{error}</div>}
                 </div>
 
                 <form onSubmit={submit} className="border-t border-[#EEF1F4] p-4">

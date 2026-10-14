@@ -134,3 +134,19 @@ export function effectivePillarValue(centre: Centre, pillar: PillarKey) {
   if (pillar === 'camera') return centre.camera_status;
   return centre.evidence_integrity_status || 'pending';
 }
+
+
+export const AI_FIRST_CENTRE_IDS = [
+  'DEMO-KA-104',
+  'DEMO-KA-112',
+  'DEMO-KA-207',
+  'DEMO-KA-303',
+  'DEMO-KA-509',
+] as const;
+
+export function aiFirstCentres(centres: Centre[], allowFallback = true) {
+  const byId = new Map(centres.map(centre => [centre.centre_id, centre]));
+  return AI_FIRST_CENTRE_IDS
+    .map(id => byId.get(id) || (allowFallback ? FALLBACK_CENTRES.find(centre => centre.centre_id === id) : undefined))
+    .filter((centre): centre is Centre => Boolean(centre));
+}
