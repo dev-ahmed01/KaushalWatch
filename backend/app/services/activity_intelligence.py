@@ -86,7 +86,9 @@ def _merge_adjacent_low_periods(buckets: list[dict[str, Any]], threshold: float)
             continue
         previous = merged[-1]
         gap = (item["start"] - previous["end"]).total_seconds() / 60.0
-        if gap <= 15:
+        # Missing camera observations are not sustained low activity.
+        # Only contiguous or overlapping observed windows can be merged.
+        if gap <= 0:
             previous_duration = _minutes(previous["start"], previous["end"])
             item_duration = _minutes(item["start"], item["end"])
             total_duration = previous_duration + item_duration

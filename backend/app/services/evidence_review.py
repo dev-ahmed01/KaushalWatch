@@ -91,10 +91,19 @@ def _history_temporal_points(
     analysis_type = CASE_TO_ANALYSIS.get(case.case_type)
     if not analysis_type:
         return []
+    # Temporal proof must be from this case's batch and observation window.
+    # Unrelated batches, future analyses, or undated records are not proof.
+    created = _parse(case.created_at)
+    if created is None:
+        return []
+    window_start = created - timedelta(hours=24)
     relevant = [
         row for row in history
         if row.get("analysis_type") == analysis_type
         and str(row.get("centre_id") or "") == case.centre_id
+        and str(row.get("batch_id") or "") == case.batch_id
+        and (observed := _parse(row.get("created_at"))) is not None
+        and window_start <= observed <= created
     ]
     relevant.sort(key=lambda row: str(row.get("created_at") or ""))
     points = []
