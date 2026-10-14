@@ -1,6 +1,12 @@
 name: vision-benchmark
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/vision-benchmark.yml"
+      - "evaluation/benchmark_epfl_detection.py"
+      - "backend/app/services/person_detector.py"
   workflow_dispatch:
   pull_request:
     paths:
@@ -9,7 +15,7 @@ on:
 jobs:
   epfl-person-detection:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -39,6 +45,20 @@ jobs:
           KAUSHALWATCH_PERSON_CONFIDENCE: "0.45"
         run: |
           python evaluation/benchmark_epfl_detection.py             --video data/raw/epfl/6p-c0.avi             --ground-truth data/raw/epfl/laboratory6-c0-gt.txt             --out-dir evaluation/output/epfl-openvino             --detector openvino             --step-frames 25             --iou-threshold 0.5
+
+      - name: Verify real OpenVINO outputs before comparison
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("evaluation/output/epfl-openvino/count_metrics.json").read_text())
+          assert report["detector"] == "openvino"
+          assert report["evaluated_frames"] > 0
+          assert report["true_positives"] + report["false_negatives"] > 0
+          assert 0 <= report["person_precision"] <= 1
+          assert 0 <= report["person_recall"] <= 1
+          print("EPFL OpenVINO real-inference evaluated frames:", report["evaluated_frames"])
+          PY
 
       - name: Compare detectors
         run: |

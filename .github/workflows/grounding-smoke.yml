@@ -1,6 +1,12 @@
 name: grounding-smoke
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/grounding-smoke.yml"
+      - "scripts/smoke_live_grounding_adapter.py"
+      - "backend/app/services/live_equipment.py"
   workflow_dispatch:
   pull_request:
     paths:
@@ -9,7 +15,7 @@ on:
 jobs:
   grounding-dino-image:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
 
@@ -22,11 +28,34 @@ jobs:
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r backend/requirements-grounding.txt
+          pip install opencv-python-headless==4.10.0.84 numpy==2.2.1
 
       - name: Run CC0 electrical-workroom smoke test
         run: |
           python scripts/smoke_grounding_dino_image.py \
             --out /tmp/kaushalwatch-grounding-smoke.json
+
+      - name: Execute locally pinned GroundingDINO adapter with actual weights
+        run: |
+          python scripts/smoke_live_grounding_adapter.py \
+            --workspace /tmp/kw-grounding-real \
+            --out /tmp/kaushalwatch-live-grounding-adapter.json
+
+      - name: Validate actual model execution provenance
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path("/tmp/kaushalwatch-live-grounding-adapter.json").read_text())
+          assert result["status"] == "real_groundingdino_local_adapter_executed"
+          assert result["model_inference_executed"] is True
+          assert result["qualified"] is False
+          assert len(result["model_revision"]) == 40
+          assert result["model_artifact_sha256"]
+          assert set(result["prompts"]) == set(p["label"] for p in result["proposals"])
+          assert all(p["proposal_status"] == "unreviewed_model_proposal" for p in result["proposals"])
+          print("GroundingDINO live adapter actual-model provenance verified")
+          PY
 
       - name: Validate smoke output schema
         run: |
@@ -44,6 +73,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: grounding-dino-smoke
-          path: /tmp/kaushalwatch-grounding-smoke.json
+          path: |
+            /tmp/kaushalwatch-grounding-smoke.json
+            /tmp/kaushalwatch-live-grounding-adapter.json
           if-no-files-found: error
           retention-days: 7
