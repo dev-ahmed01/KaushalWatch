@@ -9,4 +9,4 @@ httpx==0.28.1
 openai-agents==0.23.1
 psycopg[binary]==3.2.10
 boto3==1.40.45
-PyJWT[crypto]==2.10.1
+PyJWT[crypto]>=2.15.0,<3.0
