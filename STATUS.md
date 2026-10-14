@@ -1,5 +1,52 @@
 # Build Status
 
+## Release candidate integration audit — 14 October 2026
+
+**Scope:** Draft PR #55 targeting `restructure/kaushalai-first-v1`, not
+`main`. This audit is a release-coordination gate, **not** a sign-off for
+deployment with real CCTV, real officer accounts or public cloud resources.
+
+At audit start, PR #55 is mergeable with no GitHub-reported conflicts, but is
+**222 commits / 120 changed files ahead** of its target branch. The target
+restructure branch is itself **143 commits ahead** of `main`, in separate
+unmerged PR #53. Therefore a green PR #55 check cannot be treated as a
+verified merge into `main` or as final system release.
+
+Draft Camera Trust PR #54 contains 53 independent commits relative to the
+same target; its 34 changed files overlap PR #55 in only the practical-activity
+and video pipelines. Those overlapping implementations require explicit
+integration review and separate held-out validation. Nothing from PR #54 is
+automatically merged into RC1.
+
+**Integration gap closed in this audit:** The previous independent CI checks
+tested (a) real PostgreSQL with mocked private S3 and static staging keys and
+(b) signed OIDC browser login on JSON-only synthetic storage. Neither checked
+signed OIDC officer grants, PostgreSQL transactional cases and encrypted
+object-backed evidence together in one request path. New
+`backend/tests/test_release_integration.py` tests all three on the same
+FastAPI application using PostgreSQL 16, a simulated immutable S3 service,
+ephemeral RS256 signing keys and strict staging authorization. No real cloud
+resources or actual personal images are accessed.
+
+**Merge disposition:** Keep PR #55 in draft. Do **not** merge it into the
+restructure branch or `main` until cross-stack CI, ownership review and
+approved release claim boundaries are satisfied. PR #53 and PR #54 remain
+separate; this audit is not evidence that all historic branches can be deleted.
+
+### Blocking before deployment
+
+- Independently annotated, licensed, multi-camera footage meeting the frozen
+  held-out acceptance criteria; held-out release gate is still NOT qualified.
+- Actual IdP with MFA and provisioning/revocation lifecycle; browser tests
+  use an ephemeral simulated signer.
+- Real private S3/KMS IAM acceptance, retention/holds, deployment backups and
+  an observed multi-instance failover/restore test.
+- Human review of the large merge, plus a separate reconciliation of the
+  unvalidated Camera Trust change in the shared pipelines.
+
+Full criteria: `docs/release/RC1_INTEGRATION_AUDIT.md`.
+
+
 
 ## SIH release integration (draft PR #55 — not merged)
 
