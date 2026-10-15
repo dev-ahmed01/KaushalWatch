@@ -11,6 +11,10 @@ on:
   pull_request:
     paths:
       - ".github/vision-trigger"
+      - ".github/workflows/vision-benchmark.yml"
+      - "scripts/run_real_public_video_pipeline.py"
+      - "backend/app/services/video_pipeline.py"
+      - "backend/app/services/track_presence.py"
 
 jobs:
   epfl-person-detection:
@@ -73,6 +77,7 @@ jobs:
           python scripts/run_real_public_video_pipeline.py \
             --video data/raw/epfl/6p-c0.avi \
             --seconds 6 \
+            --ground-truth data/raw/epfl/laboratory6-c0-gt.txt \
             --out evaluation/output/epfl-real-pipeline-diagnostic.json
           python - <<'PY'
           import json
@@ -84,7 +89,40 @@ jobs:
           assert x["practical"]["detector_authoritative"] is True
           assert x["practical"]["authorization"] == "unknown"
           assert x["practical"]["decision"] != "unauthorized_practical_activity"
+          assert x["temporal_diagnostic"]["all_sampled_frames"] == x["attendance"]["frames_sampled"]
+          assert x["temporal_diagnostic"]["eligible_post_warmup_samples"] > 0
+          assert x["temporal_diagnostic"]["classification"]
+          assert x["public_annotation_diagnostic"]["annotation_sha256"]
+          print("Temporal zero-occupancy classification:", x["temporal_diagnostic"]["classification"])
+          print("EPFL early annotated-person samples:", x["public_annotation_diagnostic"]["sampled_frames_with_person_boxes"])
           print("Real model end-to-end diagnostic passed; no training-centre claims permitted")
+          PY
+          # Follow the same unmodified frozen detector/profile beyond the
+          # late (~5.4 s) first annotated entrance. Development diagnostic only.
+          python scripts/run_real_public_video_pipeline.py \
+            --video data/raw/epfl/6p-c0.avi \
+            --seconds 15 \
+            --ground-truth data/raw/epfl/laboratory6-c0-gt.txt \
+            --out evaluation/output/epfl-real-pipeline-15s-diagnostic.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x = json.loads(Path("evaluation/output/epfl-real-pipeline-15s-diagnostic.json").read_text())
+          assert x["qualified"] is False
+          assert x["attendance"]["detector_authoritative"] is True
+          assert x["attendance"]["detector_failures"] == 0
+          assert x["public_annotation_diagnostic"]["sampled_frames_with_person_boxes"] >= 2
+          # Prevent a green smoke test from silently accepting a detector /
+          # tracker regression that collapses a longer person-present scene.
+          assert x["temporal_diagnostic"]["post_warmup_confirmed_positive_samples"] > 0
+          assert x["temporal_diagnostic"]["post_warmup_smoothed_positive_samples"] > 0
+          assert x["attendance"]["estimated_occupancy"] > 0
+          print("Longer public window confirmation classification:",
+                x["temporal_diagnostic"]["classification"])
+          print("Confirmed-positive samples:",
+                x["temporal_diagnostic"]["post_warmup_confirmed_positive_samples"])
+          print("15s estimated occupancy:", x["attendance"]["estimated_occupancy"])
+
           PY
 
       - name: Compare detectors
@@ -99,5 +137,6 @@ jobs:
             evaluation/output/epfl-openvino/
             evaluation/output/epfl-detector-comparison.json
             evaluation/output/epfl-real-pipeline-diagnostic.json
+            evaluation/output/epfl-real-pipeline-15s-diagnostic.json
           if-no-files-found: error
           retention-days: 14

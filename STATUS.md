@@ -1,5 +1,13 @@
 # Build Status
 
+## Phase 3C — real public temporal diagnosis reproduced (15 October 2026)
+
+- **Verified 6-second vs 15-second EPFL diagnosis:** The original zero confirmed occupancy is explained by the first annotated person appearing around 5.44 s while the frozen tracker requires one second of observation. On the extended unmodified run, the first confirmed track occurred at 6.2 s, and median occupancy became 1. [Real OpenVINO run #38674265976](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38674265976).
+- The same real pipeline produced **44 confirmed-positive samples across 75 sampled frames in the 15-second run**, with **zero runtime detector failures**. The reported attendance of 3 remains synthetic and is **not real compliance evidence**.
+- The runtime-only diagnostic distinguishes detector, temporal confirmation and smoothing while withholding pre-warmup/untrusted counts. Source and validation details: docs/release/PHASE3C_REAL_TEMPORAL_DIAGNOSTICS.md.
+- Machine-readable inventory: evaluation/phase3c_asset_readiness.json. **Five independent accuracy pillars remain blocked:** authorized real footage and blinded per-pillar annotations are unavailable. **Pilot readiness remains FALSE.**
+- Camera Trust experimental PR #54 remains isolated. Frozen vision thresholds are unchanged.
+
 ## Phase 3B — Real models executed on public-source test media
 
 - **Reproducible OpenVINO**: 113 labelled EPFL Camera 0 frames; precision 91.45%, recall 89.95%, F1 90.69%, occupancy MAE 0.327. [Actual benchmark run #38606324935](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38606324935).
