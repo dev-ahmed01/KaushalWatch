@@ -92,6 +92,10 @@ jobs:
           assert x["temporal_diagnostic"]["all_sampled_frames"] == x["attendance"]["frames_sampled"]
           assert x["temporal_diagnostic"]["eligible_post_warmup_samples"] > 0
           assert x["temporal_diagnostic"]["classification"]
+          assert x["attendance"]["decision"] == "attendance_evidence_insufficient"
+          assert x["attendance"]["estimated_occupancy"] is None
+          assert x["attendance"]["attendance_evidence_reason"] == "raw_person_detections_unconfirmed"
+          assert x["attendance"]["post_warmup_trusted_samples"] > 0
           assert x["public_annotation_diagnostic"]["annotation_sha256"]
           print("Temporal zero-occupancy classification:", x["temporal_diagnostic"]["classification"])
           print("EPFL early annotated-person samples:", x["public_annotation_diagnostic"]["sampled_frames_with_person_boxes"])
