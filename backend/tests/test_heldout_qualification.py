@@ -402,3 +402,35 @@ def test_unusable_numeric_frozen_attendance_settings_fail_closed(protocol):
     edit(protocol, lambda d: d["vision_profile"].update({"sha256": digest(profile)}))
     with pytest.raises(ValueError, match="finite numeric"):
         q.load_protocol(protocol, allow_fixture=True)
+
+
+
+def test_insufficient_evidence_withheld_from_counts_and_case_scoring(protocol):
+    first = q.load_protocol(protocol, allow_fixture=True)["scenes"][0]["video_path"]
+
+    def insufficient_one(video, reported, camera, profile):
+        result = fake_inference(video, reported, camera, profile)
+        if video == first:
+            result["decision"] = "attendance_evidence_insufficient"
+            result["samples"] = [
+                {**row, "eligible": False, "smoothed_count": None}
+                for row in result["samples"]
+            ]
+        return result
+
+    report = q.qualify(protocol, inference=insufficient_one, test_fixture=True)
+    assert report["qualified"] is False
+    assert report["metrics"]["case_coverage"] == pytest.approx(5 / 6)
+    assert report["metrics"]["count_coverage"] == pytest.approx(20 / 24)
+    assert report["criteria"]["case_coverage"] is False
+    assert report["support"]["trusted_count_samples"] == 20
+
+
+def test_insufficient_evidence_must_not_score_counts_as_valid(protocol):
+    def improperly_eligible(*args):
+        result = fake_inference(*args)
+        result["decision"] = "attendance_evidence_insufficient"
+        return result
+
+    with pytest.raises(ValueError, match="must withhold scored counts"):
+        q.qualify(protocol, inference=improperly_eligible, test_fixture=True)
