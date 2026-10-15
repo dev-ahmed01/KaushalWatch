@@ -420,9 +420,13 @@ def qualify(manifest_path: Path, *, inference: Callable | None = None,
         scene_coverages.append(scene_eligible / len(scene["truth_rows"]))
         decision = output.get("decision")
         if decision not in {"attendance_exception", "compliant",
-                            "camera_integrity_exception", "detector_unavailable"}:
+                            "camera_integrity_exception", "detector_unavailable",
+                            "attendance_evidence_insufficient"}:
             raise ValueError("Unknown attendance decision")
-        if output["failures"] or decision in {"camera_integrity_exception", "detector_unavailable"}:
+        if output["failures"] or decision in {
+            "camera_integrity_exception", "detector_unavailable",
+            "attendance_evidence_insufficient",
+        }:
             problems.append("abstained_case_opportunity")
             continue
         decision_eligible += 1
