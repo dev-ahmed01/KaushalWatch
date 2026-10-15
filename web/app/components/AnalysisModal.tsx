@@ -89,18 +89,33 @@ export default function AnalysisModal({ open, onOpenChange, centre, onComplete }
       update(1, unavailable ? 'error' : 'done', unavailable ? `${unavailable} checkpoint${unavailable === 1 ? '' : 's'} unavailable; conclusions remain suspended there.` : 'Trusted visual evidence processed.');
 
       update(2, 'running');
-      const temporalDetail = attendance?.decision === 'attendance_exception'
-        ? 'Attendance discrepancy persisted across multiple trusted periods.'
-        : attendance?.decision === 'compliant'
-          ? 'No persistent attendance discrepancy was recorded.'
-          : 'Temporal conclusion unavailable where camera or detector trust was insufficient.';
-      update(2, 'done', temporalDetail);
+      const evidenceInsufficient = attendance?.decision === 'attendance_evidence_insufficient';
+      const insufficiencyReasons: Record<string, string> = {
+        no_post_warmup_observations: 'Recording ended before usable attendance observations began. Capture a longer clip.',
+        insufficient_post_warmup_camera_coverage: 'Camera evidence was not usable for enough of the verification period. Check the view and record again.',
+        too_few_trusted_post_warmup_samples: 'Too few reliable frames were available for an attendance conclusion.',
+        insufficient_trusted_temporal_span: 'The usable recording was too short to confirm occupancy. Capture a longer clip.',
+        raw_person_detections_unconfirmed: 'People were detected, but did not remain observable long enough to confirm occupancy.',
+      };
+      const temporalDetail = evidenceInsufficient
+        ? insufficiencyReasons[String(attendance?.attendance_evidence_reason || '')]
+          || 'Attendance inconclusive: insufficient reliable temporal evidence.'
+        : attendance?.decision === 'attendance_exception'
+          ? 'Attendance discrepancy persisted across multiple trusted periods.'
+          : attendance?.decision === 'compliant'
+            ? 'No persistent attendance discrepancy was recorded.'
+            : 'Temporal conclusion unavailable where camera or detector trust was insufficient.';
+      update(2, evidenceInsufficient ? 'error' : 'done', temporalDetail);
 
       update(3, 'running');
       const dashboard = await getDashboard(centre.centre_id);
       const updated = await getCentre(centre.centre_id);
       const count = Number(dashboard?.open_cases ?? dashboard?.pending_cases?.length ?? updated.pending_cases ?? 0);
-      update(3, 'done', count ? `${count} case${count === 1 ? '' : 's'} ready for officer review.` : 'No new officer decision is required.');
+      update(3, 'done', evidenceInsufficient
+        ? 'No attendance case was created because the recording could not support a conclusion. Obtain usable evidence.'
+        : count
+          ? `${count} case${count === 1 ? '' : 's'} ready for officer review.`
+          : 'No new officer decision is required.');
       onComplete?.(updated);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Analysis could not be completed.';
