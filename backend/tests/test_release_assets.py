@@ -24,10 +24,10 @@ def _hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _write_video(path: Path):
+def _write_video(path: Path, *, frames: int = 30):
     writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"MJPG"), 10, (96, 72))
     assert writer.isOpened()
-    for frame_no in range(30):
+    for frame_no in range(frames):
         image = np.full((72, 96, 3), 140 + frame_no % 5, dtype=np.uint8)
         writer.write(image)
     writer.release()
@@ -646,6 +646,20 @@ def _operational_fixture(tmp_path, monkeypatch, *, reported_attendance=0):
     from evaluation.capture_operational_attendance import capture_operational_attendance
 
     manifest = _build_manifest(tmp_path)
+    # Operational case decisions need a meaningful post-warmup window.
+    # Keep the general 30-frame synthetic manifest fixture intact for all
+    # other release-asset tests, but expand this isolated decision fixture.
+    clip = tmp_path / "synthetic.avi"
+    _write_video(clip, frames=65)
+    base = json.loads(manifest.read_text())
+    for asset in base["assets"]:
+        asset["sha256"] = _hash(clip)
+    cache_meta = tmp_path / "reviewed-cache.meta.json"
+    cache_data = json.loads(cache_meta.read_text())
+    cache_data["source_video"]["sha256"] = _hash(clip)
+    cache_meta.write_text(json.dumps(cache_data))
+    base["equipment_cache"]["metadata"]["sha256"] = _hash(cache_meta)
+    manifest.write_text(json.dumps(base))
     attendance = tmp_path / "attendance.csv"
     issue = "true" if reported_attendance else "false"
     _write_csv(
