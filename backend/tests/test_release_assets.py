@@ -1015,6 +1015,24 @@ def test_case_verifier_rejects_tampered_whole_video_decision_or_missing_timeline
                                            cases, receipt, _hash(manifest), "C2")
 
 
+def test_case_verifier_abstains_on_explicit_insufficient_attendance_evidence(
+    tmp_path, monkeypatch
+):
+    import pytest
+    from evaluation.attendance_case_decision_verification import verify_attendance_case_opportunity
+
+    manifest, cases, receipt, record = _case_attendance_fixture(tmp_path, monkeypatch)
+    record["pipeline_result"]["decision"] = "attendance_evidence_insufficient"
+    record["pipeline_result"]["estimated_occupancy"] = None
+    record["pipeline_result"]["discrepancy_pct"] = None
+    receipt.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="case evaluation must abstain"):
+        verify_attendance_case_opportunity(
+            manifest, tmp_path / "attendance.csv",
+            cases, receipt, _hash(manifest), "C2"
+        )
+
+
 def test_case_verifier_rejects_tampered_persistence_and_insufficient_camera(
     tmp_path, monkeypatch
 ):
