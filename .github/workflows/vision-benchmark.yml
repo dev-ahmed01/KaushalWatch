@@ -112,6 +112,11 @@ jobs:
           assert x["attendance"]["detector_authoritative"] is True
           assert x["attendance"]["detector_failures"] == 0
           assert x["public_annotation_diagnostic"]["sampled_frames_with_person_boxes"] >= 2
+          # Prevent a green smoke test from silently accepting a detector /
+          # tracker regression that collapses a longer person-present scene.
+          assert x["temporal_diagnostic"]["post_warmup_confirmed_positive_samples"] > 0
+          assert x["temporal_diagnostic"]["post_warmup_smoothed_positive_samples"] > 0
+          assert x["attendance"]["estimated_occupancy"] > 0
           print("Longer public window confirmation classification:",
                 x["temporal_diagnostic"]["classification"])
           print("Confirmed-positive samples:",
