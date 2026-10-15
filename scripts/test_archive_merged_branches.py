@@ -60,6 +60,37 @@ class BranchCleanupSafety(unittest.TestCase):
         self.assertFalse(good)
         self.assertEqual(len(skipped),2)
 
+    def test_phase3c_exact_squash_merged_heads_are_prunable(self):
+        # A squash merge changes main's ancestry, not the merged PR's head
+        # identity. Only exact, unchanged source heads may be archived.
+        heads = {
+            "phase3c/epfl-temporal-diagnosis": "9b21fc5a698d1a43e6b19981db9a73e883ef8b80",
+            "phase3c/heldout-runtime-fidelity": "0cf7334da7ac316feb5ebb70704e27593ea8c851",
+            "phase3c/attendance-evidence-abstention": "3a49987625d34f8a749b901bc1f27e4642338ae4",
+            "phase3c/independent-cohort-preflight": "98064aefb7fa79047998c7ffe1ce9be38ea20bf2",
+        }
+        branches = [branch("main")] + [branch(name, sha) for name, sha in heads.items()]
+        branches.append(branch("fix/uhctd-camera-trust-v2", "0fd1076bd2b80ebe1e570b1c3351ab589f273857"))
+        prs = [pr(name, sha) for name, sha in heads.items()]
+        prs.append(pr("fix/uhctd-camera-trust-v2",
+                      "0fd1076bd2b80ebe1e570b1c3351ab589f273857",
+                      state="open", merged=False))
+        selected, skipped = select_branches(branches, prs, REPO, "main")
+        self.assertEqual({row["branch"]: row["sha"] for row in selected}, heads)
+        self.assertEqual({row["branch"] for row in skipped},
+                         {"main", "fix/uhctd-camera-trust-v2"})
+        self.assertTrue(all(row["reason"] == "protected-by-policy" for row in skipped))
+
+    def test_phase3c_moved_tip_must_not_be_deleted(self):
+        merged_sha = "98064aefb7fa79047998c7ffe1ce9be38ea20bf2"
+        selected, skipped = select_branches(
+            [branch("phase3c/independent-cohort-preflight", "a" * 40)],
+            [pr("phase3c/independent-cohort-preflight", merged_sha)],
+            REPO, "main",
+        )
+        self.assertFalse(selected)
+        self.assertEqual(skipped[0]["reason"], "no-exact-merged-PR-head")
+
     def test_foreign_repo_merged_pr_cannot_delete_local_branch(self):
         good, skipped = select_branches(
             [branch("copied")],
