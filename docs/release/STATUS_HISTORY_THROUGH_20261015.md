@@ -1,0 +1,200 @@
+# Historical build-status snapshots before the Phase 3C main cleanup
+
+> Archived from `STATUS.md` on 15 October 2026. This content records earlier implementation and PR states. **It is not the current status or release approval.** See root `STATUS.md` for verified current state.
+
+---
+
+# Build Status
+
+## Phase 3C — real public temporal diagnosis reproduced (15 October 2026)
+
+- **Verified 6-second vs 15-second EPFL diagnosis:** The original zero confirmed occupancy is explained by the first annotated person appearing around 5.44 s while the frozen tracker requires one second of observation. On the extended unmodified run, the first confirmed track occurred at 6.2 s, and median occupancy became 1. [Real OpenVINO run #38674265976](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38674265976).
+- The same real pipeline produced **44 confirmed-positive samples across 75 sampled frames in the 15-second run**, with **zero runtime detector failures**. The reported attendance of 3 remains synthetic and is **not real compliance evidence**.
+- The runtime-only diagnostic distinguishes detector, temporal confirmation and smoothing while withholding pre-warmup/untrusted counts. Source and validation details: docs/release/PHASE3C_REAL_TEMPORAL_DIAGNOSTICS.md.
+- Machine-readable inventory: evaluation/phase3c_asset_readiness.json. **Five independent accuracy pillars remain blocked:** authorized real footage and blinded per-pillar annotations are unavailable. **Pilot readiness remains FALSE.**
+- Camera Trust experimental PR #54 remains isolated. Frozen vision thresholds are unchanged.
+
+## Phase 3B — Real models executed on public-source test media
+
+- **Reproducible OpenVINO**: 113 labelled EPFL Camera 0 frames; precision 91.45%, recall 89.95%, F1 90.69%, occupancy MAE 0.327. [Actual benchmark run #38606324935](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38606324935).
+- **Pinned offline GroundingDINO**: real CPU inference using model revision `a2bb814dd30d776dcf7e30523b00659f4f141c71` and nine SHA-pinned files; public image yielded two workbench and zero chair proposals, **unverified labels**. [Pinned run #38607088769](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38607088769).
+- **Full pipeline**: actual frozen-profile tiled OpenVINO on six-second EPFL excerpt across attendance/camera evidence/practical paths, each 30 samples with zero runtime detector errors. Synthetic attendance register and unknown authorization mean **no compliance inference is validated**. [Cross-pipeline run #38607088793](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/38607088793).
+- Detailed claim boundaries and reproduction: `docs/release/PHASE3B_REAL_MODEL_EXECUTION.md`.
+- Pilot deployment and independent training-centre held-out accuracy remain **NOT QUALIFIED**; PR #54 Camera Trust is still draft/unmerged.
+
+
+## Current branch integration status — 14 October 2026
+
+- **PR #53 and PR #55 have been merged into `main`**, using merge commits to preserve original history.
+- The release code and AI-evaluation tooling are integrated, but **real-world pilot accuracy, external SSO/MFA, and live KMS/IAM deployment remain unqualified**.
+- Experimental Camera Trust PR #54 is **not** merged, remains draft and is the **only** remaining non-main branch.
+- Legacy PRs #25, #31 and #34 were reviewed and closed as superseded, **not merged**; their source commits were archived before deleting their branches.
+- **Phase 3A reconciliation completed:** 61 original live branches were reduced to **two** across both cleanup passes. **59 deleted tips were preserved by archive tags**. See `docs/release/PHASE3A_BRANCH_RECONCILIATION.md`.
+- Historical audit sections below describe the *pre-merge* repository state and must not be mistaken for current PR status.
+- Repository cleanup/archival instructions and scope: `docs/release/MAIN_CONSOLIDATION.md`.
+
+
+## Release candidate integration audit — 14 October 2026
+
+**Scope:** Draft PR #55 targeting `restructure/kaushalai-first-v1`, not
+`main`. This audit is a release-coordination gate, **not** a sign-off for
+deployment with real CCTV, real officer accounts or public cloud resources.
+
+At audit start, PR #55 is mergeable with no GitHub-reported conflicts, but is
+**222 commits / 120 changed files ahead** of its target branch. The target
+restructure branch is itself **143 commits ahead** of `main`, in separate
+unmerged PR #53. Therefore a green PR #55 check cannot be treated as a
+verified merge into `main` or as final system release.
+
+Draft Camera Trust PR #54 contains 53 independent commits relative to the
+same target; its 34 changed files overlap PR #55 in only the practical-activity
+and video pipelines. Those overlapping implementations require explicit
+integration review and separate held-out validation. Nothing from PR #54 is
+automatically merged into RC1.
+
+**Integration gap closed in this audit:** The previous independent CI checks
+tested (a) real PostgreSQL with mocked private S3 and static staging keys and
+(b) signed OIDC browser login on JSON-only synthetic storage. Neither checked
+signed OIDC officer grants, PostgreSQL transactional cases and encrypted
+object-backed evidence together in one request path. New
+`backend/tests/test_release_integration.py` tests all three on the same
+FastAPI application using PostgreSQL 16, a simulated immutable S3 service,
+ephemeral RS256 signing keys and strict staging authorization. No real cloud
+resources or actual personal images are accessed.
+
+**Merge disposition:** Keep PR #55 in draft. Do **not** merge it into the
+restructure branch or `main` until cross-stack CI, ownership review and
+approved release claim boundaries are satisfied. PR #53 and PR #54 remain
+separate; this audit is not evidence that all historic branches can be deleted.
+
+### Blocking before deployment
+
+- Independently annotated, licensed, multi-camera footage meeting the frozen
+  held-out acceptance criteria; held-out release gate is still NOT qualified.
+- Actual IdP with MFA and provisioning/revocation lifecycle; browser tests
+  use an ephemeral simulated signer.
+- Real private S3/KMS IAM acceptance, retention/holds, deployment backups and
+  an observed multi-instance failover/restore test.
+- Human review of the large merge, plus a separate reconciliation of the
+  unvalidated Camera Trust change in the shared pipelines.
+
+Full criteria: `docs/release/RC1_INTEGRATION_AUDIT.md`.
+
+
+
+## SIH release integration (draft PR #55 — not merged)
+
+The controlled SIH MVP release branch is `release/kaushalwatch-sih-mvp`, based on the verified but unmerged AI-first PR #53. The experimental Camera Trust draft PR #54 is **not** part of the release branch and must not be silently promoted.
+
+Release-specific additions:
+- `docs/release/SIH_MVP_TRACKER.md` defines **five finite acceptance milestones**, source-audited claim boundaries and remaining real-video/rehearsal gates.
+- `scripts/verify_release_assets.py` now enforces local exact video SHA-256 identity, five video roles, four SHA-bound independent-annotation CSV schemas (including negative case opportunities), licensed/privacy-described provenance, case/scenario binding, reviewed equipment-source metadata and cut-safe operability interval. Both final readiness and final rehearsal require the manifest. All checked-in media-manifest values are intentionally placeholders, not certified results; see `docs/release/final-media-freeze.md`.
+- `scripts/check_frontend_api_contracts.py` and backend regression tests check **22 officer-facing frontend-to-FastAPI route/method contracts**; CI runs this gate.
+- Officer review writes now support explicit `KAUSHALWATCH_REVIEW_AUTH_MODE=token` with distinct backend-configured bearer credentials mapped to officer IDs. The server supplies the audit actor. Missing/bad tokens are rejected without changing case state.
+- Default **local development/demo** mode still allows a synthetic judge walkthrough, with the actor explicitly labelled `prototype_officer`. The server refuses unauthenticated demo reviews in `pilot`, `staging` or `production` environments.
+- The review screen shows an access-key input only in token mode, does not persist it to browser storage, displays errors and shows recorded actors in the audit trail.
+- See `docs/release/officer-review-access.md` for environment setup, verification commands and security limitations.
+
+**Not claimed:** The reviewer-key safeguard is not full authentication, centre-scoped authorization or RBAC; sensitive read routes and other write routes remain insufficiently protected for real-centre rollout. The JSON-based case store is not a transactional multi-user audit store. No new accuracy claim has been established, and final exact-video annotations/metrics and deployed AI-provider availability are still pending. Keep this release PR in draft until the remaining gates pass.
+
+
+**Verification checkpoint:** core backend tests, final-evaluator smoke test, Next.js production build, Playwright browser E2E, EPFL detector benchmark, and isolated GroundingDINO image smoke inference all pass on the active core build.
+
+This file is the source of truth for what is verified, scaffolded, or still pending.
+
+
+## AI-first release branch
+
+The active release branch `restructure/kaushalai-first-v1` uses four primary product areas: **KaushalAI, Centres, Insights, Actions**. Its primary judge/demo scope is exactly five centres.
+
+Release-hardening behavior includes:
+- responsive desktop/tablet/mobile navigation and centre tabs,
+- keyboard skip navigation, visible focus, reduced-motion support and accessible dialogs/drawers,
+- explicit text labels for status cues that previously relied on colour,
+- route loading, application-error and not-found recovery views,
+- honest unavailable/empty states: an empty live API response is not backfilled with demo values,
+- deterministic fallbacks are shown only when clearly marked **Simulated fallback** / **Simulated demo data**,
+- centre-intelligence failure does not get presented as "healthy", "no action", or "no analysis",
+- a non-destructive `python scripts/check_release_readiness.py` gate for frozen vision-profile validity, exact five-centre scope, deterministic network story, action ordering, required review cases and duplicate-evidence fixtures,
+- Playwright release-quality coverage for keyboard behavior, mobile viewport overflow, narrow centre tabs, dialog bounds, recovery views and degraded API-state truthfulness.
+
+This release gate validates deterministic product/configuration behavior. It does **not** create new model-accuracy claims or replace strict validation of the exact stage video.
+
+## Verified in the current core build
+- FastAPI API, configurable browser-origin CORS, evidence serving and persisted compliance cases.
+- Video upload vertical slice.
+- **OpenVINO person-detection-retail-0013 selected from the real EPFL Laboratory Camera 0 benchmark.**
+- Auto detector selection now prefers the prepared benchmarked local OpenVINO model before YOLO, using a repository-root model path rather than the API process working directory.
+- `python scripts/prepare_demo_vision.py --install` provides a one-command preparation/check for the OpenVINO runtime and checksum-verified model pair.
+- Anonymous short-lived positional tracking integrated into the attendance runtime.
+- Attendance returns time-synchronized anonymous candidate/confirmed/registered track boxes for the local review overlay; these session-local labels are not identities and non-authoritative fallback overlays remain diagnostic only.
+- OpenVINO includes an overlapping 2×2 tiled inference mode plus an exact-clip calibration sweep for crowded/occluded fixed-camera scenes. The final SIH attendance demo profile is now frozen at confidence 0.45 + tiled inference + confirmed-track occupancy + 3-sample median. On the manually counted five-worker calibration clip it returns 5/5, 0% discrepancy, `compliant`, no case, 100% trusted samples and zero detector failures. On the separate dynamic held-out clip, smoothed-count MAE improved from 1.5556 to 0.6667 and exact-count rate from 22.22% to 55.56% without changing detector confidence or the 15% compliance threshold.
+- Occupancy smoothing, reported-vs-observed discrepancy logic and temporal persistence.
+- Camera-trust checks for darkness, blur, frozen feed and basic scene shift.
+- Camera-integrity cases suspend attendance conclusions when the feed is not trustworthy.
+- Evidence SHA-256 integrity metadata and perceptual duplicate-evidence detection.
+- Attendance and infrastructure evidence paths anonymize detected person regions before central retention.
+- Officer-review workflow with timestamped status-transition audit history.
+- Structured case evidence-pack endpoint.
+- Construction Electrician-LV (CON/Q0603) demo compliance manifest with current CSDCI V5 role/item-type provenance and quantities explicitly marked simulated.
+- Infrastructure expected-vs-observed comparison with **Temporal Proof** using per-item persistence ratios.
+- Evidence-backed infrastructure video pipeline using a replaceable cached/live detector adapter.
+- Apparent-operability ROI motion proxy with ACTIVE / INACTIVE / UNCERTAIN states, including optional scenario/API time windows so camera cuts can be excluded from the motion score without trimming the source evidence video.
+- Durable edge telemetry queue, executable offline edge agent, idempotent sync endpoint, dashboard sync visibility and bandwidth measurement utility.
+- Final demonstration evaluator for attendance occupancy/cases, count-derived equipment precision/recall/F1 by class, apparent-operability coverage/accuracy, and overall/per-case-type compliance-case TP/FP/FN/TN with derived precision/recall/F1/FPR/FNR.
+- Strict final-demo readiness validation for readable video metadata, ROI bounds, required scenario events, non-example final assets, OpenVINO selection/model assets, and manifest/cache alignment that excludes officer-only items.
+- Privacy-preserving design note matching the PS conditional on individual identification.
+- Next.js Command Centre connected to the live API.
+- Practical-work verification now reuses the shared person-detector abstraction plus anonymous short-lived tracking; it can process clips without a hard Ultralytics dependency, while non-authoritative detector modes explicitly withhold the final conclusion.
+- Held-out practical-work verification on the separate industrial unauthorized clip passed with the frozen calibrated OpenVINO profile: `unauthorized_practical_activity`, 6 peak stable workers, 3 active work cells, 54.39% practical-activity fraction, authoritative detector, zero detector failures, and a high-severity authorization case with retained privacy-transformed evidence.
+- Practical-work fixed-camera zones are exposed by the API and rendered as video overlays; retained attendance/practical/infrastructure evidence is surfaced directly in verification/review screens with integrity metadata.
+- Playwright browser flow covering attendance upload, case evidence, review, infrastructure evidence, operability state, evidence-pack retrieval **and synchronized edge-event visibility**.
+- Isolated GroundingDINO environment/inference smoke test on a CC0 electrical-workroom image.
+- GroundingDINO final-clip precompute now supports automatic duration-safe sampling, prompt overrides, metadata sidecars and annotated review JPGs so short clips can be human-reviewed before cache promotion.
+- The DOD_110930728 electrical-training clip has now been run through GroundingDINO on seven wide-shot timestamps and human-reviewed: one workbench and one training panel were accepted, chairs/drill were confirmed absent, and the 10 s drill proposal was rejected as a false positive. The reviewed cache preserves raw model confidence separately from review confidence and is SHA-256-bound to the exact source clip (with the published SHA-1 retained as provenance).
+
+- Single-agent Kaushal Assistant with direct analysis/case/readiness tools, bounded multi-turn memory, structured source links, and configuration-safe failure states. The agent uses Gemini 3.8 Flash through Google's OpenAI-compatible endpoint; voice uses Groq Whisper Large V3 Turbo and Orpheus with WAV playback. Provider calls are contract-tested with mocks; live free-provider verification still requires operator-supplied `GEMINI_API_KEY` and `GROQ_API_KEY`.
+
+## Verified benchmark
+EPFL Laboratory six-person sequence, Camera 0 only, 113 labelled frames, IoU 0.50:
+
+| Detector | Precision | Recall | F1 | Occupancy MAE | Max count error |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| HOG fallback | 43.82% | 9.11% | 15.09% | 3.000 | 6 |
+| **OpenVINO person-detection-retail-0013** | **91.45%** | **89.95%** | **90.69%** | **0.327** | **2** |
+
+See `docs/benchmarks.md` for methodology and limits.
+
+## GroundingDINO status
+The optional `IDEA-Research/grounding-dino-tiny` path now installs and performs inference successfully in its isolated GitHub Actions smoke workflow. On the CC0 electrical-workroom smoke image it returned six prompt-grounded detections at the configured smoke threshold. **This validates the inference path only; it is not equipment accuracy validation.**
+
+GroundingDINO remains outside the core API dependency set and the stage demo retains a reviewed cached-detection fallback.
+
+## Verified low-bandwidth architecture
+- `edge/agent.py analyze` processes footage locally and queues sanitized compliance telemetry.
+- `edge/agent.py sync` sends JSON events only after connectivity returns; raw video is not part of the sync request.
+- Local evidence paths, identity data and raw frames are excluded from the central telemetry payload.
+- The central API stores accepted edge events idempotently and the Command Centre exposes the synchronized-event count.
+- Browser E2E verifies a synchronized edge event appears in the dashboard.
+
+## Intentionally NOT claimed as complete
+- Formal equipment precision/recall has **not** yet been measured. The DOD_110930728 infrastructure clip has been human-reviewed for stage use, but that review is not a substitute for a labelled equipment benchmark.
+- Current equipment **quantities** remain simulated. Current CSDCI V5 confirms relevant equipment types but its module equipment lists do not provide per-item sanctioned quantities; legacy PMKK quantity guidance is not being silently treated as current.
+- Example final-evaluation rows are synthetic templates, not SIH accuracy results.
+- Final compliance-case TP/FP/FN/TN has not yet been measured on the controlled demonstration dataset.
+- Held-out dynamic attendance remains a small, scene-specific evaluation: with the frozen confirmed-track + 3-sample median profile, smoothed-count MAE is 0.6667, median absolute error 0, max absolute error 3, mean bias -0.4444, and exact-count rate 55.56% across the nine post-warm-up annotated timestamps. These values are not a general CCTV benchmark.
+- Final low-bandwidth percentage has not yet been measured on the exact controlled demo clip.
+- Apparent operability is visual activity evidence only, never mechanical/electrical health.
+- Practical-work activity quality has not yet been benchmarked on the final controlled workshop clip. A HOG fallback may support preview metrics but remains non-authoritative and is displayed as a blocked/withheld verification state.
+- The repository now contains the authoritative OpenVINO preparation path, but a deployed/demo backend is only authoritative after that runtime/model preparation has actually been run in the same environment that starts the API.
+- AEBAS/SIDH integrations remain simulated because the prototype does not have production government credentials.
+
+- Kaushal Assistant conversation memory is process-local for V1; API restarts or multiple workers do not share sessions. Named-worker answers are unavailable because the privacy-preserving vision pipeline does not retain worker identity.
+
+## Remaining final-demo milestones
+1. Keep the frozen attendance/practical clips and the reviewed DOD infrastructure clip mapped to their exact demo steps.
+2. Annotate the exact stage clips for attendance, equipment and apparent operability.
+3. Run `evaluation/evaluate_final_demo.py` and report only the measured results.
+4. Run the bandwidth measurement utility on the exact clip/events and report only the measured reduction.
+5. If a current applicable source with explicit per-item quantities is obtained, attach it item-by-item; otherwise keep the demo quantities visibly simulated.
+6. Run the final browser rehearsal with the exact stage assets and preserve the claim boundaries above.
