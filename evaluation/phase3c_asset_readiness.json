@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-10-15",
+  "phase": "3C",
+  "qualified": false,
+  "source_of_inventory": "2026-10-15 project handoff and GitHub Phase 3B receipts; no local/private asset discovery asserted",
+  "allowed_states": [
+    "inspected_development_baseline",
+    "independent_heldout_usable",
+    "missing_or_blocked"
+  ],
+  "assets": [
+    {
+      "asset": "EPFL Laboratory Camera 0",
+      "pillar": [
+        "person_detection",
+        "attendance_diagnostic"
+      ],
+      "state": "inspected_development_baseline",
+      "provenance": "public research video and GNN-CCA research annotation copy",
+      "qualification_eligible": false,
+      "notes": "Previously used for OpenVINO model selection and benchmarking; camera-0 benchmark does not establish training-centre case accuracy. Training register absent."
+    },
+    {
+      "asset": "Public electrical workroom still image",
+      "pillar": [
+        "equipment_adapter_smoke"
+      ],
+      "state": "inspected_development_baseline",
+      "provenance": "Phase 3B pinned GroundingDINO CPU smoke",
+      "qualification_eligible": false,
+      "notes": "Unreviewed predictions, no independent count/box labels; license and redistribution rights require confirmation."
+    },
+    {
+      "asset": "UHCTD Day 3/Day 4 Camera B",
+      "pillar": [
+        "camera_evidence"
+      ],
+      "state": "inspected_development_baseline",
+      "provenance": "Prior Camera Trust analysis; user-held source recordings outside repository",
+      "qualification_eligible": false,
+      "notes": "Already inspected during model development; not an untouched PR #54 held-out set."
+    },
+    {
+      "asset": "DOD_110930728 reviewed cache",
+      "pillar": [
+        "equipment"
+      ],
+      "state": "inspected_development_baseline",
+      "provenance": "Human-reviewed cached detections",
+      "qualification_eligible": false,
+      "notes": "Human-reviewed quantities cannot be scored as raw live detector accuracy."
+    },
+    {
+      "asset": "Prior WiseNET attendance diagnostic clips",
+      "pillar": [
+        "attendance"
+      ],
+      "state": "inspected_development_baseline",
+      "provenance": "Previously evaluated during model tuning",
+      "qualification_eligible": false,
+      "notes": "Not unseen independent heldout."
+    },
+    {
+      "asset": "Institution-authorized independent training-centre multi-camera footage",
+      "pillar": [
+        "attendance",
+        "practical_activity",
+        "camera_evidence",
+        "equipment",
+        "roi_motion"
+      ],
+      "state": "missing_or_blocked",
+      "provenance": "No lawful independently labelled training-centre footage accessible in repository/current handoff",
+      "qualification_eligible": false,
+      "notes": "Require permission, untouched recording boundaries, independent blind labels, camera/site IDs, media SHA256, retention/privacy controls, external attendance/authorization, equipment boxes, and split freeze."
+    }
+  ],
+  "independent_heldout_by_pillar": {
+    "attendance": "missing_or_blocked",
+    "practical_activity": "missing_or_blocked",
+    "camera_evidence": "missing_or_blocked",
+    "equipment": "missing_or_blocked",
+    "roi_motion": "missing_or_blocked"
+  },
+  "qualification_requirements": [
+    "Before data review, pin actual model/profile/prompt revisions and sampling/evaluation policy",
+    "Separate recording IDs and site/camera IDs across calibration and untouched holdout",
+    "Verify rights, consent or lawful basis, independent blind annotation and human review",
+    "Keep raw recordings, identifiers, credentials and model weights out of Git and CI artifacts",
+    "Do not mark qualified until actual individual pillar gates and security acceptance pass"
+  ]
+}
