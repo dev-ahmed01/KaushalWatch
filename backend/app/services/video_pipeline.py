@@ -23,6 +23,50 @@ from app.services.track_presence import TrackObservation, TrackPresenceRegistry
 
 LOGGER = logging.getLogger(__name__)
 
+def _attendance_evidence_sufficiency(
+    observations: list[AttendanceObservation],
+    trust_flags: list[bool],
+    *,
+    warmup_seconds: float,
+    count_source: str,
+    confirmation_seconds: float,
+    registration_seconds: float,
+    minimum_trusted_ratio: float,
+) -> tuple[str | None, int, float]:
+    """Assess observation support before making an attendance claim.
+
+    Reject post-warmup missing/untrusted evidence and transient raw detections
+    that never become countable tracks. No detector or confirmation threshold is
+    lowered. A sufficiently long genuinely empty view may still report zero.
+    """
+    post = [
+        (obs, trusted) for obs, trusted in zip(observations, trust_flags)
+        if obs.second + 1e-6 >= warmup_seconds
+    ]
+    trusted = [obs for obs, ok in post if ok]
+    ratio = len(trusted) / len(post) if post else 0.0
+    if not post:
+        return "no_post_warmup_observations", 0, ratio
+    if ratio < minimum_trusted_ratio:
+        return "insufficient_post_warmup_camera_coverage", len(trusted), ratio
+    if len(trusted) < 2:
+        return "too_few_trusted_post_warmup_samples", len(trusted), ratio
+    # Allow at least one full track confirmation/registration interval of
+    # post-warmup usable observation before accepting zero or issuing a case.
+    needed = confirmation_seconds if count_source == "confirmed" else registration_seconds
+    if trusted[-1].second - trusted[0].second + 1e-6 < needed:
+        return "insufficient_trusted_temporal_span", len(trusted), ratio
+    if any(obs.raw_count > 0 for obs in trusted):
+        stable = (
+            any(obs.confirmed_count > 0 for obs in trusted)
+            if count_source == "confirmed"
+            else any(obs.registered_count > 0 for obs in trusted)
+        )
+        if not stable:
+            return "raw_person_detections_unconfirmed", len(trusted), ratio
+    return None, len(trusted), ratio
+
+
 
 class VideoCompliancePipeline:
     def __init__(
@@ -321,12 +365,27 @@ class VideoCompliancePipeline:
         runtime_authoritative = (
             detector_info.authoritative and detector_failures == 0
         )
-
+        evidence_reason, eligible_samples, post_warmup_ratio = (
+            _attendance_evidence_sufficiency(
+                observations,
+                trust_flags,
+                warmup_seconds=attendance_registration_seconds,
+                count_source=count_source,
+                confirmation_seconds=track_confirmation_seconds,
+                registration_seconds=attendance_registration_seconds,
+                minimum_trusted_ratio=minimum_trusted_ratio,
+            )
+        )
+        evidence_sufficient = evidence_reason is None
+        # No estimated count or discrepancy is exposed as attendance truth
+        # when the recording cannot support a reliable temporal decision.
         estimated_internal = int(np.median(trusted_counts)) if trusted_counts else 0
-        estimated: int | None = estimated_internal if runtime_authoritative else None
+        estimated: int | None = (
+            estimated_internal if runtime_authoritative and evidence_sufficient else None
+        )
         overall_pct: float | None = (
             discrepancy_pct(reported_attendance, estimated_internal)
-            if runtime_authoritative
+            if runtime_authoritative and evidence_sufficient
             else None
         )
 
@@ -392,6 +451,7 @@ class VideoCompliancePipeline:
 
         elif (
             runtime_authoritative
+            and evidence_sufficient
             and overall_pct is not None
             and overall_pct >= mismatch_threshold_pct
             and persistence >= persistence_threshold
@@ -452,6 +512,8 @@ class VideoCompliancePipeline:
             decision = "camera_integrity_exception"
         elif not runtime_authoritative:
             decision = "detector_unavailable"
+        elif not evidence_sufficient:
+            decision = "attendance_evidence_insufficient"
         elif case is not None and case.case_type == "attendance_discrepancy":
             decision = "attendance_exception"
         else:
@@ -488,6 +550,9 @@ class VideoCompliancePipeline:
             detector_message=detector_message,
             frames_sampled=frames_sampled,
             detector_failures=detector_failures,
+            attendance_evidence_reason=evidence_reason,
+            post_warmup_trusted_ratio=round(post_warmup_ratio, 4),
+            post_warmup_trusted_samples=eligible_samples,
             occupancy_count_source=count_source,
             occupancy_smoother_window=smoother_window,
             case=case,
