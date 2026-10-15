@@ -61,7 +61,104 @@ def public_excerpt(source: Path, target: Path, seconds: float):
     return {"fps": fps, "width": width, "height": height, "frames": written}
 
 
-def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0):
+
+def temporal_diagnostic(rows: list[dict]) -> dict:
+    """Explain sampled detector -> confirmed-track -> occupancy transitions.
+
+    Trace is from the *same* real pipeline pass. Restrict numerical comparisons
+    to post-warmup eligible samples; withheld/untrusted counts remain unknown.
+    No frames, position tracks, persons or frame hashes leave the runner.
+    """
+    eligible = [row for row in rows if row["detector_eligible"]]
+    def positive_count(field: str) -> int:
+        return sum(int(row[field] > 0) for row in eligible)
+
+    if not eligible:
+        explanation = "no_eligible_post_warmup_samples"
+    elif not positive_count("raw_count"):
+        explanation = "no_raw_detections_in_eligible_samples"
+    elif not positive_count("confirmed_count"):
+        explanation = "raw_detections_without_confirmed_tracks"
+    elif not positive_count("smoothed_count"):
+        explanation = "confirmed_tracks_without_positive_smoothed_occupancy"
+    else:
+        explanation = "positive_smoothed_occupancy_observed"
+
+    return {
+        "classification": explanation,
+        "all_sampled_frames": len(rows),
+        "eligible_post_warmup_samples": len(eligible),
+        "camera_trusted_samples": sum(bool(row["camera_trusted"]) for row in rows),
+        "pre_warmup_samples": sum(not row["warmup_complete"] for row in rows),
+        "post_warmup_raw_positive_samples": positive_count("raw_count"),
+        "post_warmup_confirmed_positive_samples": positive_count("confirmed_count"),
+        "post_warmup_registered_positive_samples": positive_count("registered_count"),
+        "post_warmup_smoothed_positive_samples": positive_count("smoothed_count"),
+        "peak_raw_count": max((row["raw_count"] for row in eligible), default=None),
+        "peak_confirmed_count": max((row["confirmed_count"] for row in eligible), default=None),
+        "peak_smoothed_count": max((row["smoothed_count"] for row in eligible), default=None),
+        "first_post_warmup_raw_detection_sec": next(
+            (row["second"] for row in eligible if row["raw_count"] > 0), None),
+        "first_post_warmup_confirmed_sec": next(
+            (row["second"] for row in eligible if row["confirmed_count"] > 0), None),
+        "sampling_trace": [
+            {
+                "frame_index": row["frame_index"], "second": row["second"],
+                "camera_trusted": row["camera_trusted"],
+                "warmup_complete": row["warmup_complete"],
+                "detector_eligible": row["detector_eligible"],
+                "raw_count": row["raw_count"],
+                "candidate_count": row["candidate_count"],
+                "confirmed_count": row["confirmed_count"],
+                "registered_count": row["registered_count"],
+                "smoothed_count": row["smoothed_count"],
+            }
+            for row in rows
+        ],
+        "limitations": (
+            "This is a development-only public-source trace. Pre-warmup and "
+            "untrusted measurements are withheld; counts alone do not establish "
+            "independent ground-truth accuracy."
+        ),
+    }
+
+
+def public_annotation_diagnostic(path: Path, rows: list[dict]) -> dict:
+    """Describe EPFL benchmark annotation overlap, never qualify attendance."""
+    from evaluation.benchmark_epfl_detection import parse_epfl_gt
+
+    boxes_by_frame = parse_epfl_gt(path)
+    if not boxes_by_frame:
+        raise ValueError("EPFL public annotation file contains no person boxes")
+    first_frame, last_frame = min(boxes_by_frame), max(boxes_by_frame)
+    overlap = [row for row in rows if first_frame <= row["frame_index"] <= last_frame]
+    positives = [
+        row for row in overlap
+        if boxes_by_frame.get(row["frame_index"], [])
+    ]
+    return {
+        "annotation_sha256": checksum(path),
+        "first_annotated_person_frame": first_frame,
+        "last_annotated_person_frame": last_frame,
+        "sampled_frames_in_annotated_person_range": len(overlap),
+        "sampled_frames_with_person_boxes": len(positives),
+        "first_sampled_frame_with_person_boxes": (
+            positives[0]["frame_index"] if positives else None
+        ),
+        "post_warmup_samples_with_person_boxes": sum(
+            row["detector_eligible"] for row in positives
+        ),
+        "interpretation": (
+            "Development benchmark labels from an already-inspected source; "
+            "the span before the first labelled person is not assumed to be "
+            "independently verified empty. Benchmark and tiled operational "
+            "detector settings are distinct."
+        ),
+    }
+
+
+def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0,
+            ground_truth: Path | None = None):
     if os.getenv("KAUSHALWATCH_PERSON_DETECTOR") != "openvino":
         raise RuntimeError("Smoke requires explicit real OpenVINO, not fallback")
     model_xml_raw = os.getenv("KAUSHALWATCH_OPENVINO_MODEL_XML")
@@ -91,6 +188,7 @@ def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0):
         temp = Path(workspace)
         video = temp / "epfl-excerpt.avi"
         meta = public_excerpt(source, video, excerpt_seconds)
+        attendance_trace: list[dict] = []
         attendance = VideoCompliancePipeline(
             temp/"attendance-evidence", temp/"attendance-index.json",
             detector=detector,
@@ -109,6 +207,7 @@ def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0):
             track_grace_seconds=a["track_grace_seconds"],
             occupancy_count_source=a["count_source"],
             occupancy_smoother_window=a["smoother_window"],
+            observation_sink=attendance_trace.append,
         )
         practical = PracticalActivityPipeline(
             temp/"practical-evidence", temp/"practical-index.json",
@@ -153,6 +252,11 @@ def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0):
             "vision_profile_sha256": checksum(profile_path),
             "openvino_xml_sha256": checksum(model_xml),
             "openvino_bin_sha256": checksum(model_bin),
+            "temporal_diagnostic": temporal_diagnostic(attendance_trace),
+            "public_annotation_diagnostic": (
+                public_annotation_diagnostic(ground_truth, attendance_trace)
+                if ground_truth is not None else None
+            ),
             "attendance": {
                 "detector_backend": attendance.detector_backend,
                 "detector_authoritative": attendance.detector_authoritative,
@@ -197,10 +301,13 @@ def main():
     parser.add_argument("--video", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--seconds", type=float, default=6)
+    parser.add_argument("--ground-truth", type=Path,
+                        help="Optional EPFL public benchmark annotations; diagnostics only")
     args = parser.parse_args()
     if not 3 <= args.seconds <= 15:
         parser.error("Public diagnostic excerpt must be between 3 and 15 seconds")
-    execute(args.video.resolve(), args.out, excerpt_seconds=args.seconds)
+    execute(args.video.resolve(), args.out, excerpt_seconds=args.seconds,
+            ground_truth=args.ground_truth.resolve() if args.ground_truth else None)
 
 
 if __name__ == "__main__":
