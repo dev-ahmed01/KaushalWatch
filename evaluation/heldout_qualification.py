@@ -49,6 +49,13 @@ POLICY = {
     "registration_warmup_seconds": 2.0,
 }
 REJECT_WORDS = ("synthetic", "example", "placeholder", "unknown", "tbd", "generated test")
+# Already-inspected benchmarks are not untouched institutional holdouts.
+# This string barrier complements explicit blinded-review provenance; it
+# cannot cryptographically prove dataset independence.
+KNOWN_DEVELOPMENT_MARKERS = (
+    "epfl", "laboratory6", "wisenet", "uhctd", "meva",
+    "dod_110930728", "gnn-cca",
+)
 
 
 def sha256_file(path: Path) -> str:
@@ -267,6 +274,15 @@ def load_protocol(manifest_path: Path, *, allow_fixture: bool = False) -> dict:
                 raise ValueError("Hold-out requires independent source recordings, not adjacent clips")
             if row.get("blinded_review") is not True or not _id(row.get("reviewer_id"), "reviewer_id"):
                 raise ValueError("Hold-out needs independently blinded review attestation")
+            if row.get("previously_inspected") is not False:
+                raise ValueError("Held-out attendance recording must be attested untouched")
+            if not allow_fixture:
+                identifiers = " ".join((
+                    scene_id, recording, site, camera, str(video.parent), video.name,
+                    row["source_origin"],
+                )).lower().replace(" ", "_")
+                if any(marker in identifiers for marker in KNOWN_DEVELOPMENT_MARKERS):
+                    raise ValueError("Previously inspected development footage cannot be held-out")
             if type(row.get("reported_attendance")) is not int or row["reported_attendance"] < 0:
                 raise ValueError("External reported-attendance record is mandatory")
             if not isinstance(row.get("reported_record_reference"), str) or len(
