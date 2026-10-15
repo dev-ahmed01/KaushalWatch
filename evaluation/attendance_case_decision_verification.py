@@ -178,6 +178,10 @@ def verify_attendance_case_opportunity(
     if abs(persistence - result.get("mismatch_persistence_ratio", -1)) > 0.00011:
         raise ValueError("Pipeline mismatch persistence does not match the full timeline")
 
+    # Any explicit temporal-evidence abstention is not a negative case.
+    # Reject before reconstructing a zero estimate from diagnostic samples.
+    if result.get("decision") == "attendance_evidence_insufficient":
+        raise ValueError("Attendance evidence insufficient: case evaluation must abstain")
     # Camera insufficiency is never counted as a negative attendance decision.
     if trusted_ratio < minimum_trusted_ratio or not trusted_counts:
         raise ValueError("Insufficient trusted video: attendance case evaluation must abstain")
