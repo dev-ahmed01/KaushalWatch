@@ -39,8 +39,14 @@ def protocol(tmp_path, monkeypatch):
             "backend": "openvino", "confidence": 0.45, "tiled": True,
             "tile_overlap": 0.18, "tile_nms_iou": 0.45,
         },
-        "attendance": {"count_source": "confirmed", "smoother_window": 3,
-                       "sample_every_seconds": 0.2},
+        "attendance": {
+            "count_source": "confirmed", "smoother_window": 3,
+            "sample_every_seconds": 0.2, "mismatch_threshold_pct": 25.0,
+            "persistence_threshold": 0.7, "minimum_trusted_ratio": 0.8,
+            "track_confirmation_seconds": 1.5,
+            "registration_warmup_seconds": 2.0,
+            "track_grace_seconds": 1.25,
+        },
     }), encoding="utf-8")
     monkeypatch.setattr(q, "active_profile_path", lambda: profile.resolve())
     xml, bin_model = tmp_path / "model.xml", tmp_path / "model.bin"
@@ -317,3 +323,82 @@ def test_non_fixture_claim_refuses_synthetic_provenance(protocol):
     edit(protocol, lambda d: d.update({"fixture_only": False}))
     with pytest.raises(ValueError, match="fixture/placeholder"):
         q.load_protocol(protocol, allow_fixture=False)
+
+
+def test_runtime_options_use_entire_frozen_profile_not_pipeline_defaults(protocol, monkeypatch):
+    """Mocked engine contract test only; no synthetic accuracy acceptance."""
+    from types import SimpleNamespace
+    from app.services import person_detector, video_pipeline
+
+    pinned = q.load_protocol(protocol, allow_fixture=True)
+    monkeypatch.setattr(
+        person_detector, "_resolve_openvino_xml", lambda: pinned["xml_path"])
+    detector = SimpleNamespace(
+        info=SimpleNamespace(backend="openvino", authoritative=True),
+        confidence=0.45, tiled=True, tile_overlap=0.18, tile_nms_iou=0.45,
+    )
+    monkeypatch.setattr(person_detector, "build_person_detector", lambda: detector)
+    recorded = []
+
+    class SpyPipeline:
+        def __init__(self, evidence_root, index_path, detector):
+            assert detector is not None
+
+        def run(self, **kwargs):
+            recorded.append(kwargs)
+            kwargs["observation_sink"]({
+                "second": 2.0, "frame_index": 20, "smoothed_count": 2,
+                "detector_eligible": True, "camera_trusted": True,
+            })
+            return SimpleNamespace(
+                detector_backend="openvino", detector_authoritative=True,
+                detector_failures=0, decision="compliant",
+            )
+
+    monkeypatch.setattr(video_pipeline, "VideoCompliancePipeline", SpyPipeline)
+    scene = pinned["scenes"][0]
+    result = q.infer_scene(
+        scene["video_path"], scene["reported_attendance"], scene["camera_id"], pinned)
+    assert result["authoritative"] is True
+    assert result["samples"][0]["smoothed_count"] == 2
+    runtime = recorded[0]
+    assert runtime["sample_every_seconds"] == 0.2
+    assert runtime["mismatch_threshold_pct"] == 25.0
+    assert runtime["persistence_threshold"] == 0.7
+    assert runtime["minimum_trusted_ratio"] == 0.8
+    assert runtime["track_confirmation_seconds"] == 1.5
+    assert runtime["attendance_registration_seconds"] == 2.0
+    assert runtime["track_grace_seconds"] == 1.25
+    assert runtime["occupancy_count_source"] == "confirmed"
+    assert runtime["occupancy_smoother_window"] == 3
+    assert not {"xml", "model_weights", "truth_path"} & runtime.keys()
+
+
+def test_missing_frozen_attendance_runtime_parameter_blocks_preflight(protocol):
+    profile = q.active_profile_path()
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    del data["attendance"]["track_grace_seconds"]
+    profile.write_text(json.dumps(data), encoding="utf-8")
+    edit(protocol, lambda d: d["vision_profile"].update({"sha256": digest(profile)}))
+    with pytest.raises(ValueError, match="track_grace_seconds"):
+        q.load_protocol(protocol, allow_fixture=True)
+
+
+def test_profile_warmup_drift_from_heldout_policy_fails_closed(protocol):
+    profile = q.active_profile_path()
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    data["attendance"]["registration_warmup_seconds"] = 3.0
+    profile.write_text(json.dumps(data), encoding="utf-8")
+    edit(protocol, lambda d: d["vision_profile"].update({"sha256": digest(profile)}))
+    with pytest.raises(ValueError, match="warmup differs"):
+        q.load_protocol(protocol, allow_fixture=True)
+
+
+def test_unusable_numeric_frozen_attendance_settings_fail_closed(protocol):
+    profile = q.active_profile_path()
+    data = json.loads(profile.read_text(encoding="utf-8"))
+    data["attendance"]["minimum_trusted_ratio"] = True
+    profile.write_text(json.dumps(data), encoding="utf-8")
+    edit(protocol, lambda d: d["vision_profile"].update({"sha256": digest(profile)}))
+    with pytest.raises(ValueError, match="finite numeric"):
+        q.load_protocol(protocol, allow_fixture=True)
