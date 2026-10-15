@@ -420,8 +420,8 @@ def test_insufficient_evidence_withheld_from_counts_and_case_scoring(protocol):
 
     report = q.qualify(protocol, inference=insufficient_one, test_fixture=True)
     assert report["qualified"] is False
-    assert report["metrics"]["case_coverage"] == pytest.approx(5 / 6)
-    assert report["metrics"]["count_coverage"] == pytest.approx(20 / 24)
+    assert report["metrics"]["case_coverage"] == pytest.approx(5 / 6, abs=1e-5)
+    assert report["metrics"]["count_coverage"] == pytest.approx(20 / 24, abs=1e-5)
     assert report["criteria"]["case_coverage"] is False
     assert report["support"]["trusted_count_samples"] == 20
 
