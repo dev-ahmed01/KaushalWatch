@@ -89,6 +89,7 @@ def protocol(tmp_path, monkeypatch):
             "camera_id": "CAM-ONE" if index <= 3 else "CAM-TWO",
             "reviewer_id": "REVIEWER-INDEPENDENT",
             "blinded_review": True,
+            "previously_inspected": False,
             "reported_attendance": 10 if index <= 3 else 5,
             "reported_record_reference": f"LOCAL-ATT-RECORD-{index:03d}",
             "true_issue": index <= 3,
@@ -434,3 +435,34 @@ def test_insufficient_evidence_must_not_score_counts_as_valid(protocol):
 
     with pytest.raises(ValueError, match="must withhold scored counts"):
         q.qualify(protocol, inference=improperly_eligible, test_fixture=True)
+
+
+
+def test_heldout_attendance_requires_explicit_untouched_attestation(protocol):
+    edit(protocol, lambda d: d["heldout"][0].pop("previously_inspected"))
+    with pytest.raises(ValueError, match="attested untouched"):
+        q.load_protocol(protocol, allow_fixture=True)
+
+
+def test_attendance_already_inspected_is_rejected_despite_blinding(protocol):
+    edit(protocol, lambda d: d["heldout"][0].update({
+        "previously_inspected": True,
+        "blinded_review": True,
+    }))
+    with pytest.raises(ValueError, match="attested untouched"):
+        q.load_protocol(protocol, allow_fixture=True)
+
+
+def test_known_public_development_recording_cannot_be_rebranded_real_holdout(protocol):
+    def prepare(d):
+        d["fixture_only"] = False
+        for row in d["calibration"] + d["heldout"]:
+            row.update({
+                "source_origin": "institution-authorized training centre recording",
+                "license_basis": "written limited research evaluation permission",
+                "privacy_basis": "consent-governed footage retained outside version control",
+            })
+        d["heldout"][0]["recording_id"] = "EPFL_CAMERA0_SESSION"
+    edit(protocol, prepare)
+    with pytest.raises(ValueError, match="Previously inspected development footage"):
+        q.load_protocol(protocol, allow_fixture=False)
