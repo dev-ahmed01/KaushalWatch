@@ -340,12 +340,14 @@ def infer_scene(video_path: Path, reported_attendance: int, camera_id: str,
             observation_sink=frames.append,
             **runtime_options,
         )
+    case_usable = summary.decision != "attendance_evidence_insufficient"
     return {
         "backend": summary.detector_backend, "authoritative": summary.detector_authoritative,
         "failures": summary.detector_failures, "decision": summary.decision,
         "samples": [{
-            "second": float(p["second"]), "smoothed_count": p["smoothed_count"],
-            "eligible": p["detector_eligible"],
+            "second": float(p["second"]),
+            "smoothed_count": p["smoothed_count"] if case_usable else None,
+            "eligible": bool(p["detector_eligible"] and case_usable),
             "frame_index": p["frame_index"],
             "camera_trusted": p["camera_trusted"],
         } for p in frames],
@@ -391,6 +393,11 @@ def qualify(manifest_path: Path, *, inference: Callable | None = None,
             sample_times != sorted(set(sample_times))
         ):
             raise ValueError("Invalid or duplicated engine sample timestamps")
+        if output.get("decision") == "attendance_evidence_insufficient" and any(
+            sample.get("eligible") or sample.get("smoothed_count") is not None
+            for sample in samples
+        ):
+            raise ValueError("Insufficient attendance evidence must withhold scored counts")
         used_frames = set()
         scene_eligible = 0
         for truth in scene["truth_rows"]:
@@ -420,9 +427,13 @@ def qualify(manifest_path: Path, *, inference: Callable | None = None,
         scene_coverages.append(scene_eligible / len(scene["truth_rows"]))
         decision = output.get("decision")
         if decision not in {"attendance_exception", "compliant",
-                            "camera_integrity_exception", "detector_unavailable"}:
+                            "camera_integrity_exception", "detector_unavailable",
+                            "attendance_evidence_insufficient"}:
             raise ValueError("Unknown attendance decision")
-        if output["failures"] or decision in {"camera_integrity_exception", "detector_unavailable"}:
+        if output["failures"] or decision in {
+            "camera_integrity_exception", "detector_unavailable",
+            "attendance_evidence_insufficient",
+        }:
             problems.append("abstained_case_opportunity")
             continue
         decision_eligible += 1

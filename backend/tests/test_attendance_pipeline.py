@@ -266,3 +266,124 @@ def test_real_attendance_clip_if_configured(tmp_path):
         f"ground truth; got decision={result.decision} "
         f"discrepancy={result.discrepancy_pct}"
     )
+
+
+
+class LastSecondPersonDetector:
+    """Only a late unconfirmed person; not evidence of a verified empty room."""
+    info = DetectorInfo(
+        backend="scripted-test", mode="primary", authoritative=True,
+        message="Deterministic late detection for abstention regression",
+    )
+
+    def __init__(self):
+        self.calls = 0
+
+    def detect(self, frame):
+        self.calls += 1
+        return [Detection(70, 80, 130, 250, 0.95)] if self.calls >= 27 else []
+
+
+class NoPersonsDetector:
+    info = DetectorInfo(
+        backend="scripted-test", mode="primary", authoritative=True,
+        message="Deterministic empty-view fixture",
+    )
+
+    def detect(self, frame):
+        return []
+
+
+def test_short_video_without_post_warmup_data_abstains(tmp_path):
+    video = tmp_path / "prewarmup-only.avi"
+    _write_trustworthy_video(video, frames=18)
+    pipeline = VideoCompliancePipeline(
+        tmp_path / "evidence", tmp_path / "index.json",
+        detector=ScriptedThreePersonDetector(),
+    )
+    output = pipeline.run(
+        video_path=video, reported_attendance=3,
+        centre_id="TEST-CENTRE", batch_id="TEST-BATCH",
+        occupancy_count_source="confirmed",
+    )
+    assert output.decision == "attendance_evidence_insufficient"
+    assert output.attendance_evidence_reason == "no_post_warmup_observations"
+    assert output.post_warmup_trusted_samples == 0
+    assert output.estimated_occupancy is None
+    assert output.discrepancy_pct is None
+    assert output.case is None
+
+
+def test_late_raw_person_without_temporal_confirmation_is_not_a_case(tmp_path):
+    video = tmp_path / "late-only.avi"
+    _write_trustworthy_video(video, frames=60)
+    output = VideoCompliancePipeline(
+        tmp_path / "evidence", tmp_path / "index.json",
+        detector=LastSecondPersonDetector(),
+    ).run(
+        video_path=video, reported_attendance=3,
+        centre_id="TEST-CENTRE", batch_id="TEST-BATCH",
+        occupancy_count_source="confirmed",
+        occupancy_smoother_window=3,
+    )
+    assert output.detector_failures == 0
+    assert any(o.raw_count > 0 for o in output.observations)
+    assert not any(o.confirmed_count > 0 for o in output.observations)
+    assert output.decision == "attendance_evidence_insufficient"
+    assert output.attendance_evidence_reason == "raw_person_detections_unconfirmed"
+    assert output.estimated_occupancy is None
+    assert output.discrepancy_pct is None
+    assert output.case is None
+
+
+def test_untrusted_post_warmup_is_not_compliant_even_with_global_half_trust(
+    tmp_path, monkeypatch
+):
+    from app.models import CameraTrust
+    from app.services import video_pipeline as vp
+
+    video = tmp_path / "late-camera-loss.avi"
+    _write_trustworthy_video(video, frames=40)
+    calls = 0
+
+    def two_phase_trust(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        trusted = calls <= 10
+        return CameraTrust(
+            trusted=trusted, score=100 if trusted else 40,
+            reasons=[] if trusted else ["test view unavailable"],
+        )
+
+    monkeypatch.setattr(vp, "assess_camera", two_phase_trust)
+    output = vp.VideoCompliancePipeline(
+        tmp_path / "evidence", tmp_path / "index.json",
+        detector=ScriptedThreePersonDetector(),
+    ).run(
+        video_path=video, reported_attendance=3,
+        centre_id="TEST-CENTRE", batch_id="TEST-BATCH",
+    )
+    assert output.trusted_sample_ratio == 0.5
+    assert output.post_warmup_trusted_ratio == 0
+    assert output.attendance_evidence_reason == "insufficient_post_warmup_camera_coverage"
+    assert output.decision == "attendance_evidence_insufficient"
+    assert output.estimated_occupancy is None
+    assert output.case is None
+
+
+def test_sufficient_healthy_empty_room_can_report_zero(tmp_path):
+    video = tmp_path / "empty-healthy-view.avi"
+    _write_trustworthy_video(video, frames=60)
+    output = VideoCompliancePipeline(
+        tmp_path / "evidence", tmp_path / "index.json",
+        detector=NoPersonsDetector(),
+    ).run(
+        video_path=video, reported_attendance=0,
+        centre_id="TEST-CENTRE", batch_id="TEST-BATCH",
+        occupancy_count_source="confirmed",
+    )
+    assert output.decision == "compliant"
+    assert output.attendance_evidence_reason is None
+    assert output.estimated_occupancy == 0
+    assert output.post_warmup_trusted_samples > 2
+    assert output.case is None

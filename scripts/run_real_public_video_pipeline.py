@@ -266,6 +266,9 @@ def execute(source: Path, out: Path, *, excerpt_seconds: float = 6.0,
                 "trusted_sample_ratio": attendance.trusted_sample_ratio,
                 "detector_failures": attendance.detector_failures,
                 "decision": attendance.decision,
+                "attendance_evidence_reason": attendance.attendance_evidence_reason,
+                "post_warmup_trusted_ratio": attendance.post_warmup_trusted_ratio,
+                "post_warmup_trusted_samples": attendance.post_warmup_trusted_samples,
                 "synthetic_reported_attendance": 3
             },
             "practical": {

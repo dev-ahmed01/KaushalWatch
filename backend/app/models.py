@@ -99,6 +99,9 @@ class ProcessSummary(BaseModel):
     detector_message: str
     frames_sampled: int
     detector_failures: int = 0
+    attendance_evidence_reason: str | None = None
+    post_warmup_trusted_ratio: float = Field(default=0.0, ge=0, le=1)
+    post_warmup_trusted_samples: int = Field(default=0, ge=0)
     occupancy_count_source: str = "registered"
     occupancy_smoother_window: int = 5
     case: ComplianceCase | None = None
