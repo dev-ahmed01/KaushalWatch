@@ -138,6 +138,60 @@ def _video_metadata(path: Path) -> dict:
         cap.release()
 
 
+ATTENDANCE_KEYS = (
+    "sample_every_seconds", "mismatch_threshold_pct", "persistence_threshold",
+    "minimum_trusted_ratio", "track_confirmation_seconds",
+    "registration_warmup_seconds", "track_grace_seconds",
+    "count_source", "smoother_window",
+)
+
+
+def frozen_attendance_runtime_options(profile: dict) -> dict:
+    """Do not qualify an attendance engine accidentally running its defaults.
+
+    This is an interface contract between the frozen file, held-out scoring,
+    and VideoCompliancePipeline.run. It intentionally fails on missing fields.
+    """
+    attendance = profile.get("attendance")
+    if not isinstance(attendance, dict):
+        raise ValueError("Frozen attendance profile must be an object")
+    missing = sorted(set(ATTENDANCE_KEYS) - attendance.keys())
+    if missing:
+        raise ValueError("Frozen attendance runtime fields missing: " + ", ".join(missing))
+    for key in ATTENDANCE_KEYS:
+        if key in {"count_source", "smoother_window"}:
+            continue
+        value = attendance[key]
+        if type(value) not in (int, float) or not math.isfinite(value):
+            raise ValueError(f"Frozen attendance field {key} must be finite numeric")
+    if attendance["count_source"] not in {"confirmed", "registered"}:
+        raise ValueError("Attendance count source is invalid")
+    if type(attendance["smoother_window"]) is not int or attendance["smoother_window"] < 1:
+        raise ValueError("Frozen attendance smoother_window must be a positive integer")
+    if (attendance["registration_warmup_seconds"]
+            != POLICY["registration_warmup_seconds"]):
+        raise ValueError("Frozen attendance registration warmup differs from qualification policy")
+    if (attendance["sample_every_seconds"] <= 0
+            or attendance["track_confirmation_seconds"] < 0
+            or attendance["registration_warmup_seconds"] < attendance["track_confirmation_seconds"]
+            or attendance["track_grace_seconds"] < 0
+            or not 0 <= attendance["mismatch_threshold_pct"] <= 100
+            or not 0 <= attendance["persistence_threshold"] <= 1
+            or not 0 <= attendance["minimum_trusted_ratio"] <= 1):
+        raise ValueError("Frozen attendance runtime field is outside valid bounds")
+    return {
+        "sample_every_seconds": attendance["sample_every_seconds"],
+        "mismatch_threshold_pct": attendance["mismatch_threshold_pct"],
+        "persistence_threshold": attendance["persistence_threshold"],
+        "minimum_trusted_ratio": attendance["minimum_trusted_ratio"],
+        "track_confirmation_seconds": attendance["track_confirmation_seconds"],
+        "attendance_registration_seconds": attendance["registration_warmup_seconds"],
+        "track_grace_seconds": attendance["track_grace_seconds"],
+        "occupancy_count_source": attendance["count_source"],
+        "occupancy_smoother_window": attendance["smoother_window"],
+    }
+
+
 def load_protocol(manifest_path: Path, *, allow_fixture: bool = False) -> dict:
     manifest_path = Path(manifest_path).expanduser().resolve()
     if not manifest_path.is_file():
@@ -163,8 +217,7 @@ def load_protocol(manifest_path: Path, *, allow_fixture: bool = False) -> dict:
         raise ValueError("A frozen candidate profile is required")
     if settings.get("person_detection", {}).get("backend") != "openvino":
         raise ValueError("Current qualifying engine must be frozen OpenVINO")
-    if settings.get("attendance", {}).get("count_source") not in {"confirmed", "registered"}:
-        raise ValueError("Attendance count source is invalid")
+    frozen_attendance_runtime_options(settings)
 
     model = raw.get("model_artifacts")
     if not isinstance(model, dict):
@@ -276,7 +329,7 @@ def infer_scene(video_path: Path, reported_attendance: int, camera_id: str,
             or abs(detector.tile_overlap - expected["tile_overlap"]) > 1e-9
             or abs(detector.tile_nms_iou - expected["tile_nms_iou"]) > 1e-9):
         raise ValueError("Runtime detector settings drifted from frozen vision profile")
-    attendance = settings["attendance"]
+    runtime_options = frozen_attendance_runtime_options(settings)
     frames = []
     with tempfile.TemporaryDirectory(prefix="kw-heldout-") as folder:
         out = Path(folder)
@@ -284,10 +337,8 @@ def infer_scene(video_path: Path, reported_attendance: int, camera_id: str,
         summary = engine.run(
             video_path=video_path, centre_id="EVAL-HELDOUT", batch_id="EVAL-HELDOUT",
             camera_id=camera_id, reported_attendance=reported_attendance,
-            sample_every_seconds=attendance["sample_every_seconds"],
-            occupancy_count_source=attendance["count_source"],
-            occupancy_smoother_window=attendance["smoother_window"],
             observation_sink=frames.append,
+            **runtime_options,
         )
     return {
         "backend": summary.detector_backend, "authoritative": summary.detector_authoritative,
