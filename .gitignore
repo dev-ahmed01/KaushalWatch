@@ -26,7 +26,6 @@ data/videos/
 data/generated/
 data/annotations/
 data/edge/
-data/edge_events.json
 evaluation/output/
 artifacts/
 
