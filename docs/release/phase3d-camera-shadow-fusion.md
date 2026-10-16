@@ -164,3 +164,25 @@ from nuisance foreground movement using the existing aggregated summaries.
 To establish causes, instrument time-binned numerical traces and episodes
 in a subsequent controlled run. Do not adjust thresholds merely because
 short-clip results look promising.
+
+
+### Extended numeric diagnostics (re-run continuous evaluator once)
+
+The continuous evaluator now produces a third file:
+continuous_shadow_normal_review_episodes.csv. This lists each contiguous
+annotation-normal span flagged by the advisory fusion, with start/end frames
+and seconds, sampled duration, whether the alert carried across a label
+boundary, and how many samples were attributed to spatial versus the guarded
+global fallback. The summary JSON also contains normal_review_hours, a
+record per hour relative to recording start, with normal-sample fractions,
+decision origin, low-texture uncertainty and quality-limited global
+evidence counts. Hours with few annotated-normal samples must be
+interpreted carefully.
+
+Neither this instrumentation nor the triage command re-enrolls references,
+resets temporal state midstream, or modifies model thresholds.
+Do not mistake normal-label review spans for proof of a false tampering
+accusation: they are a prioritized queue for authorized human assessment of
+lighting, scene content, camera obstruction and underlying reference validity.
+Do not upload private frames, extracted screenshots or identifiable CCTV
+contact sheets to GitHub.
