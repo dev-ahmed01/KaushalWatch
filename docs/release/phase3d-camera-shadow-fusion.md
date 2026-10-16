@@ -72,3 +72,51 @@ restores trustworthy visual evidence.
    delays, evidence-usability errors, unknown rates and subgroup failures.
 6. Separate advisory review from evidence withholding, camera-integrity
    suspicion and officer decisions; keep all automatic enforcement disabled.
+
+
+## Continuous-stream development evaluator
+
+The continuous evaluator uses the same two experimental observers, sampling
+numerical states through the entire recording **without resetting at each
+event**. It reads all annotation rows, validates the first 10 seconds as
+dataset-annotated normal, checks frame order/count, and retains the initial
+warmup reference for the whole run. This is still not an approved operational
+reference.
+
+PowerShell examples (from the experimental worktree):
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $data = "C:\Users\Admin\Desktop\MEVA"
+    $out = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\continuous"
+
+Preview first (short smoke check, not full-day evidence):
+
+    python "$trial\scripts\evaluate_uhctd_continuous_shadow.py" --video "$data\video.avi" --annotations "$data\annotations-1.csv" --out "$out\day3-preview" --sample-seconds 1 --preview-seconds 60
+
+Only after the preview succeeds, run full recordings separately:
+
+    python "$trial\scripts\evaluate_uhctd_continuous_shadow.py" --video "$data\video.avi" --annotations "$data\annotations-1.csv" --out "$out\day3" --sample-seconds 1
+
+    python "$trial\scripts\evaluate_uhctd_continuous_shadow.py" --video "$data\UHCTD_Day4\video.avi" --annotations "$data\UHCTD_Day4\annotations.csv" --out "$out\day4" --sample-seconds 1
+
+Do not delete your original recordings or commit generated outputs.
+Only numerical JSON/CSV outputs are emitted; both inputs are SHA-256 hashed.
+The full-pass summary reports method-wise normal review samples, new
+review episodes per annotated normal hour, low-texture uncertainty counts,
+preexisting-at-onset alerts, class-wise fresh event recall and delays.
+Normal episodes are counted at sampled rising edges; transitions with an
+already-existing positive alert need careful human review. This remains
+a **development result** even after two complete 24-hour passes, as both
+recordings were previously inspected and used to select the fusion logic.
+
+The first ten seconds are not independently approved camera calibration.
+Re-enrollment is deliberately disabled. If later true normal footage differs
+substantially from the initial camera appearance, this method can produce
+persistent nuisance reviews; that is a limitation to measure, not a reason to
+silently reset the reference.
+
+CI regression command:
+
+    python -m pytest backend/tests/test_camera_shadow_fusion.py backend/tests/test_camera_continuous_shadow.py -q
+
+No new released Camera Trust decision path is activated by this evaluator.
