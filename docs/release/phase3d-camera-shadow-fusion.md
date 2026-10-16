@@ -340,3 +340,34 @@ video files. The reviewer CSV is **not** independent validation: these
 reference quality nor annotation-normal scene usability is proven.
 Do not enter people's names or identifiable details in reviewer notes.
 Do not merge this experimental branch into main based solely on the queue.
+
+
+## Summarize local reviewer decisions (private aggregate only)
+
+After inspecting selected cases locally and saving
+local_review_decisions.csv, analyze exact case coverage and scene outcomes
+without needing footage or uploading reviewer notes:
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $review = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended\manual-review"
+    python "$trial\scripts\summarize_uhctd_manual_reviews.py" --queue "$review\targeted_camera_review_queue.csv" --reviews "$review\local_review_decisions.csv" --out "$review\manual_review_aggregate.json"
+
+The tool validates exact case IDs/metadata against the generated queue,
+identifies cases marked REVIEWED / UNREVIEWED / NEEDS_SECOND_REVIEW,
+and emits counts by Day 3/Day 4, review-window origin, scene class,
+evidence usability and camera-reference validity. The reported diagnostic
+combinations (e.g. displaced and invalid reference; normal-looking usable
+and valid reference; visual degradation but evidence marked usable) are
+questions for follow-up, **not automatically confirmed causal labels**.
+If a formally complete 22/22 review is required, append
+--require-complete to fail on any pending or second-review case; unresolved
+cases can also be reported without that flag.
+
+The JSON intentionally omits individual case IDs, the video's content,
+and all free-text notes. SHA-256 hashes of the original queue and decisions
+identify the numeric aggregate's inputs. Sharing the aggregate JSON is safer
+than uploading private footage or potentially identifiable reviewer notes.
+
+This small, intentionally failure-enriched review is not an independent
+precision or recall benchmark. It cannot justify automatic baseline resets,
+camera-tampering enforcement, withholding attendance or production integration.
