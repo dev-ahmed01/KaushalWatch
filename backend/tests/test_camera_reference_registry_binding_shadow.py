@@ -213,3 +213,45 @@ def test_reviewer_cannot_approve_preexisting_unapproved_empty_db(tmp_path):
             confirmed_healthy=True,confirmed_same_view=True,
             independent_comparison=True,expected_revision=1,
         )
+
+
+
+def test_metadata_tampering_detected_and_bound_observation_blocked(tmp_path):
+    store, frame, _ = approved(tmp_path)
+    binder = BoundReferenceShadowProbe.bind(
+        registry=store, reader=REVIEWER, camera_id="cam-1",
+        reference_frame=frame,
+    )
+    # Tamper with mutable state outside approved transactional domain API.
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            "UPDATE reference_proposals SET capture_id='forged-capture' "
+            "WHERE centre_id='centre-a' AND camera_id='cam-1'"
+        )
+    assert not store.verify_audit_chain(
+        centre_id="centre-a", camera_id="cam-1", actor=REVIEWER
+    )
+    with pytest.raises(ReferenceBindingError, match="audit chain"):
+        binder.observe(frame, 1)
+    with pytest.raises(ReferenceBindingError, match="audit chain"):
+        BoundReferenceShadowProbe.bind(
+            registry=store, reader=REVIEWER, camera_id="cam-1",
+            reference_frame=frame,
+        )
+
+
+def test_metadata_status_change_without_audit_never_binds(tmp_path):
+    store, frame, _ = fixture(tmp_path)
+    with sqlite3.connect(store.path) as db:
+        db.execute(
+            "UPDATE reference_proposals SET status='APPROVED' "
+            "WHERE centre_id='centre-a' AND camera_id='cam-1'"
+        )
+    assert not store.verify_audit_chain(
+        centre_id="centre-a", camera_id="cam-1", actor=REVIEWER
+    )
+    with pytest.raises(ReferenceBindingError, match="audit chain"):
+        BoundReferenceShadowProbe.bind(
+            registry=store, reader=REVIEWER, camera_id="cam-1",
+            reference_frame=frame,
+        )
