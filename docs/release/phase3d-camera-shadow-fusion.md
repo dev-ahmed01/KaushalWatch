@@ -15,14 +15,17 @@ PersistentSceneProbe (sustained global scene difference).
 | WARMUP | false | either | WARMUP |
 | SUFFICIENT_TILES | true | either | SPATIAL_SCENE_REVIEW |
 | SUFFICIENT_TILES | false | either | NO_SHADOW_REVIEW |
-| UNKNOWN_LOW_TEXTURE | false | true | LOW_TEXTURE_GLOBAL_SCENE_REVIEW |
-| UNKNOWN_LOW_TEXTURE | false | false | UNKNOWN_LOW_TEXTURE |
+| UNKNOWN_LOW_TEXTURE | false | true **and global quality sufficient** | LOW_TEXTURE_GLOBAL_SCENE_REVIEW |
+| UNKNOWN_LOW_TEXTURE | false | false **or global quality limited** | UNKNOWN_LOW_TEXTURE |
 
 All outcomes are **advisory**. NO_SHADOW_REVIEW is not proof of stable,
 authenticated, live, usable footage. The low-texture global cue requests
 human review: it cannot distinguish viewpoint displacement from obstruction,
 scene lighting, foreground people, time-of-day/IR transitions, or equipment
-movement. Missing or malformed probe outputs raise ValueError.
+movement. Missing or malformed probe outputs raise ValueError. The global persistent
+change probe itself can signal change on completely textureless static
+footage; the fusion now rejects its fallback when its independent
+quality_limited indicator is true.
 The low-texture case does not weaken the spatial evidence threshold.
 
 ## Reproduce existing CSV exploratory comparison (PowerShell)
@@ -32,6 +35,12 @@ Use the isolated experimental worktree updated to this branch:
     $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
     $base = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\spatial"
     python "$trial\scripts\score_uhctd_shadow_fusion.py" --day3 "$base\day3\spatial_shadow_samples.csv" --day4 "$base\day4\spatial_shadow_samples.csv" --out "$base\fusion_comparison.json"
+
+IMPORTANT: Existing spatial-shadow CSVs produced before this change lack
+the required global_quality_limited column. They cannot score the revised
+rule. Regenerate the short-window diagnostics with the updated experimental
+branch first, then run the replay. Do not treat the older 8/8 result as a
+verified score for the revised rule.
 
 The script reads numerical CSVs only. It produces JSON with source CSV
 SHA-256 hashes, validates essential row structure, and reports new rising
@@ -52,6 +61,10 @@ Tests use synthetic arrays and CSVs, never restricted CCTV.
 | Persistent global only | 7/8 | 3/24 |
 | Spatial or low-texture global | 8/8 | 0/24 |
 
+These numbers apply to the **original unguarded experimental fusion**.
+A stationary featureless synthetic recording produced spurious global-change
+reviews and exposed the need for an explicit global-quality guard.
+The revised rule must be rescored on regenerated CSVs and full recordings.
 These are **post-hoc, already-inspected development results**. The rule was
 selected using the same recordings, healthy warmups depended on annotations,
 and the selected intervals restarted detector state. Twenty-four selected
