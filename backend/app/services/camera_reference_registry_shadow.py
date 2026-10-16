@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -61,8 +62,6 @@ class ShadowReferenceRegistry:
     def __init__(self, database_path: str | Path):
         self.path = Path(database_path).resolve()
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        if str(self.path) == ":memory:":
-            raise ReferencePolicyError("Use persistent filesystem DB for audit")
         with self._connection() as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS reference_proposals (
@@ -104,11 +103,19 @@ class ShadowReferenceRegistry:
                     BEGIN SELECT RAISE(ABORT, 'reference record cannot be deleted'); END;
             """)
 
+    @contextmanager
     def _connection(self):
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA busy_timeout=10000")
-        return db
+        try:
+            yield db
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     @staticmethod
     def _authorize(actor: TrustedActor, centre_id: str, role: str) -> None:
@@ -280,7 +287,9 @@ class ShadowReferenceRegistry:
 
     def verify_audit_chain(self, *, centre_id: str, camera_id: str,
                            actor: TrustedActor) -> bool:
-        self._authorize(actor,centre_id,"camera_reviewer")
+        self._authorize(actor,centre_id,actor.role)
+        if actor.role not in ("camera_operator","camera_reviewer"):
+            raise ReferencePolicyError("Unsupported camera role for audit")
         with self._connection() as db:
             records = db.execute(
                 "SELECT * FROM reference_audit WHERE centre_id=? AND camera_id=? "
