@@ -186,3 +186,43 @@ accusation: they are a prioritized queue for authorized human assessment of
 lighting, scene content, camera obstruction and underlying reference validity.
 Do not upload private frames, extracted screenshots or identifiable CCTV
 contact sheets to GitHub.
+
+
+## Phase 3D complete-run triage and ranked failure map
+
+The existing numerical triage shows:
+- Day 3 spatial normal review fraction 39.6155%, global 56.6212%,
+  fusion 41.0366%. New review episodes per normal hour are respectively
+  10.254505, 5.796025 and 27.196730.
+- Day 4 spatial 7.0102%, global 51.6066%, fusion 7.0102%.
+  Global produces *zero new normal rises* even though more than half
+  the normal samples have an active global warning. Thus a 0.0 fresh
+  normal-episode rate for global **does not mean zero false warnings**.
+- Movement-specific fusion: 15/24 Day 3 and 22/24 Day 4 fresh alerts.
+  Do not count the listed covered and defocused events as motion
+  detector misses; those have separate evidence-quality pathways.
+
+Because fusion can change its source between spatial and global cues,
+it may generate more new alert episodes than either input alone.
+This is a hypothesis until the per-hour origin and episode data are
+measured, not a reason to adjust threshold or add auto reset.
+
+After re-running the **updated continuous evaluator** to obtain the
+three numerical outputs per day, compute a ranked human-inspection map:
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $base = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended"
+    python "$trial\scripts\report_uhctd_continuous_failure_map.py" --day3 "$base\day3" --day4 "$base\day4" --out "$base\failure_map.json"
+
+This validates hourly and contiguous-episode totals against the full
+continuous summary, then prints the highest-volume normal review hours,
+highest-churn normal hours, longest flagged spans, and number of review
+samples originating from each method. All times are offsets from the
+start of the video: do not infer clock time without trusted capture
+metadata. The report is numeric-only and does not inspect individual
+frames or establish causal links to lighting, time of day, traffic,
+pedestrians or actual camera movement.
+
+Until the high normal-period review burden has been explained and
+independently tested, do not merge the candidate into the production
+decision path or send punitive camera-tampering alerts to operators.
