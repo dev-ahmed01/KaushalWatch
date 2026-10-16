@@ -18,10 +18,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from score_uhctd_shadow_fusion import fresh_event, score_csv  # noqa: E402
 
 
-def fused(status, spatial=False, global_alert=False):
+def fused(status, spatial=False, global_alert=False, global_quality_limited=False):
     return combine_shadow_evidence(
         {"evidence_status": status, "review_55": spatial},
-        {"persistent_review": global_alert},
+        {
+            "persistent_review": global_alert,
+            "quality_limited": global_quality_limited,
+        },
     )
 
 
@@ -44,6 +47,14 @@ def test_low_texture_can_use_persistent_global_as_review_only():
     assert report["decision"] == "LOW_TEXTURE_GLOBAL_SCENE_REVIEW"
     assert report["review_cue"]
     assert report["interpretation"] == "OFFICER_REVIEW_ONLY_NOT_TAMPER_OR_MOVEMENT_PROOF"
+
+
+def test_low_texture_global_signal_with_unreliable_texture_is_unknown():
+    report = fused(
+        "UNKNOWN_LOW_TEXTURE", global_alert=True, global_quality_limited=True
+    )
+    assert report["decision"] == "UNKNOWN_LOW_TEXTURE"
+    assert not report["review_cue"]
 
 
 def test_low_texture_without_global_evidence_remains_unknown():
@@ -77,7 +88,7 @@ def test_probe_exercises_both_shadow_engines_without_modifying_camera_trust():
     blank = np.full((80, 80, 3), 65, dtype=np.uint8)
     first = probe.observe(blank, 1 / 3)
     assert first["decision"] == "WARMUP"
-    for _ in range(34):
+    for _ in range(90):
         last = probe.observe(blank, 1 / 3)
     assert last["decision"] == "UNKNOWN_LOW_TEXTURE"
     assert not last["review_cue"]
@@ -98,20 +109,21 @@ def test_csv_replay_preserves_unknown_and_avoids_normal_false_alarm(tmp_path):
     fieldnames = [
         "span", "kind", "frame", "post_onset",
         "evidence_status", "review_55", "global_review",
+        "global_quality_limited",
     ]
     rows = [
         # Low texture: global fallback creates a fresh advisory review.
-        ("moved_1_at_5", 3, 1, False, "WARMUP", False, False),
-        ("moved_1_at_5", 3, 2, False, "UNKNOWN_LOW_TEXTURE", False, False),
-        ("moved_1_at_5", 3, 5, True, "UNKNOWN_LOW_TEXTURE", False, True),
+        ("moved_1_at_5", 3, 1, False, "WARMUP", False, False, False),
+        ("moved_1_at_5", 3, 2, False, "UNKNOWN_LOW_TEXTURE", False, False, False),
+        ("moved_1_at_5", 3, 5, True, "UNKNOWN_LOW_TEXTURE", False, True, False),
         # A global-only nuisance change in a sufficient-texture scene is ignored.
-        ("normal_control_1", 0, 10, False, "SUFFICIENT_TILES", False, True),
-        ("normal_control_1", 0, 11, False, "SUFFICIENT_TILES", False, True),
+        ("normal_control_1", 0, 10, False, "SUFFICIENT_TILES", False, True, False),
+        ("normal_control_1", 0, 11, False, "SUFFICIENT_TILES", False, True, False),
         # Textured spatial event is still detected when global is negative.
-        ("moved_2_at_25", 3, 20, False, "SUFFICIENT_TILES", False, False),
-        ("moved_2_at_25", 3, 25, True, "SUFFICIENT_TILES", True, False),
+        ("moved_2_at_25", 3, 20, False, "SUFFICIENT_TILES", False, False, False),
+        ("moved_2_at_25", 3, 25, True, "SUFFICIENT_TILES", True, False, False),
         # Uninformative reference remains unknown, not an all-clear.
-        ("normal_control_2", 0, 40, False, "UNKNOWN_LOW_TEXTURE", False, False),
+        ("normal_control_2", 0, 40, False, "UNKNOWN_LOW_TEXTURE", False, True, True),
     ]
     with path.open("w", newline="", encoding="utf-8") as output:
         writer = csv.writer(output)
