@@ -35,6 +35,7 @@ from survey_uhctd_events import (  # noqa: E402
 FIELDS = [
     "span", "kind", "extent", "frame", "post_onset",
     "camera_status", "global_scene_correlation", "global_review",
+    "global_quality_limited",
     "evidence_status", "eligible_tiles", "changed_tiles",
     "changed_fraction", "changed_quadrants",
     "median_tile_correlation", "median_baseline_tile_texture",
@@ -94,6 +95,7 @@ def inspect(cap, span: dict, fps: float, step: int, writer: csv.DictWriter):
             "camera_status": "SHADOW_NOT_INTEGRATED",
             "global_scene_correlation": global_info["scene_correlation"],
             "global_review": global_info["persistent_review"],
+            "global_quality_limited": global_info["quality_limited"],
         }
         for key in FIELDS:
             if key in info:
