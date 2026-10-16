@@ -72,8 +72,7 @@ class BoundReferenceShadowProbe:
             raise ReferenceBindingError("Reference has not been independently approved")
         if not registry.verify_audit_chain(
             centre_id=reader.centre_id,camera_id=camera_id,
-            actor=reader if reader.role=="camera_reviewer" else
-            TrustedActor(reader.subject,"camera_reviewer",reader.centre_id),
+            actor=reader,
         ):
             raise ReferenceBindingError("Reference audit chain does not verify")
         expected = snapshot["sha256"]
