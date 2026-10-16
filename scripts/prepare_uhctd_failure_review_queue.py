@@ -264,7 +264,7 @@ def main() -> None:
     parser.add_argument("--context-seconds", type=float, default=10.0)
     args = parser.parse_args()
     queue, metadata = create_queue(
-        args.day3, args.day4, nearby_seconds=args.nearby_seconds,
+        args.day3, args.day4, near_seconds=args.nearby_seconds,
         per_category=args.per_category, churn_hours=args.churn_hours,
         context_seconds=args.context_seconds,
     )
