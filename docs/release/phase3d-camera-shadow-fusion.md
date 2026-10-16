@@ -31,10 +31,7 @@ Use the isolated experimental worktree updated to this branch:
 
     $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
     $base = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\spatial"
-    python "$trial\scripts\score_uhctd_shadow_fusion.py" 
-        --day3 "$base\day3\spatial_shadow_samples.csv" 
-        --day4 "$base\day4\spatial_shadow_samples.csv" 
-        --out "$base\fusion_comparison.json"
+    python "$trial\scripts\score_uhctd_shadow_fusion.py" --day3 "$base\day3\spatial_shadow_samples.csv" --day4 "$base\day4\spatial_shadow_samples.csv" --out "$base\fusion_comparison.json"
 
 The script reads numerical CSVs only. It produces JSON with source CSV
 SHA-256 hashes, validates essential row structure, and reports new rising
