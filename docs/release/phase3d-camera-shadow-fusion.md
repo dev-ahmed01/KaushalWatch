@@ -304,3 +304,39 @@ Keep the current vision profile and main Camera Trust untouched. First
 classify the reviewed intervals; then decide whether a new reviewed-reference
 lifecycle, persistence model, or foreground/lighting robustness experiment
 is defensible. An automated baseline reset remains prohibited.
+
+
+## Local interactive review (Windows; no exported frames)
+
+After preparing targeted_camera_review_queue.csv, use the new
+review_uhctd_queue_local.py helper to **inspect the original recordings
+on the same Windows computer**. It decodes video frames in memory using
+OpenCV, displays them using the standard Python tkinter GUI, and records
+only reviewer-authored categorical labels in a **separate** CSV.
+
+Preflight (headless, validates paths and existing labels):
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $meva = "C:\Users\Admin\Desktop\MEVA"
+    $review = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended\manual-review"
+    python "$trial\scripts\review_uhctd_queue_local.py" --queue "$review\targeted_camera_review_queue.csv" --day3-video "$meva\video.avi" --day4-video "$meva\UHCTD_Day4\video.avi" --reviews-out "$review\local_review_decisions.csv" --validate-only
+
+Open the desktop viewer (same command without --validate-only):
+
+    python "$trial\scripts\review_uhctd_queue_local.py" --queue "$review\targeted_camera_review_queue.csv" --day3-video "$meva\video.avi" --day4-video "$meva\UHCTD_Day4\video.avi" --reviews-out "$review\local_review_decisions.csv"
+
+The viewer provides a time slider, 5s/30s frame steps, start/middle/end,
+and optional **5-second frame scan** (not full frame-rate video playback).
+For each of the 22 intervals choose scene classification, whether
+evidence is usable, whether the earlier camera reference remains valid,
+and review status. You may mark uncertain or needs second review when
+the still-frame scan does not resolve the cause. Save and switch cases;
+existing decisions resume from the separate output CSV.
+
+The scanner never creates JPEGs, screenshots or playable clips, never
+sends data to GitHub, and never mutates the generated queue or original
+video files. The reviewer CSV is **not** independent validation: these
+22 cases were selected for likely failure, and neither pre-event
+reference quality nor annotation-normal scene usability is proven.
+Do not enter people's names or identifiable details in reviewer notes.
+Do not merge this experimental branch into main based solely on the queue.
