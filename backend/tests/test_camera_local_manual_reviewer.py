@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import inspect
 import json
 import subprocess
 import sys
@@ -127,3 +128,16 @@ def test_same_queue_and_output_not_allowed(tmp_path):
     ], capture_output=True, text=True)
     assert proc.returncode != 0
     assert "must not overwrite" in proc.stderr
+
+
+
+def test_navigation_is_packed_before_preview_even_on_short_screens():
+    """Keep the critical next/save controls above the potentially tall image."""
+    from review_uhctd_queue_local import launch_gui
+
+    source = inspect.getsource(launch_gui)
+    assert source.index("footer.pack(") < source.index("image_label.pack(")
+    assert 'text="Next →"' in source
+    assert 'text="Save labels"' in source
+    assert 'text="Save and close"' in source
+    assert source.count("footer.pack(") == 1
