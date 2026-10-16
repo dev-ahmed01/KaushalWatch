@@ -32,8 +32,11 @@ def combine_shadow_evidence(
         raise ValueError("Unrecognized or missing spatial evidence status")
     spatial_alert = spatial.get("review_55")
     global_alert = global_scene.get("persistent_review")
-    if type(spatial_alert) is not bool or type(global_alert) is not bool:
-        raise ValueError("Shadow probes must provide explicit boolean flags")
+    global_quality_limited = global_scene.get("quality_limited")
+    if any(type(v) is not bool for v in (
+        spatial_alert, global_alert, global_quality_limited
+    )):
+        raise ValueError("Shadow probes require explicit booleans and global quality")
     if status != "SUFFICIENT_TILES" and spatial_alert:
         raise ValueError("Spatial review cannot be asserted without sufficient tiles")
 
@@ -42,7 +45,7 @@ def combine_shadow_evidence(
     elif status == "SUFFICIENT_TILES":
         decision = "SPATIAL_SCENE_REVIEW" if spatial_alert else "NO_SHADOW_REVIEW"
         review = spatial_alert
-    elif global_alert:
+    elif global_alert and not global_quality_limited:
         decision, review = "LOW_TEXTURE_GLOBAL_SCENE_REVIEW", True
     else:
         decision, review = "UNKNOWN_LOW_TEXTURE", False
@@ -53,6 +56,7 @@ def combine_shadow_evidence(
         "evidence_status": status,
         "spatial_review": spatial_alert,
         "global_review": global_alert,
+        "global_quality_limited": global_quality_limited,
         "production_integration": False,
         "interpretation": "OFFICER_REVIEW_ONLY_NOT_TAMPER_OR_MOVEMENT_PROOF",
     }
