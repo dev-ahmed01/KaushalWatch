@@ -56,6 +56,10 @@ def test_continuous_full_run_creates_movement_review_without_promotion(tmp_path)
     assert result["methods"]["fusion"]["per_class"]["moved"]["events"] == 1
     assert result["methods"]["fusion"]["per_class"]["moved"]["fresh_alert_events"] == 1
     assert len(result["events"]) == 3
+    assert len(result["normal_review_hours"]) == 1
+    assert result["normal_review_hours"][0]["normal_samples"] > 0
+    assert sum(row["fusion_review_samples"] for row in result["normal_review_hours"]) == result["methods"]["fusion"]["normal_review_samples"]
+    assert sum(row["samples"] for row in result["normal_review_episodes"]) == result["methods"]["fusion"]["normal_review_samples"]
     assert "SHA" not in result["source_video_sha256"]
     assert len(result["source_video_sha256"]) == 64
     assert all(row["method"] != "tamper" for row in result["events"])
@@ -79,6 +83,7 @@ def test_normal_low_texture_is_unknown_not_stable_or_detected(tmp_path):
     result = evaluate(video, labels, sample_seconds=1.0)
     assert result["low_texture_unknown_by_class"]["normal"] > 0
     assert result["methods"]["fusion"]["normal_review_samples"] == 0
+    assert result["normal_review_episodes"] == []
     assert result["methods"]["fusion"]["per_class"]["moved"]["events"] == 0
     assert result["methods"]["fusion"]["new_normal_review_episodes_per_normal_hour"] == 0
 
@@ -121,7 +126,9 @@ def test_cli_writes_numeric_outputs_without_video_or_images(tmp_path):
     parsed = json.loads(completed.stdout)
     assert parsed["qualified"] is False
     assert sorted(p.name for p in out.iterdir()) == [
-        "continuous_shadow_events.csv", "continuous_shadow_summary.json"
+        "continuous_shadow_events.csv",
+        "continuous_shadow_normal_review_episodes.csv",
+        "continuous_shadow_summary.json"
     ]
     data = json.loads((out / "continuous_shadow_summary.json").read_text())
     assert data["qualified"] is False
@@ -129,3 +136,6 @@ def test_cli_writes_numeric_outputs_without_video_or_images(tmp_path):
         rows = list(csv.DictReader(stream))
     assert len(rows) == 3
     assert set(row["method"] for row in rows) == {"spatial", "global", "fusion"}
+    with (out / "continuous_shadow_normal_review_episodes.csv").open(newline="") as stream:
+        episodes = list(csv.DictReader(stream))
+    assert len(episodes) == data["normal_review_episodes_count"]
