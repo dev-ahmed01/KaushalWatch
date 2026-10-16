@@ -105,6 +105,13 @@ class BoundReferenceShadowProbe:
             raise ReferenceBindingError(
                 "Approved reference changed: stop shadow observations and seek human review"
             )
+        if not self.registry.verify_audit_chain(
+            centre_id=self.reader.centre_id, camera_id=self.camera_id,
+            actor=self.reader,
+        ):
+            raise ReferenceBindingError(
+                "Reference metadata or audit chain no longer verifies"
+            )
         result = self.scene.observe(frame,sample_seconds)
         return {
             **result,
