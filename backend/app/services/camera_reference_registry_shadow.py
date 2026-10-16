@@ -295,7 +295,12 @@ class ShadowReferenceRegistry:
                 "SELECT * FROM reference_audit WHERE centre_id=? AND camera_id=? "
                 "ORDER BY seq",(centre_id,camera_id),
             ).fetchall()
+            current = self._lookup(db,centre_id,camera_id)
+        if bool(records) != bool(current):
+            return False
         previous_hash="0"*64
+        last_proposed = None
+        last_approved = None
         for index,row in enumerate(records,1):
             if row["seq"]!=index or row["prior_hash"]!=previous_hash:
                 return False
@@ -307,5 +312,52 @@ class ShadowReferenceRegistry:
             calculated=hashlib.sha256(envelope.encode("utf-8")).hexdigest()
             if calculated!=row["chain_hash"]:
                 return False
+            try:
+                details=json.loads(row["payload_json"])
+            except (ValueError,TypeError):
+                return False
+            if row["action"] == "PROPOSE":
+                if (not isinstance(details,dict)
+                        or not all(k in details for k in (
+                            "sha256","capture_id","reviewed_source_id"
+                        ))):
+                    return False
+                last_proposed=row
+                last_approved=None
+            elif row["action"] == "APPROVE":
+                if last_proposed is None or not isinstance(details,dict):
+                    return False
+                last_approved=row
+            elif row["action"] not in ("SUSPEND","REVOKE"):
+                return False
             previous_hash=calculated
+        if current is None:
+            return True
+        if not records or last_proposed is None:
+            return False
+        last=records[-1]
+        expected_status={
+            "PROPOSE":"PENDING_REVIEW","APPROVE":"APPROVED",
+            "SUSPEND":"SUSPENDED","REVOKE":"REVOKED",
+        }.get(last["action"])
+        proposal_details=json.loads(last_proposed["payload_json"])
+        approval_details=(
+            json.loads(last_approved["payload_json"]) if last_approved else None
+        )
+        if any((
+            current["status"]!=expected_status,
+            current["revision"]!=last["revision"],
+            current["sha256"]!=proposal_details["sha256"],
+            current["capture_id"]!=proposal_details["capture_id"],
+            current["reviewed_source_id"]!=proposal_details["reviewed_source_id"],
+            current["proposer"]!=last_proposed["actor"],
+            current["updated_at"]!=last["event_at"],
+            current["approver"]!=(
+                last_approved["actor"] if last_approved else None
+            ),
+            current["approval_review_id"]!=(
+                approval_details.get("review_id") if approval_details else None
+            ),
+        )):
+            return False
         return True
