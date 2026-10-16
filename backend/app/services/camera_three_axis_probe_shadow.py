@@ -13,7 +13,10 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .camera_evidence_axes_shadow import compose_camera_evidence_axes
+from .camera_evidence_axes_shadow import (
+    QUALITY_VALUES,
+    compose_camera_evidence_axes,
+)
 from .camera_reference_lifecycle_shadow import ShadowReferenceLifecycle
 from .camera_shadow_fusion import ShadowFusionProbe
 
@@ -34,6 +37,15 @@ class ThreeAxisCameraShadowProbe:
             raise ValueError("Nonempty camera frame required")
         if not np.isfinite(sample_seconds) or sample_seconds <= 0:
             raise ValueError("Positive finite sampling interval required")
+        if quality_status not in QUALITY_VALUES:
+            raise ValueError("Camera quality status must be explicit and recognized")
+        if not isinstance(observation_scope, str) or not observation_scope.strip():
+            raise ValueError("Observation scope must be named")
+        if reference is not None and not isinstance(
+            reference, ShadowReferenceLifecycle
+        ):
+            raise ValueError("Reference must be a ShadowReferenceLifecycle")
+        # Reject invalid requests before consuming any stateful scene samples.
         # The scene diagnostic runs for observation only. The lifecycle does
         # not auto-enroll, overwrite or reset its temporary image reference.
         scene = self.scene_probe.observe(frame, sample_seconds)
