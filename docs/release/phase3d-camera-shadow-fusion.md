@@ -477,3 +477,29 @@ Production adoption gates, still open:
    or automatic compliance outcomes while shadow-only.
 
 Status: engineering foundation, NOT released Camera Trust 2.0.
+
+
+### Runnable shadow adapter
+
+backend/app/services/camera_three_axis_probe_shadow.py exposes
+ThreeAxisCameraShadowProbe.observe(frame, sample_seconds,
+quality_status, reference, observation_scope). It combines the existing
+unmodified spatial/global scene diagnostic with the new three-axis
+advisory policy. It explicitly starts with quality UNKNOWN unless a
+different status is supplied by a suitable separate assessment. An
+approved reference lifecycle **does not bind or validate the actual
+temporary image comparator** used by the spatial diagnostic.
+
+This intentional restriction prevents silently misrepresenting the
+model's first-ten-seconds experimental warmup as an independently
+approved camera reference. No running production service imports the
+new adapter and it does not authenticate or persist anything.
+
+Synthetic smoke/regression test:
+
+    python -m pytest backend/tests/test_camera_reference_lifecycle_shadow.py backend/tests/test_camera_evidence_axes_shadow.py backend/tests/test_camera_three_axis_probe_shadow.py -q
+
+Promotion would require independently reviewed comparator-image
+provenance and explicit reference binding, persistent audited permissions,
+separate per-task evidence-usability qualification and rigorous blind
+field validation. This module is deliberately not a production feature.
