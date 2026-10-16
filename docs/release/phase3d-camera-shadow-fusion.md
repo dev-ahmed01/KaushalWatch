@@ -254,3 +254,53 @@ Next stage: rank which normal-period stretches warrant authorized manual
 inspection and discriminate legitimate unusable evidence from nuisance
 scene-change warnings. Do not auto-reset a camera baseline or change
 camera-integrity / attendance production decisions from these diagnostics.
+
+
+## Local targeted review queue — from the extended numerical outputs
+
+Post-event normal-period carryover is substantial on Day 3, while most
+Day 4 normal review intervals are newly raised and far from recent
+annotations. From the latest offline adjacency report:
+- Day 3: 9,080 / 26,508 normal review samples (34.2538%) belong to
+  episodes already active at the normal-label boundary. Another summary
+  shows 21,269 / 26,508 (80.2362%) belong to episodes which STARTED
+  within 60 seconds of the preceding annotated event.
+- Day 4: 186 / 4,527 (4.1087%) carried across the boundary;
+  387 / 4,527 (8.5487%) belong to episodes that started within 60
+  seconds of an annotated event.
+- Important: the 60-second number is **not** the fraction of flagged
+  samples physically occurring within 60 seconds. Entire episode
+  durations are included once their START qualifies.
+- Neither temporal proximity nor a normal annotation proves the
+  visual cause or that footage was usable.
+
+Generate a small numerical CSV list for authorized **local** video
+review from the already-produced extended reports, without scanning or
+saving any new frames:
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $root = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended"
+    python "$trial\scripts\prepare_uhctd_failure_review_queue.py" --day3 "$root\day3" --day4 "$root\day4" --out "$root\manual-review" --nearby-seconds 60 --per-category 3 --churn-hours 2
+
+Outputs:
+- targeted_camera_review_queue.csv with recording-relative seconds and
+  numerical context. It includes examples of carried, newly near-event,
+  and newly far-event normal warnings, plus high-churn intervals.
+- targeted_camera_review_summary.json with the **entire** population's
+  unreviewed category/sample counts and a warning that the selected cases
+  are deliberately enriched for long/churning alerts, not representative
+  of benchmark accuracy.
+
+The queue is not a replacement for human inspection. Use local licensed
+footage only; classify each selected interval as camera-view displacement,
+foreground occupancy/change, lighting or IR mode shift, genuine
+visibility degradation, unclear, or other. Independently note whether
+the image appears usable and whether the preexisting camera reference
+is still valid. Leave conclusions uncertain when evidence is insufficient.
+Avoid identifying individuals in reviewer notes. Do not upload raw frames,
+faces, footage or identified persons to the repository or a public chat.
+
+Keep the current vision profile and main Camera Trust untouched. First
+classify the reviewed intervals; then decide whether a new reviewed-reference
+lifecycle, persistence model, or foreground/lighting robustness experiment
+is defensible. An automated baseline reset remains prohibited.
