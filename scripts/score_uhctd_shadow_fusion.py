@@ -27,7 +27,7 @@ from app.services.camera_shadow_fusion import combine_shadow_evidence  # noqa: E
 
 REQUIRED = frozenset((
     "span", "kind", "frame", "post_onset", "evidence_status",
-    "review_55", "global_review",
+    "review_55", "global_review", "global_quality_limited",
 ))
 
 
@@ -91,9 +91,13 @@ def score_csv(path: Path) -> dict:
                 raise ValueError("Normal control cannot have a movement onset")
             spatial = parse_bool(row["review_55"])
             global_alert = parse_bool(row["global_review"])
+            global_quality_limited = parse_bool(row["global_quality_limited"])
             fused = combine_shadow_evidence(
                 {"evidence_status": row["evidence_status"], "review_55": spatial},
-                {"persistent_review": global_alert},
+                {
+                    "persistent_review": global_alert,
+                    "quality_limited": global_quality_limited,
+                },
             )
             previous.append({
                 "frame": frame,
@@ -157,7 +161,10 @@ def main() -> None:
     result = {
         "status": "PHASE3D_SHADOW_FUSION_DEVELOPMENT_REPLAY_ONLY",
         "production_integration": False,
-        "rule": "spatial 55% when texture sufficient, persistent global when low texture",
+        "rule": (
+            "spatial 55% if sufficient tiles; global fallback on low spatial "
+            "texture ONLY when global structural texture is sufficient"
+        ),
         "limitations": [
             "Selected Day 3/Day 4 windows already used during development",
             "Reported normal windows are not a full-day false-alert-rate estimate",
