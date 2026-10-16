@@ -371,3 +371,46 @@ than uploading private footage or potentially identifiable reviewer notes.
 This small, intentionally failure-enriched review is not an independent
 precision or recall benchmark. It cannot justify automatic baseline resets,
 camera-tampering enforcement, withholding attendance or production integration.
+
+
+## Phase 3D reviewed-case quality audit and visibility/ref separation
+
+After 22 of 22 targeted cases were saved, the initial reviewer aggregate had
+the following *reviewer-supplied* values:
+- Day 3: all 11 scene descriptions were visibility_degraded, but 7 cases
+  marked the visual evidence usable and 4 marked it unusable.
+- Day 4: 10 of 11 marked unchanged_scene, and those 10 marked the evidence
+  unusable; one degraded scene was marked usable.
+- All 22 selected valid reference=yes, and all 22 lacked explanation notes.
+
+These are not necessarily contradictory: a stationary camera can be dark or
+blurred, and degraded footage can still support narrower visual tasks.
+However, the evidence is **not sufficient to certify a camera reference**,
+and no external reviewer or approved reference comparison is documented.
+Do not reinterpret yes reference labels as independent validation.
+
+Optional quality audit using the saved categorical CSV *without re-reviewing
+or opening video*:
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $review = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended\manual-review"
+    python "$trial\scripts\audit_uhctd_manual_review_quality.py" --reviews "$review\local_review_decisions.csv" --out "$review\quality-audit"
+
+The resulting review_quality_audit.json contains only aggregate counts,
+classification-coherence hypotheses, the input hash, and hard limitations.
+An **optional**, capped local CSV contains clarification examples of unchanged
+but unusable, degraded but usable, and degraded/unusable scenes; blanks ask
+whether an approved independent reference was actually compared and what
+observation was (or was not) possible. It never modifies the original 22
+decisions, promotes any evidence to ground truth, or exports reviewer notes.
+
+Further camera-trust implementation should separate at least these concepts:
+1. Image/scene evidence usability: can the intended activity be verified?
+2. Camera viewpoint change: has an independently trusted scene reference
+   changed, with sufficient texture and lighting controls?
+3. Reference provenance/approval: is the comparator still approved?
+4. Human review status: unknown and ambiguous cases require abstention,
+   not punitive automated conclusions.
+
+No current reviewer aggregate changes the full-day false-review measurements.
+Independent blinded camera/site evaluation remains required for production.
