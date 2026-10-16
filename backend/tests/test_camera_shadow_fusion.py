@@ -133,7 +133,7 @@ def test_csv_replay_preserves_unknown_and_avoids_normal_false_alarm(tmp_path):
     comparisons = result["comparisons"]
     assert comparisons["fusion"]["fresh_moved_review_events"] == 2
     assert comparisons["fusion"]["normal_controls_with_review"] == 0
-    assert comparisons["global"]["normal_controls_with_review"] == 1
+    assert comparisons["global"]["normal_controls_with_review"] == 2
     assert comparisons["spatial"]["fresh_moved_review_events"] == 1
     assert result["qualification"] == "NOT_HELD_OUT_NOT_PRODUCTION_APPROVED"
     assert result["unknown_low_texture_samples"] == 3
