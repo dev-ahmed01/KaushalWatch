@@ -414,3 +414,66 @@ Further camera-trust implementation should separate at least these concepts:
 
 No current reviewer aggregate changes the full-day false-review measurements.
 Independent blinded camera/site evaluation remains required for production.
+
+
+## Phase 3E foundation — three independent camera-evidence axes
+
+The 22 manual review decisions were saved and aggregated, with 12 marked
+visibility_degraded, 10 unchanged_scene, 14 marked evidence unusable, and
+all 22 marked reference_still_valid=yes. Those judgments are informative
+but cannot establish independent provenance. In particular, 10 Day 4
+unchanged scenes were marked unusable, and eight visibility-degraded
+scenes were marked usable. This shows why stability, activity-verifiability
+and reference approval must NOT be conflated.
+
+The next engineering foundation is implemented as two **shadow-only**
+pure service modules:
+
+- backend/app/services/camera_reference_lifecycle_shadow.py:
+  An explicit workflow with UNENROLLED, PENDING_REVIEW, APPROVED,
+  SUSPENDED and REVOKED states. New references require a named proposer,
+  lowercase SHA-256 fingerprint, capture ID, reviewed source ID and
+  timezone-aware event timestamp; approval requires a different actor,
+  a new independent review ID, and three affirmative verified-health/
+  unchanged-view/independent-comparison checks. An existing approved
+  reference cannot be silently replaced, and suspending it NEVER
+  automatically selects a new frame. Each transition records a simple
+  in-memory chronological event. This is a policy prototype, not an
+  authenticated service, durable datastore or approved audit ledger.
+- backend/app/services/camera_evidence_axes_shadow.py:
+  Generates three separate advisory outputs (evidence-quality signal,
+  structural scene-change review, and reference lifecycle). It does not
+  treat CameraTrust.trusted or any no-alert result as independently
+  verified scene stability or operational footage usability. The output
+  always states camera integrity NOT_DETERMINED and attendance/compliance
+  NOT_AUTHORIZED. Low-texture UNKNOWN stays explicitly unknown. Even
+  APPROVED in the prototype means the caller claimed human verification;
+  external proof and authorization are not established here.
+
+Neither module is wired into released FastAPI endpoints, authentication,
+attendance or compliance actions. The underlying 55% spatial detector
+and its full-day results are **unchanged**. They remain a failed
+operational reliability candidate with 41.04% of Day 3 and 7.01% of Day 4
+annotation-normal samples flagged, despite the selected-window result.
+
+Synthetic tests, without any licensed CCTV:
+
+    python -m pytest backend/tests/test_camera_reference_lifecycle_shadow.py backend/tests/test_camera_evidence_axes_shadow.py -q
+
+Production adoption gates, still open:
+
+1. Authenticated and authorized role checks with separate proposer and
+   independent approver (the in-memory shadow object does not provide these).
+2. Durable database-backed, immutable reference provenance and audit
+   trail; custody, reference image/feature capture, camera ID, retention,
+   privacy control, concurrency protection and change approval.
+3. Explicit semantics for visibility/evidence usability tied to specific
+   training tasks, including unknown and partial degradation.
+4. A state machine that does not reset baselines on detection alone and
+   requires a human adjudication of true vs nuisance scene change.
+5. Continuous development benchmark acceptance and then untouched,
+   multi-site, blind independent held-out validation.
+6. No camera tampering allegations, sanctions, attendance modifications,
+   or automatic compliance outcomes while shadow-only.
+
+Status: engineering foundation, NOT released Camera Trust 2.0.
