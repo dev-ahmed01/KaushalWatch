@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -116,3 +117,41 @@ def test_invalid_selection_counts_fail(tmp_path):
     b = fixture(tmp_path / "day4")
     with pytest.raises(ValueError, match="Selection counts"):
         create_queue(a, b, per_category=0)
+
+
+
+def test_cli_keyword_regression_generates_expected_queue(tmp_path):
+    """Exercise argparse -> create_queue, not just the helper function."""
+    day3 = fixture(tmp_path / "day3")
+    day4 = fixture(tmp_path / "day4")
+    target = tmp_path / "review-output"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "prepare_uhctd_failure_review_queue.py"),
+            "--day3", str(day3),
+            "--day4", str(day4),
+            "--out", str(target),
+            "--nearby-seconds", "60",
+            "--per-category", "1",
+            "--churn-hours", "1",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    output = json.loads(result.stdout)
+    assert output["status"] == "PHASE3D_TARGETED_MANUAL_REVIEW_NOT_HELD_OUT"
+    assert output["selected_cases"] > 0
+    assert output["qualified"] is False
+    assert sorted(p.name for p in target.iterdir()) == [
+        "targeted_camera_review_queue.csv",
+        "targeted_camera_review_summary.json",
+    ]
+    with (target / "targeted_camera_review_queue.csv").open(
+        newline="", encoding="utf-8-sig"
+    ) as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == output["selected_cases"]
+    assert all(row["review_status"] == "UNREVIEWED" for row in rows)
+    assert all(row["scene_classification"] == "" for row in rows)
