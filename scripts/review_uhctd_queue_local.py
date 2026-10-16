@@ -185,7 +185,7 @@ def launch_gui(queue: list[dict], decisions: dict[str, dict], output: Path,
 
     root = tk.Tk()
     root.title("KaushalWatch — Local Camera Trust Review (Experimental)")
-    root.geometry("925x830")
+    root.geometry("1000x780")
     root.minsize(750, 680)
     root.configure(bg="#eef2f2")
     captures: dict[str, cv2.VideoCapture] = {}
@@ -202,9 +202,12 @@ def launch_gui(queue: list[dict], decisions: dict[str, dict], output: Path,
     heading = ttk.Label(root, font=("Segoe UI", 15, "bold"))
     heading.pack(pady=(12, 3))
     metadata = ttk.Label(root, wraplength=850, justify="center")
-    metadata.pack(pady=(0, 8))
+    metadata.pack(pady=(0, 5))
+    # Keep navigation above the preview so Windows scaling cannot hide it.
+    footer = ttk.Frame(root)
+    footer.pack(pady=(0, 7))
     image_label = tk.Label(
-        root, bg="#111a1c", width=770, height=440, anchor="center",
+        root, bg="#111a1c", width=770, height=350, anchor="center",
         text="Loading local frame…", fg="white",
     )
     image_label.pack(padx=15, pady=4)
@@ -246,8 +249,6 @@ def launch_gui(queue: list[dict], decisions: dict[str, dict], output: Path,
     ).pack(anchor="w", padx=22, pady=(10, 0))
     notes = tk.Text(root, height=3, wrap="word")
     notes.pack(fill="x", padx=20)
-    footer = ttk.Frame(root)
-    footer.pack(pady=10)
 
     def current():
         return queue[state["index"]]
@@ -274,7 +275,7 @@ def launch_gui(queue: list[dict], decisions: dict[str, dict], output: Path,
             )
             return
         h, w = image.shape[:2]
-        scale = min(790 / w, 435 / h, 1.0)
+        scale = min(790 / w, 345 / h, 1.0)
         if scale < 1.0:
             image = cv2.resize(
                 image, (max(1, int(w * scale)), max(1, int(h * scale))),
@@ -285,7 +286,7 @@ def launch_gui(queue: list[dict], decisions: dict[str, dict], output: Path,
         ppm = f"P6\n{ww} {hh}\n255\n".encode("ascii") + rgb.tobytes()
         photo = tk.PhotoImage(data=ppm, format="PPM")
         state["photo"] = photo
-        image_label.configure(image=photo, text="", width=790, height=435)
+        image_label.configure(image=photo, text="", width=790, height=345)
         time_label.configure(
             text=(
                 f"Offset {t:.1f}s | Review span {lo:.1f}–{hi:.1f}s "
