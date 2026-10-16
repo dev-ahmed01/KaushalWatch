@@ -226,3 +226,31 @@ pedestrians or actual camera movement.
 Until the high normal-period review burden has been explained and
 independently tested, do not merge the candidate into the production
 decision path or send punitive camera-tampering alerts to operators.
+
+
+## Normal-period episode carryover analysis — numerical reports only
+
+The ranked full-recording map makes clear that ordinary annotated-normal
+intervals can be flagged by either *carried-over* warnings from the preceding
+labeled event or newly raised warnings. These have very different operational
+implications, and neither is proof of deliberate interference.
+
+Use the existing **extended** outputs (no video reading required):
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $root = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2\extended"
+    python "$trial\scripts\triage_uhctd_normal_recovery.py" --day3 "$root\day3" --day4 "$root\day4" --out "$root\normal_recovery_triage.json" --nearby-seconds 60
+
+The tool counts flagged normal samples within spans that start with a
+warning already active across a label boundary, then compares episode
+start times with the nearest previous annotated tampering event. It
+prints the longest spans, counts attributable to each cue, and flags
+which start near an annotated event. **Temporal adjacency is not causal
+attribution**: a camera genuinely displaced or deteriorated after a
+labeled incident may properly remain under review; equally, a spurious
+reference mismatch could persist long after the event.
+
+Next stage: rank which normal-period stretches warrant authorized manual
+inspection and discriminate legitimate unusable evidence from nuisance
+scene-change warnings. Do not auto-reset a camera baseline or change
+camera-integrity / attendance production decisions from these diagnostics.
