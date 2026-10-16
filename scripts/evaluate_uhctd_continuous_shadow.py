@@ -101,6 +101,10 @@ def evaluate(video: Path, labels: Path, *,
         last_label = None
         events = []
         active = None
+        # Diagnostics only: do not store frames or reset the two probe states.
+        normal_by_hour: dict[int, Counter] = {}
+        normal_episode = None
+        normal_episodes = []
         with labels.open("r", newline="", encoding="utf-8-sig") as stream:
             reader = csv.reader(stream, strict=True)
             for idx in range(limit):
@@ -145,6 +149,53 @@ def evaluate(video: Path, labels: Path, *,
                     "fusion": bool(observation["review_cue"]),
                 }
                 state = observation["evidence_status"]
+                # Annotation-normal is only "no labeled tamper event".
+                # Review origins and episode locations identify which periods
+                # require independent inspection before changing any rule.
+                if kind == 0:
+                    hour = int(((frame - 1) / fps) // 3600)
+                    hour_counts = normal_by_hour.setdefault(hour, Counter())
+                    hour_counts["sampled_normal"] += 1
+                    hour_counts["spatial_review"] += int(method_alerts["spatial"])
+                    hour_counts["global_review"] += int(method_alerts["global"])
+                    hour_counts["fusion_review"] += int(method_alerts["fusion"])
+                    hour_counts["unknown_low_texture"] += int(
+                        state == "UNKNOWN_LOW_TEXTURE"
+                    )
+                    hour_counts["global_quality_limited"] += int(
+                        observation["global_quality_limited"]
+                    )
+                    hour_counts["fusion_spatial_source"] += int(
+                        observation["decision"] == "SPATIAL_SCENE_REVIEW"
+                    )
+                    hour_counts["fusion_global_source"] += int(
+                        observation["decision"] == "LOW_TEXTURE_GLOBAL_SCENE_REVIEW"
+                    )
+                    hour_counts["fusion_new_episode"] += int(
+                        method_alerts["fusion"] and not last_alert["fusion"]
+                    )
+                if kind == 0 and method_alerts["fusion"]:
+                    if normal_episode is None:
+                        normal_episode = {
+                            "start_frame": frame,
+                            "end_frame": frame,
+                            "samples": 0,
+                            "spatial_cue_samples": 0,
+                            "global_fallback_samples": 0,
+                            "already_alerted_before_normal_span":
+                                bool(last_alert["fusion"]),
+                        }
+                    normal_episode["end_frame"] = frame
+                    normal_episode["samples"] += 1
+                    normal_episode["spatial_cue_samples"] += int(
+                        observation["decision"] == "SPATIAL_SCENE_REVIEW"
+                    )
+                    normal_episode["global_fallback_samples"] += int(
+                        observation["decision"] == "LOW_TEXTURE_GLOBAL_SCENE_REVIEW"
+                    )
+                elif normal_episode is not None:
+                    normal_episodes.append(normal_episode)
+                    normal_episode = None
                 sampled_by_class[CLASSES[kind]] += 1
                 if state == "UNKNOWN_LOW_TEXTURE":
                     unknown_by_class[CLASSES[kind]] += 1
@@ -176,6 +227,8 @@ def evaluate(video: Path, labels: Path, *,
             if active is not None:
                 active["end_frame"] = limit
                 events.append(active)
+            if normal_episode is not None:
+                normal_episodes.append(normal_episode)
             if full_run and next(reader, None) is not None:
                 raise ValueError("Annotation CSV has extra rows after video end")
 
@@ -228,6 +281,29 @@ def evaluate(video: Path, labels: Path, *,
             "positive_samples": counts["positive_samples"],
             "per_class": per_class,
         }
+    hourly_rows = []
+    for hour, counts in sorted(normal_by_hour.items()):
+        hourly_rows.append({
+            "hour_from_recording_start": hour,
+            "normal_samples": counts["sampled_normal"],
+            "spatial_review_samples": counts["spatial_review"],
+            "global_review_samples": counts["global_review"],
+            "fusion_review_samples": counts["fusion_review"],
+            "fusion_review_fraction": ratio(
+                counts["fusion_review"], counts["sampled_normal"]
+            ),
+            "fusion_from_spatial_samples": counts["fusion_spatial_source"],
+            "fusion_from_global_fallback_samples": counts["fusion_global_source"],
+            "global_quality_limited_samples": counts["global_quality_limited"],
+            "unknown_low_texture_samples": counts["unknown_low_texture"],
+            "new_fusion_review_episodes": counts["fusion_new_episode"],
+        })
+    episode_rows = [{
+        **item,
+        "start_seconds": round((item["start_frame"] - 1) / fps, 3),
+        "end_seconds": round((item["end_frame"] - 1) / fps, 3),
+        "sampled_review_seconds": round(item["samples"] * interval, 3),
+    } for item in normal_episodes]
     event_rows = []
     for event in events:
         for method in METHODS:
@@ -271,6 +347,8 @@ def evaluate(video: Path, labels: Path, *,
         "low_texture_unknown_by_class": dict(unknown_by_class),
         "warmup_samples_by_class": dict(warmup_by_class),
         "methods": by_method,
+        "normal_review_hours": hourly_rows,
+        "normal_review_episodes": episode_rows,
         "events": event_rows,
         "limitations": [
             "Day 3/4 are already-inspected development recordings, not independent hold-out",
@@ -301,6 +379,17 @@ def main() -> None:
     summary_path = args.out / "continuous_shadow_summary.json"
     event_path = args.out / "continuous_shadow_events.csv"
     events = result.pop("events")
+    episodes = result.pop("normal_review_episodes")
+    normal_path = args.out / "continuous_shadow_normal_review_episodes.csv"
+    with normal_path.open("w", newline="", encoding="utf-8") as stream:
+        fields = [
+            "start_frame", "end_frame", "samples", "spatial_cue_samples",
+            "global_fallback_samples", "already_alerted_before_normal_span",
+            "start_seconds", "end_seconds", "sampled_review_seconds",
+        ]
+        writer = csv.DictWriter(stream, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(episodes)
     with event_path.open("w", newline="", encoding="utf-8") as stream:
         fields = [
             "class", "start_frame", "end_frame", "extent_parameter", "method",
@@ -311,6 +400,8 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(events)
     result["event_rows_csv"] = str(event_path.resolve())
+    result["normal_review_episodes_csv"] = str(normal_path.resolve())
+    result["normal_review_episodes_count"] = len(episodes)
     summary_path.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({
         "status": result["status"],
@@ -320,6 +411,7 @@ def main() -> None:
         "methods": result["methods"],
         "summary_json": str(summary_path.resolve()),
         "events_csv": str(event_path.resolve()),
+        "normal_review_episodes_csv": str(normal_path.resolve()),
     }, indent=2))
 
 
