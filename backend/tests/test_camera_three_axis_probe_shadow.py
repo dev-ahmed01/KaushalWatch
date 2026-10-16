@@ -95,3 +95,21 @@ def test_never_accept_deceptive_quality_labels():
             np.ones((40, 40, 3), dtype=np.uint8), 1,
             quality_status="TRUSTED", observation_scope="Person count",
         )
+
+
+
+def test_malformed_quality_does_not_advance_stateful_stream():
+    checker = ThreeAxisCameraShadowProbe()
+    blank = np.full((80, 80, 3), 50, dtype=np.uint8)
+    with pytest.raises(ValueError, match="quality status"):
+        checker.observe(
+            blank, 1, quality_status="TRUSTED",
+            observation_scope="Instructor activity",
+        )
+    assert checker.scene_probe.spatial.elapsed == 0
+    assert checker.scene_probe.persistent.elapsed == 0
+    first = checker.observe(
+        blank, 1, quality_status="UNKNOWN",
+        observation_scope="Instructor activity",
+    )
+    assert first["scene_shadow"]["decision"] == "WARMUP"
