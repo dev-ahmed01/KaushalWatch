@@ -133,3 +133,34 @@ CI regression command:
     python -m pytest backend/tests/test_camera_shadow_fusion.py backend/tests/test_camera_continuous_shadow.py -q
 
 No new released Camera Trust decision path is activated by this evaluator.
+
+
+## Phase 3D — complete-run failure triage (no new video pass required)
+
+The early full-day diagnostics exposed an unacceptable number of advisory
+review signals during annotation-normal time:
+
+| Complete recording | Fresh moved-event alerts | Normal samples with fusion review | New episodes per normal hour |
+|---|---:|---:|---:|
+| UHCTD Day 3 | 15/24 | 41.0366% | 27.196730 |
+| UHCTD Day 4 | 22/24 | 7.0102% | 14.382874 |
+
+This **fails the reliability objective** even though the separate
+selected-window exploratory surveys reported 8/8 events and 0/24 controls.
+Normal labels are not equivalent to independently certified usable footage.
+These values are developmental, not independent holdout data.
+
+The existing complete-run JSON summaries and event CSVs can be triaged
+without touching raw recordings. In PowerShell:
+
+    $trial = "C:\Users\Admin\Desktop\KaushalWatch-camera-trial"
+    $root = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3d\guarded-v2"
+    python "$trial\scripts\triage_uhctd_continuous_shadow.py" --day3 "$root\continuous\day3\continuous_shadow_summary.json" --day4 "$root\continuous\day4\continuous_shadow_summary.json" --out "$root\continuous_failure_triage.json"
+
+The tool shows **spatial vs global vs fusion** normal review rates and
+fresh event misses/preexisting alerts, and creates a numerical report.
+It cannot attribute exact failure timestamps or distinguish baseline drift
+from nuisance foreground movement using the existing aggregated summaries.
+To establish causes, instrument time-binned numerical traces and episodes
+in a subsequent controlled run. Do not adjust thresholds merely because
+short-clip results look promising.
