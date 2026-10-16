@@ -503,3 +503,56 @@ Promotion would require independently reviewed comparator-image
 provenance and explicit reference binding, persistent audited permissions,
 separate per-task evidence-usability qualification and rigorous blind
 field validation. This module is deliberately not a production feature.
+
+
+## Phase 3F — persistent reference governance and exact comparator binding (prototype)
+
+New isolated components:
+
+- camera_reference_registry_shadow.py: SQLite ACID metadata, scoped role
+  policy, sequential append-only event rows with hash-chain verification,
+  optimistic reference revision checking, and mandatory independent
+  approval. Proposed reference includes a lower-case SHA-256 pixel digest,
+  a capture ID, a source review ID, and centre/camera identity. The event
+  chain tracks proposals, approvals, suspensions and revocations; an
+  approved reference cannot be silently replaced by a new image.
+- camera_reference_binding_shadow.py: exact pixel digest verification
+  before constructing an isolated fixed-reference spatial and global
+  scene observer. The experimental first-ten-second warmup is NOT
+  accepted as an approved comparator. Every subsequent observation
+  checks that the same revision remains approved, stopping when the
+  reference is suspended or replaced. Output remains only advisory.
+
+This uses a canonical raw pixel fingerprint, not the SHA-256 of
+the encoded JPG/AVI file. Canonical digest includes original array
+shape/dtype and tightly packed uint8 BGR/gray pixels. A proposal's
+hash must correspond exactly to reference_frame when binding.
+The database itself intentionally stores NO frames, clips, images,
+faces or identifiable footage. A future trusted reference artifact store must
+supply exact approved pixels using provenance and access controls.
+
+The code deliberately does not provide an HTTP route, login/session
+security, authenticated actor construction, production DB migration,
+or permissioned media repository. TrustedActor is a domain policy object
+and can be created by arbitrary Python code: it MUST only be injected
+from a verified server-side session/role/centre check when integrating.
+SQLite triggers protect event rows from ordinary application UPDATE/DELETE,
+but do not protect against DB owner tampering, trigger removal, copied
+database history, or a privileged attacker recomputing hashes. The
+audit chain therefore is not an externally anchored immutable ledger;
+it is DEVELOPMENT EVIDENCE ONLY. Multi-worker,
+PostgreSQL-backed persistence with DB roles, central immutable audit
+anchoring and independent source verification remain prerequisites.
+
+Shadow tests (all synthetic, no external datasets):
+
+    python -m pytest backend/tests/test_camera_reference_registry_binding_shadow.py -q
+
+Do not merge PR #61 into main on the strength of these tests or
+declare camera review references institutionally approved. No
+automatic scene recovery, attendance adjustment, camera-tamper
+allegations, sanctions, or frame-borne compliance outputs are enabled.
+
+The original Day 3 / Day 4 full-recording camera warning burdens
+still require direct reduction WITHOUT suppressing legitimately
+unusable evidence or silently resetting the camera.
