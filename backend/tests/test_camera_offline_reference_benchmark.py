@@ -87,7 +87,7 @@ def test_new_movement_onset_detected_only_after_signal_rises(tmp_path):
     assert moved["fresh_review_events"]==1
     assert moved["fresh_review_fraction"]==1
     assert moved["events_preexisting_review"]==0
-    assert moved["max_fresh_delay_seconds"]==3
+    assert moved["max_fresh_delay_seconds"]==1.0  # three frames at 3 FPS
 
 
 def test_preview_cannot_be_reported_as_full_recording(tmp_path):
