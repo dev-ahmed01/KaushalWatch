@@ -143,6 +143,28 @@ def test_duplicate_event_stage_rejected(numeric_report):
         analyze(numeric_report)
 
 
+def test_missing_selected_event_rejected_even_if_sample_count_updated(numeric_report):
+    day = numeric_report["days"]["day3"]
+    day["sampled_positions"] = [
+        item for item in day["sampled_positions"]
+        if item["target_event_class"] != "moved"
+    ]
+    day["sampled_target_frames"] = len(day["sampled_positions"])
+    with pytest.raises(ValueError, match="event selection disagrees"):
+        analyze(numeric_report)
+
+
+def test_near_zero_pre_event_anchor_abstains(numeric_report):
+    day = numeric_report["days"]["day4"]
+    for item in day["sampled_positions"]:
+        if item["target_event_class"] == "defocused" and item["stage"] == "before_start":
+            item["relative_sharpness"] = 0.0
+    result = analyze(numeric_report)
+    observed = result["days"]["day4"]["summary"]["defocused"]["stage_ratios"]["after_onset_30"]
+    assert observed["abstained_events"] == 1
+    assert observed["valid_paired_events"] == 0
+
+
 def test_nonfinite_ratio_rejected(numeric_report):
     numeric_report["days"]["day3"]["sampled_positions"][2]["relative_sharpness"] = float("nan")
     with pytest.raises(ValueError, match="relative_sharpness"):
