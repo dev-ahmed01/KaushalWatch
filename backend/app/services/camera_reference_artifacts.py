@@ -75,6 +75,41 @@ def pixel_digest(frame: np.ndarray) -> str:
     ).hexdigest()
 
 
+def _declared_dimensions(data: bytes) -> tuple[int, int]:
+    """Preflight untrusted codec dimensions BEFORE allocating a decoded frame."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        if len(data) < 24 or data[12:16] != b"IHDR":
+            raise CameraReferencePolicyError("Invalid PNG header")
+        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    if not data.startswith(b"\xff\xd8\xff"):
+        raise CameraReferencePolicyError("Unsupported image encoding")
+    offset = 2
+    while offset + 3 < len(data):
+        if data[offset] != 0xff:
+            raise CameraReferencePolicyError("Malformed JPEG marker")
+        while offset < len(data) and data[offset] == 0xff:
+            offset += 1
+        if offset >= len(data):
+            break
+        marker = data[offset]
+        offset += 1
+        if marker in (0xd8, 0x01) or 0xd0 <= marker <= 0xd7:
+            continue
+        if marker in (0xd9, 0xda) or offset + 2 > len(data):
+            break
+        size = int.from_bytes(data[offset:offset+2], "big")
+        if size < 2 or offset + size > len(data):
+            break
+        if marker in (0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf):
+            if size < 7:
+                break
+            height = int.from_bytes(data[offset+3:offset+5], "big")
+            width = int.from_bytes(data[offset+5:offset+7], "big")
+            return width, height
+        offset += size
+    raise CameraReferencePolicyError("Missing or corrupt JPEG dimensions")
+
+
 def normalize_image(upload: bytes) -> tuple[np.ndarray, bytes, str, str]:
     """Decode one PNG/JPEG into a canonical PNG, with metadata stripped."""
     if not isinstance(upload, bytes) or not 0 < len(upload) <= MAX_UPLOAD_BYTES:
@@ -84,6 +119,11 @@ def normalize_image(upload: bytes) -> tuple[np.ndarray, bytes, str, str]:
         or upload.startswith(b"\xff\xd8\xff")
     ):
         raise CameraReferencePolicyError("Only real PNG/JPEG images are supported")
+    announced_width, announced_height = _declared_dimensions(upload)
+    if not (32 <= announced_width <= 1920 and
+            32 <= announced_height <= 1080 and
+            announced_width * announced_height <= MAX_PIXELS):
+        raise CameraReferencePolicyError("Reference dimensions are unsupported")
     # OpenCV strips source container metadata when re-encoding. The decoded
     # image may be 3-channel BGR (no alpha), with dimensional hard caps.
     frame = cv2.imdecode(np.frombuffer(upload, dtype=np.uint8), cv2.IMREAD_COLOR)
