@@ -63,6 +63,18 @@ def test_local_research_replay_is_numeric_unqualified_and_fixed(tmp_path):
     assert result["cause_inspections_by_class"]["normal"]>0
     assert result["cause_inspections_by_class"]["moved"]>0
     assert result["explicit_reference_image_sha256"]==sha256(files[0])
+    comparison=result["counterfactual_scene_gate_comparison"]
+    assert comparison["status"]=="FULL_RECORDING_COUNTERFACTUAL_DEVELOPMENT_NOT_HELD_OUT"
+    assert comparison["deployable_candidate_selected"] is None
+    assert set(comparison["candidate_comparisons"])=={
+        "frozen_baseline","photometric_defer","localized_defer",
+        "photometric_or_local_defer","coherent_translation_only","sustained_raw_20s",
+    }
+    base=comparison["candidate_comparisons"]["frozen_baseline"]
+    assert base["review_samples_by_class"]==result["raw_review_samples_by_class"]
+    assert base["events"]["moved"]["fresh_review_events"]==result[
+        "fresh_event_review_counts"
+    ].get("moved",0)
 
 
 def test_local_replay_preview_does_not_claim_full_source(tmp_path):
