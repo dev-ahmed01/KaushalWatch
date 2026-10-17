@@ -117,7 +117,7 @@ class CandidateScore:
             self.current_event = {
                 "class": LABELS[label], "start_frame": frame_number,
                 "preexisting_at_onset": self.previous_review,
-                "fresh_review_frame": None, "had_review": False,
+                "fresh_review_frame": None, "had_review": False, "sampled_frames": 0,
             }
         self.previous_kind = label
 
@@ -126,6 +126,8 @@ class CandidateScore:
             raise ValueError("Out-of-sequence or nonBoolean candidate observation")
         name = LABELS[label]
         self.sampled[name] += 1
+        if label != 0 and self.current_event is not None:
+            self.current_event["sampled_frames"] += 1
         if review:
             self.review[name] += 1
             if label == 0 and not self.previous_review:
@@ -150,6 +152,8 @@ class CandidateScore:
             delays = [(e["fresh_review_frame"] - e["start_frame"]) / self.fps for e in fresh]
             by_class[name] = {
                 "events": len(selection),
+                "unsampled_events": sum(e["sampled_frames"] == 0 for e in selection),
+                "unsampled_event_start_frames": [e["start_frame"] for e in selection if e["sampled_frames"] == 0],
                 "fresh_review_events": len(fresh),
                 "any_review_events": sum(e["had_review"] for e in selection),
                 "preexisting_review_at_onset": sum(e["preexisting_at_onset"] for e in selection),
@@ -238,6 +242,8 @@ class OfflineCandidateComparison:
             )
             if not full:
                 interpretation = "PREVIEW_ONLY_NOT_COMPARABLE"
+            elif any(candidate["events"][event]["unsampled_events"] > 0 for event in ANOMALIES):
+                interpretation = "BLOCKED_UNSAMPLED_ANNOTATED_EVENTS"
             elif any(lost[event] or lost_any[event] for event in ANOMALIES):
                 interpretation = "BLOCKED_KNOWN_EVENT_REGRESSION"
             elif name == "frozen_baseline":
