@@ -30,6 +30,7 @@ from app.services.camera_spatial_scene_shadow import SpatialSceneShadow, _small 
 from app.services.camera_persistent_scene_probe import PersistentSceneProbe, _gray_small  # noqa: E402
 from app.services.camera_scene_cause_shadow import SceneCauseDiagnostics  # noqa: E402
 from app.services.camera_counterfactual_shadow import OfflineCandidateComparison  # noqa: E402
+from app.services.camera_incident_continuity_shadow import IncidentContinuityShadow  # noqa: E402
 
 CLASSES={0:"normal",1:"covered",2:"defocused",3:"moved"}
 
@@ -106,6 +107,7 @@ def replay(*,video:Path, annotations:Path, reference:Path|None,
             raise ValueError("Video must report valid FPS and frames")
         step=max(1,round(sample_seconds*fps)); effective=step/fps
         counterfactual=OfflineCandidateComparison(fps)
+        continuity=IncidentContinuityShadow(clear_seconds=60.0)
         limit=length if preview_seconds is None else min(length,math.ceil(preview_seconds*fps))
         with annotations.open(newline="",encoding="utf-8-sig") as file:
             source=csv.reader(file,strict=True)
@@ -161,6 +163,11 @@ def replay(*,video:Path, annotations:Path, reference:Path|None,
                     evidence_status=result["evidence_status"],
                     cause=measure,sample_seconds=effective,
                 )
+                continuity.observe(
+                    annotation_class=kind,raw_review=review,
+                    spatial_evidence_status=result["evidence_status"],
+                    sample_seconds=effective,
+                )
                 if sample_count%5==0:
                     inspections[name]+=1
                     causes[name].update(measure["hypotheses"])
@@ -183,6 +190,7 @@ def replay(*,video:Path, annotations:Path, reference:Path|None,
                    for name in ("covered","defocused","moved"))):
         raise RuntimeError("Candidate frozen baseline disagrees with original raw replay accounting")
     return {
+        "sampled_warning_incident_continuity_diagnostic":continuity.summary(),
         "counterfactual_scene_gate_comparison": comparison,
         "status":("FULL_DEVELOPMENT_CAUSE_REPLAY_UNAPPROVED_REFERENCE_NOT_HELD_OUT"
                   if limit==length else "PREVIEW_DEVELOPMENT_CAUSE_REPLAY_NOT_HELD_OUT"),
