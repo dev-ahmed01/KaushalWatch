@@ -85,7 +85,12 @@ def test_no_client_supplied_actor_can_replace_verified_session(app):
             "reference_digest":"a"*64,"capture_id":"c1",
             "source_review_id":"s1","expected_revision":0,"actor":"network-officer",
         })
-        assert response.status_code==401
+        assert response.status_code==422  # Unknown actor field is rejected by strict schema.
+        valid=client.post(BASE+"/propose",json={
+            "reference_digest":"a"*64,"capture_id":"c1",
+            "source_review_id":"s1","expected_revision":0,
+        })
+        assert valid.status_code==401
     assert FakeWorkflow.calls==[]
 
 
