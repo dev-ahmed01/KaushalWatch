@@ -125,7 +125,7 @@ jobs:
           python scripts/migrate_postgres.py --apply
           python scripts/migrate_postgres.py --check
       - name: Verify PostgreSQL persistence, object integrity and signed-identity cross-stack authorization
-        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py backend/tests/test_release_integration.py backend/tests/test_camera_reference_postgres.py
+        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py backend/tests/test_release_integration.py backend/tests/test_camera_reference_postgres.py backend/tests/test_camera_reference_artifact_postgres.py backend/tests/test_camera_reference_image_api_postgres.py
       - name: Verify a disposable PostgreSQL backup and restore
         run: |
           pg_dump --version
@@ -153,6 +153,12 @@ jobs:
           npm audit --json > /tmp/kw-npm-audit.json || true
           node -e 'const x=require("/tmp/kw-npm-audit.json");console.log(JSON.stringify(Object.entries(x.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,fix:v.fixAvailable})),null,2))'
       - run: npm run build
+      - name: Build private reference-review staging UI with all protected feature switches
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: 'true'
+          NEXT_PUBLIC_KAUSHALWATCH_CAMERA_REFERENCE_REVIEW: 'true'
+          NEXT_PUBLIC_KAUSHALWATCH_CAMERA_REFERENCE_IMAGE_UPLOAD: 'true'
+        run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
