@@ -10,9 +10,10 @@ type Ref = {
   centre_id: string; camera_id: string; revision: number; state: string;
   reference_digest?: string; capture_id?: string; source_review_id?: string;
   proposed_by?: string; reviewed_by?: string | null; independent_review_id?: string | null;
-  production_binding: false; actual_reference_verified: false;
+  production_binding: false; actual_reference_verified: false; artifact_attached?: boolean;
 };
 type Officer = { role: string; centre_ids: string[]; can_review: boolean };
+const IMAGE_MODE = process.env.NEXT_PUBLIC_KAUSHALWATCH_CAMERA_REFERENCE_IMAGE_UPLOAD === 'true';
 
 async function parse<T>(response: Response): Promise<T> {
   const body = await response.json().catch(() => null);
@@ -36,6 +37,7 @@ export default function CameraReferencePage() {
   const [reviewId, setReviewId] = useState('');
   const [checks, setChecks] = useState([false, false, false]);
   const [reason, setReason] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     if (!SECURE_PROXY) throw new Error('Protected officer login is required.');
@@ -85,6 +87,33 @@ export default function CameraReferencePage() {
     }
   }
 
+  async function submitImage(event: FormEvent<HTMLFormElement>, action: 'propose-image' | 'attach') {
+    event.preventDefault();
+    if (!ref || !imageFile) return;
+    if (!['image/png','image/jpeg'].includes(imageFile.type) || imageFile.size > 2 * 1024 * 1024) {
+      setError('Reference must be a PNG or JPEG image under 2 MiB.');
+      return;
+    }
+    setError(''); setMessage(''); setPending(true);
+    const query = new URLSearchParams({ expected_revision: String(ref.revision) });
+    if (action === 'propose-image') {
+      query.set('capture_id', capture.trim());
+      query.set('source_review_id', sourceId.trim());
+    }
+    try {
+      await officerFetch(endpoint + '/' + action + '?' + query.toString(), {
+        method: 'POST', headers: { 'Content-Type': imageFile.type }, body: imageFile,
+      }).then(r => parse<unknown>(r));
+      await load();
+      setImageFile(null);
+      setMessage('Private reference image stored and matched to the proposal. Independent review is still required.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Image could not be stored');
+    } finally {
+      setPending(false);
+    }
+  }
+
   const canPropose = officer?.role === 'centre_reviewer';
   const canReview = officer?.role === 'network_admin';
   const fieldStyle = 'kw-focus mt-1 block w-full rounded-lg border border-[#D0D5DD] bg-white px-3 py-2.5 text-[13px] text-[#101828]';
@@ -116,7 +145,7 @@ export default function CameraReferencePage() {
             </p>
           </section>
 
-          {canPropose && ['UNENROLLED','SUSPENDED','REVOKED'].includes(ref.state) && (
+          {canPropose && !IMAGE_MODE && ['UNENROLLED','SUSPENDED','REVOKED'].includes(ref.state) && (
             <form onSubmit={event => void submit(event, 'propose')} className="space-y-4 rounded-[18px] border border-[#E4EAF2] bg-white p-6">
               <h2 className="text-[17px] font-semibold">Propose reference metadata</h2>
               <p className="text-[12px] text-[#667085]">The 64-character digest must come from a separately handled canonical pixel reference. No video or images are accepted here.</p>
@@ -133,7 +162,58 @@ export default function CameraReferencePage() {
             </form>
           )}
 
-          {canReview && ref.state === 'PENDING_REVIEW' && (
+          {IMAGE_MODE && canPropose && ['UNENROLLED','SUSPENDED','REVOKED','PENDING_REVIEW'].includes(ref.state)
+            && !ref.artifact_attached && (
+            <form onSubmit={event => void submitImage(event,
+              ref.state === 'PENDING_REVIEW' ? 'attach' : 'propose-image')}
+              className="space-y-4 rounded-[18px] border border-[#E4EAF2] bg-white p-6">
+              <h2 className="text-[17px] font-semibold">Private reference image</h2>
+              <p className="text-[12px] leading-5 text-[#667085]">
+                The server will remove image metadata and verify exact pixels.
+                Use an independently approved source. Uploaded images remain private;
+                this does not activate camera monitoring.
+              </p>
+              {ref.state !== 'PENDING_REVIEW' && (
+                <>
+                  <label className="block text-[12px] font-medium">Capture record ID
+                    <input required value={capture} maxLength={128} onChange={e => setCapture(e.target.value)}
+                      className={fieldStyle} />
+                  </label>
+                  <label className="block text-[12px] font-medium">Source review record ID
+                    <input required value={sourceId} maxLength={128} onChange={e => setSourceId(e.target.value)}
+                      className={fieldStyle} />
+                  </label>
+                </>
+              )}
+              <label className="block text-[12px] font-medium">Reference frame (PNG or JPEG, up to 2 MiB)
+                <input type="file" accept="image/png,image/jpeg" required
+                  onChange={e => setImageFile(e.target.files?.[0] || null)}
+                  className={fieldStyle} aria-label="Private reference image" />
+              </label>
+              <button disabled={pending || !imageFile} className={buttonStyle}>
+                {ref.state === 'PENDING_REVIEW' ? 'Attach matching private image' : 'Propose and store reference'}
+              </button>
+            </form>
+          )}
+
+          {IMAGE_MODE && ref.artifact_attached && (canReview || canPropose)
+            && ['PENDING_REVIEW','REVIEWED_NOT_BOUND'].includes(ref.state) && (
+            <section className="rounded-[18px] border border-[#E4EAF2] bg-white p-6">
+              <h2 className="text-[17px] font-semibold">Private reference preview</h2>
+              <p className="my-3 text-[12px] leading-5 text-[#667085]">
+                Accessible only to assigned reviewers. The image is retrieved from encrypted
+                storage and re-checked for integrity on each request.
+              </p>
+              <img
+                src={endpoint + '/frame?expected_revision=' + ref.revision}
+                alt="Restricted camera-reference image for independent officer review"
+                className="max-h-[360px] w-full rounded-xl border border-[#E4EAF2] object-contain"
+                referrerPolicy="no-referrer"
+              />
+            </section>
+          )}
+
+          {canReview && ref.state === 'PENDING_REVIEW' && (!IMAGE_MODE || ref.artifact_attached) && (
             <form onSubmit={event => void submit(event, 'review')} className="space-y-4 rounded-[18px] border border-[#E4EAF2] bg-white p-6">
               <h2 className="text-[17px] font-semibold">Independent officer review</h2>
               <div className="break-all rounded-lg bg-[#F7F9FC] p-3 text-[12px] text-[#475467]">
