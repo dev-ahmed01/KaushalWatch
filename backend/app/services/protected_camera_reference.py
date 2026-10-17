@@ -34,6 +34,13 @@ def required(value: str, name: str) -> str:
     return value
 
 
+def _reason(value: str) -> str:
+    if (not isinstance(value, str) or not 1 <= len(value.strip()) <= 128
+            or not all(char.isprintable() for char in value)):
+        raise CameraReferencePolicyError("A short printable suspension reason is required")
+    return value.strip()
+
+
 def _actor(principal: OfficerPrincipal, centre_id: str, role: str) -> str:
     if not isinstance(principal, OfficerPrincipal):
         raise CameraReferencePolicyError("Verified officer principal is required")
@@ -272,7 +279,7 @@ class ProtectedCameraReferenceWorkflow:
                 camera_id: str, expected_revision: int, reason: str) -> dict:
         centre_id, camera_id = required(centre_id,"centre"), required(camera_id,"camera")
         actor = _actor(principal,centre_id,"network_admin")
-        reason = required(reason,"reason")
+        reason = _reason(reason)
         if type(expected_revision) is not int or expected_revision <= 0:
             raise CameraReferencePolicyError("Valid revision required")
         with connection() as db:
