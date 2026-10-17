@@ -63,7 +63,9 @@ The report includes:
 - Unknown-quality samples conserved and the candidate count of raw
   review samples that would have been deferred.
 - Full vs preview status, reference and input SHA-256, and strict
-  baseline accounting checks.
+  baseline accounting checks. A real labelled event with NO sampled
+  decoded frame blocks the candidate comparison: it is not counted
+  as a legitimately missed event or silently treated as healthy.
 - A mandatory false-warning-vs-missed-event gate: losing any baseline
   fresh/any-review event is BLOCKED_KNOWN_EVENT_REGRESSION; no gain is
   NO_OBSERVED_RAW_NORMAL_REVIEW_REDUCTION. A rule with no observed
