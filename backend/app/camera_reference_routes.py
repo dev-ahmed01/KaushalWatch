@@ -141,11 +141,7 @@ async def attach_camera_reference(
         raise HTTPException(status_code=415, detail="Only PNG/JPEG reference images are supported")
     if not 0 < expected_revision <= 2147483647:
         raise HTTPException(status_code=422, detail="Invalid expected reference revision")
-    parts = bytearray()
-    async for chunk in request.stream():
-        if len(parts) + len(chunk) > MAX_UPLOAD_BYTES:
-            raise HTTPException(status_code=413, detail="Reference image exceeds 2 MiB")
-        parts.extend(chunk)
+    parts = await _bounded_reference_body(request, MAX_UPLOAD_BYTES)
     return _safe(lambda: attach_reference_image(
         principal=officer, centre_id=centre_id, camera_id=camera,
         expected_revision=expected_revision, content=bytes(parts),
@@ -172,3 +168,49 @@ def read_private_reference(
             "Content-Disposition": 'inline; filename="review-reference.png"',
         },
     )
+
+
+
+async def _bounded_reference_body(request: Request, maximum: int) -> bytes:
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > maximum:
+            raise HTTPException(status_code=413, detail="Reference image exceeds 2 MiB")
+        content.extend(chunk)
+    return bytes(content)
+
+
+@router.post("/{centre_id}/camera-reference/propose-image")
+async def propose_with_private_image(
+    centre_id: str, request: Request, expected_revision: int,
+    capture_id: str, source_review_id: str,
+):
+    officer, camera = _context(request, centre_id)
+    _artifact_mode()
+    from app.services.camera_reference_artifacts import (
+        MAX_UPLOAD_BYTES, attach_reference_image, normalize_image,
+    )
+    if officer.role != "centre_reviewer":
+        raise HTTPException(status_code=403, detail="Reference proposals require a centre reviewer")
+    if request.headers.get("content-type", "").split(";")[0].strip().lower() not in (
+        "image/png", "image/jpeg",
+    ):
+        raise HTTPException(status_code=415, detail="Only PNG/JPEG reference images are supported")
+    if not 0 <= expected_revision <= 2147483647:
+        raise HTTPException(status_code=422, detail="Invalid reference revision")
+    body = await _bounded_reference_body(request, MAX_UPLOAD_BYTES)
+    def execute():
+        _, _, pixel_sha, _ = normalize_image(body)
+        workflow = ProtectedCameraReferenceWorkflow()
+        proposed = workflow.propose(
+            principal=officer, centre_id=centre_id, camera_id=camera,
+            reference_digest=pixel_sha,
+            capture_id=capture_id, source_review_id=source_review_id,
+            expected_revision=expected_revision,
+        )
+        attach_reference_image(
+            principal=officer, centre_id=centre_id, camera_id=camera,
+            expected_revision=proposed["revision"], content=body,
+        )
+        return workflow.get(principal=officer, centre_id=centre_id, camera_id=camera)
+    return _safe(execute)
