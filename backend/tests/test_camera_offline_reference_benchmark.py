@@ -198,3 +198,50 @@ def test_low_texture_global_fallback_keeps_quality_uncertainty(tmp_path):
     assert report["quality_review_active_at_end"]
     assert report["notification_counts"]["QUALITY_UNKNOWN_REVIEW"]==1
     assert report["notification_counts"]["SCENE_REVIEW_OPEN"]==1
+
+
+
+def test_numeric_forensics_sample_without_changing_event_accounting(tmp_path):
+    from types import SimpleNamespace
+    from app.services.camera_spatial_scene_shadow import _small, spatial_metrics
+
+    rng=np.random.default_rng(414)
+    grayscale=rng.integers(40,185,(144,192),dtype=np.uint8)
+    frame=cv2.cvtColor(grayscale,cv2.COLOR_GRAY2BGR)
+    video=tmp_path/"textured.avi"
+    labels=tmp_path/"textured-labels.csv"
+    writer=cv2.VideoWriter(str(video),cv2.VideoWriter_fourcc(*"MJPG"),3,(192,144))
+    assert writer.isOpened()
+    for _ in range(36):
+        writer.write(frame)
+    writer.release()
+    with labels.open("w",newline="") as output:
+        w=csv.writer(output)
+        for n in range(1,37):
+            w.writerow([n,0,0,0,0])
+
+    class TexturedSession(StubSession):
+        def __init__(self):
+            super().__init__(alerts={1,6,11})
+            self.probe=SimpleNamespace(
+                spatial=SimpleNamespace(temporary_reference=_small(frame))
+            )
+        def observe(self,observed,seconds):
+            result=super().observe(observed,seconds)
+            result["evidence_status"]=spatial_metrics(
+                self.probe.spatial.temporary_reference,observed
+            )["evidence_status"]
+            return result
+
+    report=run(video,labels,TexturedSession())
+    forensic=report["scene_cause_forensics"]
+    assert forensic["status"]=="OFFLINE_UNCALIBRATED_5_SAMPLE_CAUSE_DIAGNOSTICS"
+    assert forensic["diagnostic_every_sampled_observations"]==5
+    normal=forensic["results_by_annotated_class"]["normal"]
+    assert normal["inspected"]==3
+    assert normal["raw_review_inspected"]==3
+    assert sum(normal["hypotheses_all"].values())>=3
+    assert report["normal_review_fraction"]==0.25
+    assert report["review_samples_by_class"]["normal"]==3
+    assert not forensic["calibrated_or_proven_cause"]
+    assert not forensic["photometric_or_phase_cues_change_detector_score"]

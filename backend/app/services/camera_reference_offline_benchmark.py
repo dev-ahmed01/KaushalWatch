@@ -13,7 +13,9 @@ from collections import Counter
 from pathlib import Path
 
 import cv2
+import numpy as np
 
+from app.services.camera_scene_cause_shadow import SceneCauseDiagnostics
 from app.services.camera_reference_notification_shadow import (
     OFFLINE_PRESETS, ReviewNotificationShadow,
 )
@@ -76,6 +78,23 @@ def evaluate_recording(*, video: Path, labels: Path, session,
         prev_kind=None
         prev_alert=False
         normal_hours=0.0
+        # Forensics are sampled at a fixed 5-observation cadence across ALL
+        # annotations, never conditioned on ground-truth class or review cue.
+        # This keeps the diagnostic separate from the frozen detector.
+        comparator = getattr(getattr(getattr(session, "probe", None),
+                                      "spatial", None), "temporary_reference", None)
+        cause_analyzer = (
+            SceneCauseDiagnostics(comparator) if isinstance(comparator, np.ndarray)
+            else None
+        )
+        cause_counts = {
+            name: {"inspected": 0, "raw_review_inspected": 0,
+                   "hypotheses_all": Counter(), "hypotheses_raw_review": Counter(),
+                   "coherent_phase_conservative": 0,
+                   "coherent_phase_exploratory": 0}
+            for name in CLASSES.values()
+        }
+        cause_stride_samples = 5
         # All candidates consume the SAME unmodified detector observations.
         # No replay-specific "best" preset is chosen or promoted.
         candidates = {
@@ -139,6 +158,21 @@ def evaluate_recording(*, video: Path, labels: Path, session,
                     raise ValueError("Offline session must supply explicit evidence status")
                 if evidence_status == "UNKNOWN_LOW_TEXTURE":
                     unknown[name] += 1
+                if cause_analyzer is not None and (sum(sampled.values()) - 1) % cause_stride_samples == 0:
+                    inspection = cause_analyzer.inspect(
+                        frame, spatial_evidence_status=evidence_status,
+                    )
+                    counts = cause_counts[name]
+                    counts["inspected"] += 1
+                    counts["hypotheses_all"].update(inspection["hypotheses"])
+                    if review:
+                        counts["raw_review_inspected"] += 1
+                        counts["hypotheses_raw_review"].update(inspection["hypotheses"])
+                    for mode in ("conservative", "exploratory"):
+                        if inspection["translation_preset_sweep"][mode][
+                            "candidate_global_translation_supported"
+                        ]:
+                            counts["coherent_phase_" + mode] += 1
                 for preset, tracker in candidates.items():
                     notifications_by_class[preset][name].update(tracker.observe(
                         review_cue=review,
@@ -202,6 +236,24 @@ def evaluate_recording(*, video: Path, labels: Path, session,
         }
 
     return {
+        "scene_cause_forensics": {
+            "status": (
+                "OFFLINE_UNCALIBRATED_5_SAMPLE_CAUSE_DIAGNOSTICS"
+                if cause_analyzer is not None else "NOT_AVAILABLE_NO_FIXED_REFERENCE"
+            ),
+            "diagnostic_every_sampled_observations": cause_stride_samples,
+            "results_by_annotated_class": {
+                name: {
+                    **{key: value for key,value in values.items()
+                       if not isinstance(value, Counter)},
+                    "hypotheses_all": dict(values["hypotheses_all"]),
+                    "hypotheses_raw_review": dict(values["hypotheses_raw_review"]),
+                }
+                for name, values in cause_counts.items()
+            },
+            "photometric_or_phase_cues_change_detector_score": False,
+            "calibrated_or_proven_cause": False,
+        },
         "operator_notification_shadow_sweep": by_preset,
         "notifications_are_not_detector_predictions": True,
         "status":("COMPLETE_OFFLINE_REFERENCE_REPLAY_DEVELOPMENT_NOT_HELD_OUT"
@@ -236,6 +288,8 @@ def evaluate_recording(*, video: Path, labels: Path, session,
             "Notification coalescing never alters raw detector warnings, true alarms or reference state",
             "An automatically cleared cue is NOT evidence of camera recovery and requires human review",
             "All notification presets are experimental; no threshold is selected for deployment",
+            "Phase 3K cause hypotheses and phase translation are uncalibrated, not movement proof",
+            "Cause diagnostics sample every fifth detector observation with no signal suppression",
             "Release qualification remains blocked pending independent blind site testing",
         ],
     }
