@@ -103,3 +103,46 @@ Synthetic tests:
   officers and explicit human incident/recovery review.
 
 Status remains NOT PRODUCTION QUALIFIED.
+
+
+## Optional local-development forensic replay (no cloud approval)
+
+For explicitly authorised research using footage you have local
+permission to inspect, scripts/run_phase3k_local_forensics.py can
+evaluate the frozen spatial/global shadow detector and the Phase 3K
+cause hypotheses without provisioning S3 or PostgreSQL. This is
+**UNAPPROVED development-only** analysis, not a substitute for the
+protected reviewed-reference Phase 3I process. No images are exported,
+and no reference resets, officer approvals or live-camera calls occur.
+
+Supply an explicit still PNG/JPEG frame from the **same dataset camera**
+and independently check its intended source. The script does not
+choose the video's first seconds or silently learn a reference.
+Hash-pinning means files did not change between fingerprinting and
+evaluation; it does not prove physical camera provenance. Do not
+interpret output as independently validated or production qualified.
+
+Example Windows PowerShell commands after selecting an appropriately
+reviewed same-camera still yourself:
+
+    $video = "C:\Users\Admin\Desktop\MEVA\video.avi"
+    $labels = "C:\Users\Admin\Desktop\MEVA\annotations-1.csv"
+    $ref = "C:\path\to\same-camera-still.png"
+    $out = "C:\Users\Admin\Desktop\KaushalWatch-live\artifacts\phase3k\day3_preview.json"
+    $vsha = (Get-FileHash $video -Algorithm SHA256).Hash.ToLowerInvariant()
+    $lsha = (Get-FileHash $labels -Algorithm SHA256).Hash.ToLowerInvariant()
+    $rsha = (Get-FileHash $ref -Algorithm SHA256).Hash.ToLowerInvariant()
+
+Run this one-line command from the Phase 3K checkout:
+
+    python scripts/run_phase3k_local_forensics.py --video $video --annotations $labels --reference-image $ref --video-sha256 $vsha --annotations-sha256 $lsha --reference-sha256 $rsha --out $out --sample-seconds 1 --preview-seconds 60 --development-only
+
+For a complete run, choose a DIFFERENT output path and omit
+--preview-seconds. The CLI refuses overwrite and invalid headerless
+1-based frame/class annotations. It reports class-stratified raw
+warning fractions, cause hypotheses, newly rising normal warnings,
+and annotated-event alerts as numeric JSON only. It cannot replace
+formal officer identity, private artifact verification or a held-out
+field benchmark.
+
+Synthetic fixtures: backend/tests/test_camera_phase3k_local_forensics.py.
