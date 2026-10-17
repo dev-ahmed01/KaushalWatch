@@ -98,6 +98,18 @@ def _validate_and_group(day: dict, name: str) -> dict:
         _require(stage not in events[key],
                  name + ": duplicate event stage")
         events[key][stage] = item
+    # Phase3N includes every defocus event and every other moved event.
+    # Reconcile the exact event denominator against Phase3M-derived metadata;
+    # a silently truncated input must not produce a plausible percentage.
+    source_counts = day.get("event_counts_checked_against_phase3m")
+    _require(isinstance(source_counts, dict) and
+             all(type(source_counts.get(k)) is int and source_counts[k] >= 0
+                 for k in ("defocused", "moved", "covered")),
+             name + ": missing Phase3M checked event counts")
+    observed = Counter(kind for kind, _ in events)
+    _require(observed["defocused"] == source_counts["defocused"] and
+             observed["moved"] == (source_counts["moved"] + 1) // 2,
+             name + ": event selection disagrees with pinned counts")
     for key, stages in events.items():
         _require(set(stages) == set(STAGES),
                  name + ": incomplete six-stage event")
