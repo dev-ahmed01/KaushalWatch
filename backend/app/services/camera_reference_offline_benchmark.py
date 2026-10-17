@@ -16,6 +16,7 @@ import cv2
 import numpy as np
 
 from app.services.camera_scene_cause_shadow import SceneCauseDiagnostics
+from app.services.camera_counterfactual_shadow import OfflineCandidateComparison
 from app.services.camera_reference_notification_shadow import (
     OFFLINE_PRESETS, ReviewNotificationShadow,
 )
@@ -95,6 +96,7 @@ def evaluate_recording(*, video: Path, labels: Path, session,
             for name in CLASSES.values()
         }
         cause_stride_samples = 5
+        counterfactual = OfflineCandidateComparison(fps) if cause_analyzer is not None else None
         # All candidates consume the SAME unmodified detector observations.
         # No replay-specific "best" preset is chosen or promoted.
         candidates = {
@@ -119,6 +121,8 @@ def evaluate_recording(*, video: Path, labels: Path, session,
                     raise ValueError(f"Invalid annotation frame {index+1}") from exc
                 if rownum!=index+1 or cls not in CLASSES:
                     raise ValueError(f"Label frame/class mismatch at {index+1}")
+                if counterfactual is not None:
+                    counterfactual.annotation(index + 1, cls)
                 if cls!=prev_kind:
                     if active is not None:
                         active["end_frame"]=index
@@ -158,21 +162,27 @@ def evaluate_recording(*, video: Path, labels: Path, session,
                     raise ValueError("Offline session must supply explicit evidence status")
                 if evidence_status == "UNKNOWN_LOW_TEXTURE":
                     unknown[name] += 1
-                if cause_analyzer is not None and (sum(sampled.values()) - 1) % cause_stride_samples == 0:
+                if cause_analyzer is not None:
                     inspection = cause_analyzer.inspect(
                         frame, spatial_evidence_status=evidence_status,
                     )
-                    counts = cause_counts[name]
-                    counts["inspected"] += 1
-                    counts["hypotheses_all"].update(inspection["hypotheses"])
-                    if review:
-                        counts["raw_review_inspected"] += 1
-                        counts["hypotheses_raw_review"].update(inspection["hypotheses"])
-                    for mode in ("conservative", "exploratory"):
-                        if inspection["translation_preset_sweep"][mode][
-                            "candidate_global_translation_supported"
-                        ]:
-                            counts["coherent_phase_" + mode] += 1
+                    counterfactual.observation(
+                        index + 1, cls, raw_review=review,
+                        evidence_status=evidence_status, cause=inspection,
+                        sample_seconds=interval,
+                    )
+                    if (sum(sampled.values()) - 1) % cause_stride_samples == 0:
+                        counts = cause_counts[name]
+                        counts["inspected"] += 1
+                        counts["hypotheses_all"].update(inspection["hypotheses"])
+                        if review:
+                            counts["raw_review_inspected"] += 1
+                            counts["hypotheses_raw_review"].update(inspection["hypotheses"])
+                        for mode in ("conservative", "exploratory"):
+                            if inspection["translation_preset_sweep"][mode][
+                                "candidate_global_translation_supported"
+                            ]:
+                                counts["coherent_phase_" + mode] += 1
                 for preset, tracker in candidates.items():
                     notifications_by_class[preset][name].update(tracker.observe(
                         review_cue=review,
@@ -235,7 +245,21 @@ def evaluate_recording(*, video: Path, labels: Path, session,
             ),
         }
 
+    comparison = counterfactual.result(full=full) if counterfactual is not None else None
+    if comparison is not None:
+        frozen = comparison["candidate_comparisons"]["frozen_baseline"]
+        if (frozen["review_samples_by_class"] != dict(flagged)
+                or frozen["sampled_by_class"] != dict(sampled)
+                or frozen["normal_review_episodes_per_normal_hour"] != (
+                    round(episode_count["normal"] / normal_hours, 6)
+                    if normal_hours else None)
+                or any(frozen["events"][name]["fresh_review_events"] !=
+                       sum(event["class"] == name and event["fresh_review_frame"] is not None
+                           for event in events)
+                       for name in ("covered", "defocused", "moved"))):
+            raise RuntimeError("Counterfactual baseline disagrees with frozen detector scoring")
     return {
+        "counterfactual_scene_gate_comparison": comparison,
         "scene_cause_forensics": {
             "status": (
                 "OFFLINE_UNCALIBRATED_5_SAMPLE_CAUSE_DIAGNOSTICS"
