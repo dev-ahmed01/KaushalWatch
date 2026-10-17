@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.demo_network import DEMO_CENTRES
@@ -50,7 +50,7 @@ def _context(request: Request, centre_id: str) -> tuple[OfficerPrincipal, str]:
     if not (
         os.getenv("KAUSHALWATCH_ENV", "").strip().lower() == "staging"
         and os.getenv("KAUSHALWATCH_CAMERA_REFERENCE_WORKFLOW", "").strip().lower()
-            == "shadow"
+            in ("shadow", "shadow_artifact")
         and os.getenv("KAUSHALWATCH_STORAGE_BACKEND", "") == "postgres"
         and os.getenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "") in ("token", "oidc")
     ):
@@ -116,3 +116,59 @@ def suspend_camera_reference(centre_id: str, request: Request, payload: Suspensi
         principal=officer, centre_id=centre_id, camera_id=camera,
         expected_revision=payload.expected_revision, reason=payload.reason,
     ))
+
+
+
+def _artifact_mode() -> None:
+    if os.getenv("KAUSHALWATCH_CAMERA_REFERENCE_WORKFLOW", "") != "shadow_artifact":
+        raise HTTPException(status_code=404, detail="Private camera reference images are unavailable")
+
+
+@router.post("/{centre_id}/camera-reference/attach")
+async def attach_camera_reference(
+    centre_id: str, request: Request, expected_revision: int,
+):
+    officer, camera = _context(request, centre_id)
+    _artifact_mode()
+    from app.services.camera_reference_artifacts import (
+        MAX_UPLOAD_BYTES, attach_reference_image,
+    )
+    if officer.role != "centre_reviewer":
+        raise HTTPException(status_code=403, detail="Camera reference upload requires centre reviewer")
+    if request.headers.get("content-type", "").split(";")[0].strip().lower() not in (
+        "image/png", "image/jpeg",
+    ):
+        raise HTTPException(status_code=415, detail="Only PNG/JPEG reference images are supported")
+    if not 0 < expected_revision <= 2147483647:
+        raise HTTPException(status_code=422, detail="Invalid expected reference revision")
+    parts = bytearray()
+    async for chunk in request.stream():
+        if len(parts) + len(chunk) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="Reference image exceeds 2 MiB")
+        parts.extend(chunk)
+    return _safe(lambda: attach_reference_image(
+        principal=officer, centre_id=centre_id, camera_id=camera,
+        expected_revision=expected_revision, content=bytes(parts),
+    ))
+
+
+@router.get("/{centre_id}/camera-reference/frame")
+def read_private_reference(
+    centre_id: str, request: Request, expected_revision: int,
+):
+    officer, camera = _context(request, centre_id)
+    _artifact_mode()
+    from app.services.camera_reference_artifacts import verified_reference_frame
+    _, encoded = _safe(lambda: verified_reference_frame(
+        principal=officer, centre_id=centre_id, camera_id=camera,
+        expected_revision=expected_revision,
+    ))
+    return Response(
+        encoded, media_type="image/png",
+        headers={
+            "Cache-Control": "private, no-store, max-age=0",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": 'inline; filename="review-reference.png"',
+        },
+    )
