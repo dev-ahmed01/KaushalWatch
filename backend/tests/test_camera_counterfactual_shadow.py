@@ -151,3 +151,23 @@ def test_no_candidate_can_introduce_new_detector_review():
     gate=CandidateGate("photometric_defer")
     assert gate.observe(raw_review=False,evidence_status="SUFFICIENT_TILES",
                         cause=cause(),sample_seconds=1) is False
+
+
+
+def test_incident_with_no_sampled_frame_blocks_every_candidate():
+    trial=OfflineCandidateComparison(fps=3.0)
+    for frame in range(1,13):
+        kind=3 if frame==2 else 0
+        trial.annotation(frame,kind)
+        if (frame-1)%3==0:
+            trial.observation(
+                frame,kind,raw_review=False,
+                evidence_status="SUFFICIENT_TILES",cause=cause(),
+                sample_seconds=1.0,
+            )
+    result=trial.result(full=True)
+    for data in result["candidate_comparisons"].values():
+        assert data["events"]["moved"]["unsampled_events"]==1
+        assert data["events"]["moved"]["unsampled_event_start_frames"]==[2]
+        assert data["interpretation"]=="BLOCKED_UNSAMPLED_ANNOTATED_EVENTS"
+        assert not data["authorized_for_deployment"]
