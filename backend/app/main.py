@@ -58,6 +58,7 @@ from app.services.officer_permissions import require_centre, visible, request_pr
 from app.services.api_redaction import redact_local_evidence_paths
 from app.services.officer_permissions import evidence_centre
 from app.services.object_evidence import fetch_private_evidence, EVIDENCE_ID
+from app.camera_reference_routes import router as camera_reference_router
 from app.services.vision_profile import build_vision_governance, load_vision_profile
 from app.services.postgres_store import (
     PostgresCaseStore, PostgresAnalysisHistoryStore, PostgresCentreSettingsStore,
@@ -227,6 +228,7 @@ def get_voice_service():
     return VOICE_SERVICE
 
 app = FastAPI(title="KaushalWatch API", version="0.2.0")
+app.include_router(camera_reference_router)
 _cors_origins = [
     origin.strip()
     for origin in os.getenv(
