@@ -44,6 +44,7 @@ class IncidentContinuityShadow:
                 or not math.isfinite(sample_seconds) or sample_seconds<=0):
             raise ValueError("Invalid sampled label, scene cue, evidence or elapsed interval")
         started=(annotation_class!=self.previous_label)
+        preexisting_at_this_onset=bool(started and annotation_class!=0 and self.previous_review)
         if started and annotation_class!=0:
             self.counters["annotated_event_onsets"]+=1
             if self.previous_review:
@@ -89,9 +90,7 @@ class IncidentContinuityShadow:
         return {
             "status":"OFFLINE_SAMPLED_INCIDENT_CONTINUITY_NOT_DEPLOYED",
             "warning_active":self.episode_open,
-            "warning_preexisting_at_new_annotation":bool(
-                started and annotation_class!=0 and self.counters["events_warning_preexisting_at_onset"]
-            ) if started else False,
+            "warning_preexisting_at_new_annotation":preexisting_at_this_onset,
             "last_event_class":self.last_event_name,
             "post_event_warning_elapsed_seconds":round(self.post_event_carry_seconds,3),
             "reference_reset":False,
