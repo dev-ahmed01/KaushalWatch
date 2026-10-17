@@ -25,14 +25,20 @@ class FakeWorkflow:
                 "state":"UNENROLLED","revision":0,"production_binding":False,
                 "actual_reference_verified":False}
     def propose(self, **kwargs):
+        from app.services.protected_camera_reference import _actor
+        _actor(kwargs["principal"], kwargs["centre_id"], "centre_reviewer")
         self.calls.append(("propose",kwargs))
         return {"state":"PENDING_REVIEW","revision":1,"production_binding":False,
                 "actual_reference_verified":False}
     def review(self, **kwargs):
+        from app.services.protected_camera_reference import _actor
+        _actor(kwargs["principal"], kwargs["centre_id"], "network_admin")
         self.calls.append(("review",kwargs))
         return {"state":"REVIEWED_NOT_BOUND","revision":1,
                 "production_binding":False,"actual_reference_verified":False}
     def suspend(self, **kwargs):
+        from app.services.protected_camera_reference import _actor
+        _actor(kwargs["principal"], kwargs["centre_id"], "network_admin")
         self.calls.append(("suspend",kwargs))
         return {"state":"SUSPENDED","revision":1,
                 "production_binding":False,"actual_reference_verified":False}
@@ -105,9 +111,8 @@ def test_viewer_gets_read_only_reference(app):
             "reference_digest":"a"*64,"capture_id":"c1",
             "source_review_id":"s1","expected_revision":0,
         })
-        assert response.status_code==200  # Route delegates writes to domain policy.
-    # The fake domain service bypasses policy; exercise real role policy separately
-    # and ensure the real protected middleware denies viewer writes.
+        assert response.status_code==403
+    assert [item[0] for item in FakeWorkflow.calls]==["read"]
 
 
 def test_proposal_does_not_accept_actor_or_role_from_body(app):
