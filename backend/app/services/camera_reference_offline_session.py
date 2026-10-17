@@ -13,7 +13,7 @@ import math
 import numpy as np
 
 from app.services.camera_reference_artifacts import (
-    pixel_digest, verified_reference_frame, artifact_status,
+    pixel_digest, verified_reference_frame,
 )
 from app.services.protected_camera_reference import (
     ProtectedCameraReferenceWorkflow, CameraReferenceConflict,
@@ -98,10 +98,16 @@ class OfflineApprovedReferenceSession:
                 not math.isfinite(sample_seconds) or sample_seconds <= 0):
             raise CameraReferencePolicyError("Positive finite sample interval required")
         # Check after frame validation and BEFORE modifying probe state.
-        current = ProtectedCameraReferenceWorkflow().get(
-            principal=self.principal, centre_id=self.centre_id,
-            camera_id=self.camera_id,
-        )
+        try:
+            current = ProtectedCameraReferenceWorkflow().get(
+                principal=self.principal, centre_id=self.centre_id,
+                camera_id=self.camera_id,
+            )
+        except Exception:
+            # A DB outage, invalid audit or revoked grant must leave this
+            # session permanently unusable rather than resume on recovery.
+            self.closed = True
+            raise
         if (current["state"] != "REVIEWED_NOT_BOUND"
                 or current["revision"] != self.revision
                 or current["reference_digest"] != self.reference_digest
