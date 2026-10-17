@@ -60,14 +60,14 @@ def test_whole_recording_maintains_state_and_counts_new_event(tmp_path):
     # Eight seconds normal; six seconds annotated movement; eight normal.
     labels=[0]*24+[3]*18+[0]*24
     video,annotations=build(tmp_path,labels)
-    session=StubSession(alerts=range(13,28))
+    session=StubSession(alerts=range(7,28))
     result=run(video,annotations,session,sample_seconds=1.0)
     assert result["status"]=="COMPLETE_OFFLINE_REFERENCE_REPLAY_DEVELOPMENT_NOT_HELD_OUT"
     assert result["production_qualified"] is False
     assert result["production_integration"] is False
     assert session.calls==22
     assert result["sampled_by_class"]=={"normal":16,"moved":6}
-    assert result["normal_review_fraction"]==round(12/16,6)
+    assert result["normal_review_fraction"]==round(10/16,6)
     assert result["per_class"]["moved"]["events"]==1
     assert result["per_class"]["moved"]["events_preexisting_review"]==1
     assert result["per_class"]["moved"]["fresh_review_events"]==0
