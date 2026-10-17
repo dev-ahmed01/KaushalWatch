@@ -142,7 +142,7 @@ def analyze_day(*,video:Path,annotations:Path,report_path:Path)->dict:
     expected_events=stored.get("annotated_event_counts",{})
     actual_counts=Counter(KINDS[e["kind"]] for e in events)
     for name in ("covered","defocused","moved"):
-        if actual_counts[name]!=expected_events.get(name):
+        if actual_counts[name]!=expected_events.get(name,0):
             raise ValueError("Annotation event counts differ from completed report")
     targets=_target_frames(events,fps=info["fps"],total=info["frames"])
     baseline=stored["counterfactual_scene_gate_comparison"]["candidate_comparisons"]["frozen_baseline"]
