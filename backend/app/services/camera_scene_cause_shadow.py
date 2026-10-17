@@ -67,7 +67,10 @@ class SceneCauseDiagnostics:
 
         ref = self.reference_small
         cur = _small(current)
-        measured = spatial_metrics(ref, cur)
+        # Use the original full frame here: spatial_metrics performs _small
+        # internally. Resizing the current frame twice could diverge from
+        # the frozen spatial detector near the low-texture boundary.
+        measured = spatial_metrics(ref, current)
         if measured["evidence_status"] != spatial_evidence_status:
             raise ValueError("Detector/diagnostic spatial evidence mismatch")
 
