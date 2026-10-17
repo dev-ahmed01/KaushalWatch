@@ -145,7 +145,16 @@ def _counterfactual_flags(samples: list[dict], step_seconds: float) -> tuple[dic
             # Preserve all other unknowns, don't silently make them healthy.
             old = before["sharpness_relative_to_unchanged_fixed_reference"]
             cur = sample["sharpness_relative_to_unchanged_fixed_reference"]
-            if (old > 1e-6 and
+            source_abstain = sample["comparison_state"] in (
+                "UNKNOWN_LOW_TEXTURE_ABSTAIN",
+                "REFERENCE_TEXTURE_INSUFFICIENT_ABSTAIN",
+                "DISCONTINUOUS_HISTORY",
+            ) or before["comparison_state"] in (
+                "UNKNOWN_LOW_TEXTURE_ABSTAIN",
+                "REFERENCE_TEXTURE_INSUFFICIENT_ABSTAIN",
+                "DISCONTINUOUS_HISTORY",
+            )
+            if (old > 1e-6 and not source_abstain and
                 before["quality_hypothesis"] != "REFERENCE_TEXTURE_INSUFFICIENT" and
                 sample["quality_hypothesis"] != "REFERENCE_TEXTURE_INSUFFICIENT"):
                 ratio = cur / old
