@@ -58,7 +58,7 @@ def invoke(files,out,**kwargs):
         day3_video=d3[0],day3_annotations=d3[1],
         day4_video=d4[0],day4_annotations=d4[1],
         run_dir=out,preview_seconds=15,
-        sample_seconds=1,**kwargs
+        sample_seconds=kwargs.pop("sample_seconds",1),**kwargs
     )
 
 
