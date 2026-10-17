@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '../lib/cn';
+import { SECURE_PROXY } from '../lib/api';
 
 const tabs = [
   { suffix: '', label: 'Overview' },
@@ -14,13 +15,15 @@ const tabs = [
 
 export default function CentreTabs({ centreId }: { centreId: string }) {
   const pathname = usePathname();
+  const referenceReviewEnabled = SECURE_PROXY && process.env.NEXT_PUBLIC_KAUSHALWATCH_CAMERA_REFERENCE_REVIEW === 'true';
+  const displayedTabs = referenceReviewEnabled ? [...tabs, { suffix: '/camera-reference', label: 'Camera reference' }] : tabs;
   return (
     <nav
       className="kw-scrollbar mb-7 w-full max-w-full min-w-0 overflow-x-auto border-b border-[#E6EAF0]"
       aria-label="Centre sections"
     >
       <div className="flex min-w-max gap-1">
-        {tabs.map(tab => {
+        {displayedTabs.map(tab => {
           const href = `/centres/${centreId}${tab.suffix}`;
           const active = tab.suffix ? pathname === href : pathname === `/centres/${centreId}`;
           return (
