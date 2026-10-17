@@ -62,6 +62,7 @@ def numeric_report():
             "frames_images_or_crops_exported": False,
             "complete_video_replayed": False,
             "same_unnapproved_in_video_reference_as_phase3m": True,
+            "event_counts_checked_against_phase3m": {"defocused": 1, "moved": 1, "covered": 0},
             "sampled_target_frames": len(samples),
             "sampled_positions": samples,
         }
