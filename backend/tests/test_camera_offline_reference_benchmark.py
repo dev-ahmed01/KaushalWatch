@@ -28,6 +28,7 @@ class StubSession:
             "status":"OFFLINE_FIXED_APPROVED_REFERENCE_SHADOW_ONLY",
             "decision":"SPATIAL_SCENE_REVIEW" if flag else "NO_SHADOW_REVIEW",
             "review_cue":flag,
+            "evidence_status":"SUFFICIENT_TILES",
         }
 
 
