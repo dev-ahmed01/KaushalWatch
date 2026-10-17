@@ -245,3 +245,9 @@ def test_numeric_forensics_sample_without_changing_event_accounting(tmp_path):
     assert report["review_samples_by_class"]["normal"]==3
     assert not forensic["calibrated_or_proven_cause"]
     assert not forensic["photometric_or_phase_cues_change_detector_score"]
+    candidates=report["counterfactual_scene_gate_comparison"]
+    assert candidates["status"]=="FULL_RECORDING_COUNTERFACTUAL_DEVELOPMENT_NOT_HELD_OUT"
+    frozen=candidates["candidate_comparisons"]["frozen_baseline"]
+    assert frozen["review_samples_by_class"]==report["review_samples_by_class"]
+    assert frozen["sampled_by_class"]==report["sampled_by_class"]
+    assert candidates["deployable_candidate_selected"] is None
