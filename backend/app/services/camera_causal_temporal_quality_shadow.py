@@ -39,7 +39,7 @@ class _NumericObservation:
     contrast: float
     hypothesis: str
     spatial: str
-    raw_scene_review: bool
+    raw_scene_review: bool | None
 
 
 @dataclass
@@ -75,7 +75,7 @@ class CausalTemporalQualityShadow:
 
     def _validate(
         self, *, time_s: float, reference_pixel_sha256: str,
-        features: dict, spatial_evidence_status: str, raw_scene_review: bool,
+        features: dict, spatial_evidence_status: str, raw_scene_review: bool | None,
     ) -> _NumericObservation:
         if reference_pixel_sha256 != self.reference_pixel_sha256:
             raise ValueError("Frozen physical-reference pixel identity changed: refuse observation")
@@ -92,7 +92,7 @@ class CausalTemporalQualityShadow:
                            "detector_review_suppressed"):
             if features.get(field_name) is not False:
                 raise ValueError("Unqualified Phase3N research feature flags required: " + field_name)
-        if spatial_evidence_status not in SPATIAL_EVIDENCE or type(raw_scene_review) is not bool:
+        if spatial_evidence_status not in SPATIAL_EVIDENCE or raw_scene_review is not None and type(raw_scene_review) is not bool:
             raise ValueError("Explicit spatial evidence status and raw scene cue required")
         for field_name in METRICS:
             if not _real(features.get(field_name)):
@@ -109,7 +109,7 @@ class CausalTemporalQualityShadow:
 
     def observe(
         self, *, time_s: float, reference_pixel_sha256: str, features: dict,
-        spatial_evidence_status: str, raw_scene_review: bool,
+        spatial_evidence_status: str, raw_scene_review: bool | None,
     ) -> dict:
         """Causal: chooses only an existing past observation before appending current.
 
@@ -162,6 +162,8 @@ class CausalTemporalQualityShadow:
                 confounds.append("ILLUMINATION_UNRESOLVED")
             if "NOT_MEASURED" in (past.spatial, current.spatial):
                 confounds.append("SPATIAL_EVIDENCE_NOT_MEASURED")
+            if past.raw_scene_review is None or current.raw_scene_review is None:
+                confounds.append("RAW_SCENE_CUE_NOT_MEASURED")
             if past.raw_scene_review or current.raw_scene_review:
                 confounds.append("SCENE_REVIEW_ACTIVE_IN_PAIR")
 
@@ -217,7 +219,8 @@ class CausalTemporalQualityShadow:
                 "Past sample coverage and declared reference identity are not source authentication",
                 "Ephemeral anchor is not human-approved or independently healthy",
                 "Illumination and scene reviews are flagged as confounds, never suppressed",
-                "Raw review state is observed but never replaced, cleared, or downgraded",
+                "Raw review state may be NOT_MEASURED; unknown must never be treated as false",
+            "Raw review state is observed but never replaced, cleared, or downgraded",
                 "Feature sampling requires continuous causal replay before latency and false-warning evaluation",
                 "Exploratory 0.5 numeric ratio is not trained, calibrated or a deployment decision",
             ],
