@@ -73,8 +73,9 @@ def _sample_events(events: list[dict], *, kind: int, count: int) -> list[dict]:
     if not selected:
         return []
     # Floor of midpoint of each quantile, preserving chronology and uniqueness.
-    indices = sorted(set(min(len(selected)-1, int((i + .5)*len(selected)/count))
-                         for i in range(min(len(selected), count))))
+    take = min(len(selected), count)
+    indices = sorted(set(min(len(selected)-1, int((i + .5)*len(selected)/take))
+                         for i in range(take)))
     return [selected[i] for i in indices]
 
 
@@ -116,7 +117,7 @@ def _window_specs(
     return specs, skipped
 
 
-def _replay_window(cap, spec: dict, *, info: dict, pin: str,
+def _replay_window(cap, spec: dict, *, info: dict, labels: np.ndarray, pin: str,
                    visibility: VisibilityQualityShadow,
                    sample_seconds: float) -> dict:
     observer = CausalTemporalQualityShadow(
@@ -137,13 +138,15 @@ def _replay_window(cap, spec: dict, *, info: dict, pin: str,
             spatial_evidence_status="NOT_MEASURED",
             raw_scene_review=None,
         )
-        # The annotation, if present, is added only by the OFFLINE evaluator.
-        # It is never passed into the causal observer.
+        # The annotation is read strictly AFTER observe, for offline scoring;
+        # it is NEVER a causal input or an approved healthy anchor.
+        actual_annotation = KINDS[int(labels[n-1])]
         offset = None
         if spec["target_event_start_frame"] is not None:
             offset = round((n-spec["target_event_start_frame"])/info["fps"], 3)
         results.append({
             "sample_frame": n,
+            "annotation_class_for_posthoc_evaluation_only": actual_annotation,
             "offset_from_target_start_seconds_for_posthoc_analysis": offset,
             "sharpness_relative_to_unchanged_fixed_reference": features["relative_sharpness"],
             "quality_hypothesis": features["quality_hypothesis"],
@@ -185,7 +188,7 @@ def run_day(*, video: Path, annotations: Path, report: Path,
         for index, spec in enumerate(specs, 1):
             print(f"  bounded window {index}/{len(specs)}: {spec['kind']}", flush=True)
             windows.append(_replay_window(
-                cap, spec, info=info, pin=pin,
+                cap, spec, info=info, labels=labels, pin=pin,
                 visibility=visibility, sample_seconds=sample_seconds,
             ))
     finally:
@@ -196,8 +199,15 @@ def run_day(*, video: Path, annotations: Path, report: Path,
         paired = [s for w in selected for s in w["samples"]
                   if s["paired_sharpness_ratio"] is not None]
         triggered = [s for s in paired if s["exploratory_drop_0_5"]]
+        in_target = [s for w in selected for s in w["samples"]
+                     if w["target_event_start_frame"] is not None
+                     and s["annotation_class_for_posthoc_evaluation_only"] == kind
+                     and s["offset_from_target_start_seconds_for_posthoc_analysis"] is not None
+                     and 0 <= s["offset_from_target_start_seconds_for_posthoc_analysis"] <= WINDOW_AFTER_SECONDS]
         summary[kind] = {
             "selected_windows": len(selected),
+            "annotated_target_samples_in_window": len(in_target),
+            "exploratory_drop_samples_inside_target": sum(s["exploratory_drop_0_5"] is True for s in in_target),
             "sampled_observations": sum(len(w["samples"]) for w in selected),
             "paired_numeric_observations": len(paired),
             "exploratory_sharpness_drop_samples": len(triggered),
