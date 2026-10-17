@@ -14,6 +14,10 @@ from pathlib import Path
 
 import cv2
 
+from app.services.camera_reference_notification_shadow import (
+    OFFLINE_PRESETS, ReviewNotificationShadow,
+)
+
 CLASSES={0:"normal",1:"covered",2:"defocused",3:"moved"}
 
 
@@ -72,6 +76,17 @@ def evaluate_recording(*, video: Path, labels: Path, session,
         prev_kind=None
         prev_alert=False
         normal_hours=0.0
+        # All candidates consume the SAME unmodified detector observations.
+        # No replay-specific "best" preset is chosen or promoted.
+        candidates = {
+            name: ReviewNotificationShadow(
+                clear_seconds=clear, reminder_seconds=reminder
+            ) for name, (clear, reminder) in OFFLINE_PRESETS.items()
+        }
+        notifications_by_class = {
+            name: {label: Counter() for label in CLASSES.values()}
+            for name in candidates
+        }
         with labels.open("r",newline="",encoding="utf-8-sig") as stream:
             rows=csv.reader(stream,strict=True)
             for index in range(limit):
@@ -117,8 +132,19 @@ def evaluate_recording(*, video: Path, labels: Path, session,
                     raise ValueError("Offline session must supply Boolean review cue")
                 name=CLASSES[cls]
                 sampled[name]+=1
-                if signal["decision"]=="UNKNOWN_LOW_TEXTURE":
-                    unknown[name]+=1
+                evidence_status = signal.get("evidence_status")
+                if evidence_status not in (
+                    "SUFFICIENT_TILES", "UNKNOWN_LOW_TEXTURE"
+                ):
+                    raise ValueError("Offline session must supply explicit evidence status")
+                if evidence_status == "UNKNOWN_LOW_TEXTURE":
+                    unknown[name] += 1
+                for preset, tracker in candidates.items():
+                    notifications_by_class[preset][name].update(tracker.observe(
+                        review_cue=review,
+                        evidence_status=evidence_status,
+                        sample_seconds=interval,
+                    ))
                 if review:
                     flagged[name]+=1
                     if not prev_alert and cls==0:
@@ -150,7 +176,34 @@ def evaluate_recording(*, video: Path, labels: Path, session,
             "max_fresh_delay_seconds":round(max(delays),3) if delays else None,
         }
 
+    by_preset = {}
+    for preset, tracker in candidates.items():
+        notices = notifications_by_class[preset]
+        raw = tracker.summary()
+        if raw["raw_review_samples_unchanged"] != sum(flagged.values()):
+            raise RuntimeError("Operator notifications changed raw review accounting")
+        if raw["raw_unknown_samples_unchanged"] != sum(unknown.values()):
+            raise RuntimeError("Operator notifications changed raw quality accounting")
+        by_preset[preset] = {
+            **raw,
+            "clear_seconds": tracker.clear_seconds,
+            "reminder_seconds": tracker.reminder_seconds,
+            "notifications_by_annotated_class": {
+                label: dict(notices[label]) for label in CLASSES.values()
+            },
+            "normal_new_scene_notifications_per_normal_hour": (
+                round(notices["normal"]["SCENE_REVIEW_OPEN"] / normal_hours, 6)
+                if normal_hours else None
+            ),
+            "normal_new_quality_notifications_per_normal_hour": (
+                round(notices["normal"]["QUALITY_UNKNOWN_REVIEW"] / normal_hours, 6)
+                if normal_hours else None
+            ),
+        }
+
     return {
+        "operator_notification_shadow_sweep": by_preset,
+        "notifications_are_not_detector_predictions": True,
         "status":("COMPLETE_OFFLINE_REFERENCE_REPLAY_DEVELOPMENT_NOT_HELD_OUT"
                   if full else "PREVIEW_ONLY_OFFLINE_REFERENCE_REPLAY_NOT_HELD_OUT"),
         "production_qualified":False,"production_integration":False,
@@ -180,6 +233,9 @@ def evaluate_recording(*, video: Path, labels: Path, session,
             "Continuous session state retained; no auto-recovery or automatic baseline replacement",
             "Review cues are not proof of motion or intent",
             "No output can change attendance, evidence validity or compliance",
+            "Notification coalescing never alters raw detector warnings, true alarms or reference state",
+            "An automatically cleared cue is NOT evidence of camera recovery and requires human review",
+            "All notification presets are experimental; no threshold is selected for deployment",
             "Release qualification remains blocked pending independent blind site testing",
         ],
     }

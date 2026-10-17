@@ -28,6 +28,7 @@ class StubSession:
             "status":"OFFLINE_FIXED_APPROVED_REFERENCE_SHADOW_ONLY",
             "decision":"SPATIAL_SCENE_REVIEW" if flag else "NO_SHADOW_REVIEW",
             "review_cue":flag,
+            "evidence_status":"SUFFICIENT_TILES",
         }
 
 
@@ -143,3 +144,57 @@ def test_invalid_signal_does_not_count_as_valid_review(tmp_path):
             return d
     with pytest.raises(ValueError,match="Boolean"):
         run(video,annotations,BadSession())
+
+
+
+def test_notification_sweep_preserves_raw_detector_and_event_scores(tmp_path):
+    classes=[0]*60+[3]*30+[0]*60
+    video,annotations=build(tmp_path,classes)
+    # Scene review originates during normal, persists across onset, then
+    # fluctuates. Notification coalescing must NOT change either cue or the
+    # original preexisting-at-onset semantics.
+    flagged=set(range(5,41))|set(range(45,48))
+    result=run(video,annotations,StubSession(alerts=flagged))
+    normal_samples=result["sampled_by_class"]["normal"]
+    assert result["normal_review_fraction"]==round(
+        result["review_samples_by_class"]["normal"]/normal_samples,6
+    )
+    assert result["per_class"]["moved"]["events"]==1
+    assert result["per_class"]["moved"]["events_preexisting_review"]==1
+    assert result["per_class"]["moved"]["fresh_review_events"]==0
+    sweep=result["operator_notification_shadow_sweep"]
+    assert len(sweep)==6
+    assert result["notifications_are_not_detector_predictions"]
+    for preset,report in sweep.items():
+        assert report["raw_review_samples_unchanged"]==sum(
+            result["review_samples_by_class"].values()
+        )
+        assert report["raw_unknown_samples_unchanged"]==sum(
+            result["unknown_samples_by_class"].values()
+        )
+        assert report["status"]=="OFFLINE_NOTIFICATION_CANDIDATE_NOT_DEPLOYED"
+        assert not report["automatic_camera_recovery"]
+        assert not report["automatic_reference_reset"]
+        assert not report["attendance_or_compliance_actions"]
+        assert report["notifications_by_annotated_class"]["moved"] is not None
+
+
+def test_low_texture_global_fallback_keeps_quality_uncertainty(tmp_path):
+    video,annotations=build(tmp_path,[0]*120)
+    class UnknownWithFallback(StubSession):
+        def observe(self,frame,seconds):
+            result=super().observe(frame,seconds)
+            result["evidence_status"]="UNKNOWN_LOW_TEXTURE"
+            result["decision"]="LOW_TEXTURE_GLOBAL_SCENE_REVIEW"
+            result["review_cue"]=True
+            return result
+    result=run(video,annotations,UnknownWithFallback())
+    assert result["unknown_samples_by_class"]["normal"]==40
+    assert result["normal_review_fraction"]==1.0
+    report=result["operator_notification_shadow_sweep"]["clear60_remind900"]
+    assert report["raw_unknown_samples_unchanged"]==40
+    assert report["raw_review_samples_unchanged"]==40
+    assert report["scene_review_active_at_end"]
+    assert report["quality_review_active_at_end"]
+    assert report["notification_counts"]["QUALITY_UNKNOWN_REVIEW"]==1
+    assert report["notification_counts"]["SCENE_REVIEW_OPEN"]==1
