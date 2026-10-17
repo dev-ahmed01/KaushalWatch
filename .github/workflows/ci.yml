@@ -125,7 +125,7 @@ jobs:
           python scripts/migrate_postgres.py --apply
           python scripts/migrate_postgres.py --check
       - name: Verify PostgreSQL persistence, object integrity and signed-identity cross-stack authorization
-        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py backend/tests/test_release_integration.py backend/tests/test_camera_reference_postgres.py
+        run: pytest -q backend/tests/test_postgres_storage.py backend/tests/test_s3_evidence.py backend/tests/test_release_integration.py backend/tests/test_camera_reference_postgres.py backend/tests/test_camera_reference_artifact_postgres.py
       - name: Verify a disposable PostgreSQL backup and restore
         run: |
           pg_dump --version
