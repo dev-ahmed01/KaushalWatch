@@ -44,7 +44,9 @@ def config() -> tuple[str, str, str]:
     kms = os.getenv("KAUSHALWATCH_CAMERA_REFERENCE_KMS_KEY_ID", "").strip()
     if not BUCKET.fullmatch(bucket) or not REGION.fullmatch(region) or not kms:
         raise CameraReferencePolicyError("Private reference S3/KMS settings are required")
-    if "/" in kms and not kms.startswith("arn:aws:kms:"):
+    if not (re.fullmatch(r"alias/[A-Za-z0-9/_-]{1,256}", kms)
+            or re.fullmatch(r"[0-9a-fA-F-]{36}", kms)
+            or kms.startswith("arn:aws:kms:")):
         raise CameraReferencePolicyError("Invalid KMS key identifier")
     return bucket, region, kms
 
