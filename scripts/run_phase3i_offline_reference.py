@@ -104,6 +104,20 @@ def main() -> None:
         "normal_review_fraction":outcome["normal_review_fraction"],
         "normal_review_episodes_per_hour":outcome["new_normal_review_episodes_per_normal_hour"],
         "moved":outcome["per_class"]["moved"],
+        "notification_shadow_candidates": {
+            name: {
+                "normal_scene_open_per_normal_hour": details[
+                    "normal_new_scene_notifications_per_normal_hour"
+                ],
+                "normal_quality_open_per_normal_hour": details[
+                    "normal_new_quality_notifications_per_normal_hour"
+                ],
+                "raw_review_samples_unchanged": details[
+                    "raw_review_samples_unchanged"
+                ],
+            }
+            for name, details in outcome["operator_notification_shadow_sweep"].items()
+        },
         "report":str(args.out.resolve()),
     },indent=2))
 
