@@ -192,6 +192,29 @@ test.describe('Protected browser officer session', () => {
     await expect(page.getByText('Recorded by: browser-ci-officer').first()).toBeVisible();
   });
 
+  test('camera-reference governance stays inactive without staging feature enablement', async ({ page }) => {
+    await page.goto('/login');
+    await page.getByLabel('Officer access key').fill(TOKEN);
+    await page.getByRole('button', { name: 'Sign in securely' }).click();
+    await expect(page).toHaveURL('http://127.0.0.1:3001/');
+
+    // The new page is reachable under the normal officer session, but no
+    // reference actions can run unless the backend feature gate is enabled.
+    await page.goto('/centres/DEMO-KA-104/camera-reference');
+    await expect(page.getByRole('heading', { name: 'Camera reference review' })).toBeVisible();
+    await expect(page.locator('p[role="alert"]')).toContainText('Reference review is unavailable');
+    await expect(page.getByRole('button', { name: 'Submit proposal' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Record review — activation disabled' })).toHaveCount(0);
+    const disabled = await page.evaluate(async () => {
+      const response = await fetch(
+        '/api/proxy/api/centres/DEMO-KA-104/camera-reference',
+        { credentials: 'same-origin', cache: 'no-store' },
+      );
+      return response.status;
+    });
+    expect(disabled).toBe(404);
+  });
+
   test('one Redis-backed login works on two Next.js instances and logout revokes both', async ({ page }) => {
     test.skip(process.env.E2E_DISTRIBUTED_MODE !== 'true', 'Requires two protected web instances sharing synthetic Redis REST.');
     await page.goto('http://127.0.0.1:3001/login');
