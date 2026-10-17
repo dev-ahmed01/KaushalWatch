@@ -180,6 +180,10 @@ def _read_verified(row: dict) -> tuple[np.ndarray, bytes]:
             len(raw) > MAX_CANONICAL_BYTES or
             hashlib.sha256(raw).hexdigest() != row["encoded_sha256"]):
         raise CameraReferenceConflict("Reference object integrity mismatch")
+    declared_width, declared_height = _declared_dimensions(raw)
+    if (declared_width != row["width"] or declared_height != row["height"] or
+            declared_width * declared_height > MAX_PIXELS):
+        raise CameraReferenceConflict("Stored reference dimensions differ from audited record")
     frame = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
     if (frame is None or frame.dtype != np.uint8 or frame.ndim != 3 or
             frame.shape[2] != 3 or
