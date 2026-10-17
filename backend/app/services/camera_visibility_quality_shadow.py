@@ -72,10 +72,14 @@ class VisibilityQualityShadow:
         illumination_shift = abs(cur["luma_median"]-ref["luma_median"])
         if ref["laplacian_variance"] < 12.0 or ref["edge_fraction"] < 0.035:
             decision = "REFERENCE_TEXTURE_INSUFFICIENT"
-        elif illumination_shift >= 45.0 or cur["low_dynamic_range"]:
+        elif illumination_shift >= 45.0:
             decision = "ILLUMINATION_CONFOUNDED"
-        elif focus_ratio < 0.35 and edge_ratio < 0.65 and contrast_ratio >= 0.25:
+        elif focus_ratio < 0.35 and edge_ratio < 0.65 and contrast_ratio >= 0.15:
+            # A blur can itself collapse dynamic range, so do not dismiss
+            # a strong reference-relative sharpness loss as just lighting.
             decision = "SHARPNESS_LOSS_COMPATIBLE"
+        elif cur["low_dynamic_range"]:
+            decision = "ILLUMINATION_CONFOUNDED"
         else:
             decision = "NO_SHARPNESS_LOSS_SIGNAL"
         return {
