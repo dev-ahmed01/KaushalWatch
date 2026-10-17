@@ -28,6 +28,7 @@ from app.services.camera_shadow_fusion import ShadowFusionProbe  # noqa: E402
 from app.services.camera_spatial_scene_shadow import SpatialSceneShadow, _small  # noqa: E402
 from app.services.camera_persistent_scene_probe import PersistentSceneProbe, _gray_small  # noqa: E402
 from app.services.camera_scene_cause_shadow import SceneCauseDiagnostics  # noqa: E402
+from app.services.camera_counterfactual_shadow import OfflineCandidateComparison  # noqa: E402
 
 CLASSES={0:"normal",1:"covered",2:"defocused",3:"moved"}
 
@@ -83,6 +84,7 @@ def replay(*,video:Path, annotations:Path, reference:Path,
         if not math.isfinite(fps) or fps<=0 or length<=0:
             raise ValueError("Video must report valid FPS and frames")
         step=max(1,round(sample_seconds*fps)); effective=step/fps
+        counterfactual=OfflineCandidateComparison(fps)
         limit=length if preview_seconds is None else min(length,math.ceil(preview_seconds*fps))
         with annotations.open(newline="",encoding="utf-8-sig") as file:
             source=csv.reader(file,strict=True)
@@ -105,6 +107,7 @@ def replay(*,video:Path, annotations:Path, reference:Path,
                     else:
                         active_event=None
                     prev_cls=kind
+                counterfactual.annotation(index+1,kind)
                 if kind==0:
                     normal_seconds+=1/fps
                 if not cap.grab():
@@ -128,8 +131,16 @@ def replay(*,video:Path, annotations:Path, reference:Path,
                     if kind>0 and active_event and not active_event["preexisting"] and not active_event["fresh"] and not prev_review:
                         fresh_events[name]+=1
                         active_event["fresh"]=True
+                # Evaluate every candidate on the same complete per-sample
+                # diagnostic evidence. Only JSON forensic *counts* are
+                # accumulated every fifth sample to limit report size.
+                measure=cause.inspect(frame,spatial_evidence_status=result["evidence_status"])
+                counterfactual.observation(
+                    index+1,kind,raw_review=review,
+                    evidence_status=result["evidence_status"],
+                    cause=measure,sample_seconds=effective,
+                )
                 if sample_count%5==0:
-                    measure=cause.inspect(frame,spatial_evidence_status=result["evidence_status"])
                     inspections[name]+=1
                     causes[name].update(measure["hypotheses"])
                     if review:
@@ -140,7 +151,18 @@ def replay(*,video:Path, annotations:Path, reference:Path,
                 raise ValueError("Annotations have additional rows beyond video")
     finally:
         cap.release()
+    comparison=counterfactual.result(full=(limit==length))
+    frozen=comparison["candidate_comparisons"]["frozen_baseline"]
+    if (frozen["review_samples_by_class"]!=dict(reviews)
+            or frozen["sampled_by_class"]!=dict(totals)
+            or frozen["normal_review_episodes_per_normal_hour"]!=(
+                round(new_normal_episodes/(normal_seconds/3600),6)
+                if normal_seconds else None)
+            or any(frozen["events"][name]["fresh_review_events"]!=fresh_events[name]
+                   for name in ("covered","defocused","moved"))):
+        raise RuntimeError("Candidate frozen baseline disagrees with original raw replay accounting")
     return {
+        "counterfactual_scene_gate_comparison": comparison,
         "status":("FULL_DEVELOPMENT_CAUSE_REPLAY_UNAPPROVED_REFERENCE_NOT_HELD_OUT"
                   if limit==length else "PREVIEW_DEVELOPMENT_CAUSE_REPLAY_NOT_HELD_OUT"),
         "reference_origin_independently_verified":False,
