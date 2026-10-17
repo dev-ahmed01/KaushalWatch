@@ -71,6 +71,7 @@ def compare(day3: Path, day4: Path) -> dict:
     for preset in PRESETS:
         by_day={}
         any_losses=False
+        unsampled=False
         improvement_both=True
         for day,report in sources.items():
             record=report["counterfactual_scene_gate_comparison"]["candidate_comparisons"][preset]
@@ -80,6 +81,8 @@ def compare(day3: Path, day4: Path) -> dict:
             improvement=record["raw_normal_fraction_reduction_vs_baseline"]
             if missed:
                 any_losses=True
+            if any(record["events"][k]["unsampled_events"] for k in EVENTS):
+                unsampled=True
             if improvement is None or improvement<=0:
                 improvement_both=False
             by_day[day]={
@@ -99,6 +102,8 @@ def compare(day3: Path, day4: Path) -> dict:
             }
         if preset=="frozen_baseline":
             gate="FROZEN_REFERENCE"
+        elif unsampled:
+            gate="BLOCKED_UNSAMPLED_ANNOTATED_INCIDENTS"
         elif any_losses:
             gate="BLOCKED_KNOWN_EVENT_REGRESSION_IN_DEVELOPMENT"
         elif not improvement_both:
