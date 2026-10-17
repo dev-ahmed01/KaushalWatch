@@ -202,7 +202,7 @@ test.describe('Protected browser officer session', () => {
     // reference actions can run unless the backend feature gate is enabled.
     await page.goto('/centres/DEMO-KA-104/camera-reference');
     await expect(page.getByRole('heading', { name: 'Camera reference review' })).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('Reference review is unavailable');
+    await expect(page.locator('p[role="alert"]')).toContainText('Reference review is unavailable');
     await expect(page.getByRole('button', { name: 'Submit proposal' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Record review — activation disabled' })).toHaveCount(0);
     const disabled = await page.evaluate(async () => {
