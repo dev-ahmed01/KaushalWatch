@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 import sys
@@ -37,26 +38,46 @@ def valid_sha(value: str) -> bool:
     return isinstance(value,str) and len(value)==64 and all(x in "0123456789abcdef" for x in value)
 
 
-def replay(*,video:Path, annotations:Path, reference:Path,
+def replay(*,video:Path, annotations:Path, reference:Path|None,
            video_sha256:str, annotations_sha256:str, reference_sha256:str,
-           sample_seconds:float=1.0, preview_seconds:float|None=None) -> dict:
+           sample_seconds:float=1.0, preview_seconds:float|None=None,
+           in_memory_research_frame:np.ndarray|None=None,
+           in_memory_frame_number:int|None=None) -> dict:
     if (not isinstance(sample_seconds,(float,int)) or isinstance(sample_seconds,bool)
         or not math.isfinite(sample_seconds) or sample_seconds<=0 or
         (preview_seconds is not None and (
             not isinstance(preview_seconds,(float,int)) or
             not math.isfinite(preview_seconds) or preview_seconds<=0))):
         raise ValueError("Positive finite sample/preview seconds required")
-    paths=(Path(video),Path(annotations),Path(reference))
+    research_mode=in_memory_research_frame is not None
+    if (research_mode and reference is not None) or (not research_mode and reference is None):
+        raise ValueError("Choose exactly one explicit reference source")
+    if research_mode and (
+        type(in_memory_frame_number) is not int or in_memory_frame_number<1
+    ):
+        raise ValueError("Source frame number required for unapproved development reference")
+    paths=(Path(video),Path(annotations))
     digests=(video_sha256,annotations_sha256,reference_sha256)
     if not all(p.is_file() for p in paths):
-        raise ValueError("Video, labels and explicit image reference files are required")
+        raise ValueError("Video and annotations must exist")
+    if not research_mode and not Path(reference).is_file():
+        raise ValueError("Explicit local reference image must exist")
     if not all(valid_sha(d) for d in digests):
         raise ValueError("All three explicit SHA-256 hashes are required")
-    for path,expected in zip(paths,digests):
+    for path,expected in zip(paths,(video_sha256,annotations_sha256)):
         if sha256(path)!=expected:
             raise ValueError("Source digest mismatch: no video decoded")
-
-    original=cv2.imread(str(reference),cv2.IMREAD_COLOR)
+    if research_mode:
+        original=np.ascontiguousarray(in_memory_research_frame).copy()
+        encoded_source_digest=hashlib.sha256(
+            str(original.shape).encode("ascii")+original.tobytes()
+        ).hexdigest()
+        if encoded_source_digest!=reference_sha256:
+            raise ValueError("Unapproved in-memory reference pixel digest mismatch")
+    else:
+        if sha256(Path(reference))!=reference_sha256:
+            raise ValueError("Source digest mismatch: no video decoded")
+        original=cv2.imread(str(reference),cv2.IMREAD_COLOR)
     if (original is None or original.ndim!=3 or original.dtype!=np.uint8
             or original.shape[2]!=3 or
             original.shape[0]>1080 or original.shape[1]>1920
@@ -190,7 +211,13 @@ def replay(*,video:Path, annotations:Path, reference:Path,
         "evaluated_frames":limit,"total_frames":length,
         "fps":fps,"effective_sample_seconds":effective,
         "video_sha256":digests[0],"annotations_sha256":digests[1],
-        "explicit_reference_image_sha256":digests[2],
+        "explicit_reference_image_sha256":None if research_mode else digests[2],
+        "in_memory_development_reference_pixel_sha256":digests[2] if research_mode else None,
+        "in_memory_development_reference_source_frame":in_memory_frame_number if research_mode else None,
+        "reference_selection_status":(
+            "UNAPPROVED_LABEL_NORMAL_SELF_SOURCE_NOT_INDEPENDENTLY_VALIDATED"
+            if research_mode else "USER_SUPPLIED_FILE_NOT_INDEPENDENTLY_VERIFIED"
+        ),
         "limitations":[
             "Unapproved researcher-supplied same-camera reference is NOT proven camera provenance",
             "Already-inspected datasets are development, not independent held-out",
