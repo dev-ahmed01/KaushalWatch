@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -188,7 +189,15 @@ class ProtectedCameraReferenceWorkflow:
             history = _history(db, centre_id, camera_id)
             if not _verify(row, history):
                 raise CameraReferenceConflict("Reference audit metadata mismatch")
-        return _public(row, centre_id=centre_id, camera_id=camera_id)
+        result = _public(row, centre_id=centre_id, camera_id=camera_id)
+        if os.getenv("KAUSHALWATCH_CAMERA_REFERENCE_WORKFLOW", "") == "shadow_artifact":
+            from app.services.camera_reference_artifacts import _artifact_row
+            with connection() as db:
+                image = _artifact_row(db, centre_id, camera_id, row["revision"]) if row else None
+            if image and image["pixel_sha256"] != row["reference_digest"]:
+                raise CameraReferenceConflict("Reference artifact and proposal mismatch")
+            result["artifact_attached"] = bool(image)
+        return result
 
     def propose(self, *, principal: OfficerPrincipal, centre_id: str,
                 camera_id: str, reference_digest: str, capture_id: str,
@@ -261,6 +270,14 @@ class ProtectedCameraReferenceWorkflow:
                 raise CameraReferenceConflict("Stale reference revision")
             if row["proposed_by"] == actor:
                 raise CameraReferencePolicyError("Proposer cannot review own reference")
+            if os.getenv("KAUSHALWATCH_CAMERA_REFERENCE_WORKFLOW", "") == "shadow_artifact":
+                from app.services.camera_reference_artifacts import _artifact_row, _read_verified
+                item = _artifact_row(db, centre_id, camera_id, expected_revision)
+                if not item or item["pixel_sha256"] != row["reference_digest"]:
+                    raise CameraReferenceConflict("Matching private reference image required")
+                # Verify actual private storage and canonical pixels, not just
+                # request-attested SHA-256 or unverified database metadata.
+                _read_verified(item)
             now = datetime.now(timezone.utc)
             db.execute(
                 "UPDATE kw_camera_reference_proposals SET state='REVIEWED_NOT_BOUND',"
