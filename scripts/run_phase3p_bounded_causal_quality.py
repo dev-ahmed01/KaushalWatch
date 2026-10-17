@@ -62,7 +62,7 @@ def _verify_day(video: Path, annotations: Path, report_path: Path) -> tuple[dict
     labels, events = _labels_and_events(annotations, info["frames"])
     counts = Counter(KINDS[x["kind"]] for x in events)
     for kind in ("covered", "defocused", "moved"):
-        if counts[kind] != stored.get("annotated_event_counts", {}).get(kind):
+        if counts[kind] != stored.get("annotated_event_counts", {}).get(kind, 0):
             raise ValueError("Annotated event counts disagree with Phase3M")
     return info, stored, labels, events, reference
 
