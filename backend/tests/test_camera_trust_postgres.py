@@ -167,3 +167,29 @@ def test_full_private_worker_route_on_synthetic_original_video(tmp_path,monkeypa
     assert all(row["geometry"]["state"]=="UNKNOWN_NO_APPROVED_REFERENCE" for row in data["samples"])
     assert worker.run_one(manifest,tmp_path/"cache",tmp_path/"refs",None,None,"ci-worker-B") is False
     assert len(store.observations(C,cam["camera_id"]))==1
+
+    # No manual upload: independently frozen labels can select numeric data
+    # from the private database by job ID. Synthetic self-attestations remain
+    # *not* valid proof of true physical camera custody.
+    from scripts.export_camera_trust_holdout import make_snapshot
+    from evaluation.camera_trust_holdout import evaluate
+    labels={"schema":"KW_CAMERA_INDEPENDENT_LABELS_V1",
+            "labels_frozen_at":"2026-09-02T00:00:00Z",
+            "evaluation_policy_sha256":"d"*64,
+            "split":"untouched_external_holdout",
+            "cases":[{
+                "case_id":jid,"site_id":C,"camera_id":cam["camera_id"],
+                "source_sha256":sha,"label":"normal","duration_seconds":5.0,
+                "stratum":"synthetic","independent_labeler_id":"labeler-ci",
+                "source_custodian_id":"custodian-ci","inference_operator_id":"worker-ci",
+                "custody_record_id":"synthetic-ledger-ci",
+                "label_adjudicated_at":"2026-09-01T10:00:00+00:00",
+                "label_blinded_to_predictions":True,"independent_capture":True,
+            }]}
+    snapshot=make_snapshot(labels)
+    assert len(snapshot["predictions"])==1
+    score=evaluate(labels,snapshot)
+    assert score["source_case_count"]==1
+    assert score["qualified_for_autonomous_enforcement"] is False
+    assert score["false_alarms_per_camera_hour_established"] is False
+
