@@ -192,7 +192,7 @@ export default function CameraTrustPage(){
                 <div><strong className="capitalize">{stateLabel(j.status)}</strong>
                   <span className="ml-2 font-mono text-[10px] text-[#667085]">{short(j.job_id)}</span>
                   <p className="mt-1 text-[11px] text-[#98A2B3]">Attempt {j.attempts} · {j.last_error||'No worker errors recorded'}</p></div>
-                {canWrite&&j.status==='queued'&&<button className={btn} disabled={busy}
+                {canWrite&&(j.status==='queued'||j.status==='running')&&<button className={btn} disabled={busy}
                   onClick={()=>void mutate(path+'/'+camera.camera_id+'/jobs/'+j.job_id+'/cancel')}>Cancel</button>}
               </div>)}
               {!jobs.length&&<p className="py-4 text-[12px] text-[#667085]">No queued source analysis yet.</p>}

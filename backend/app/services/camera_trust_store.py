@@ -167,10 +167,11 @@ def cancel_job(centre_id: str,camera_id: str,job_id: str,actor: str) -> dict:
         _lock_camera(db,centre_id,camera_id)
         row=db.execute("""UPDATE kw_camera_jobs
           SET status='cancelled',updated_at=NOW(),leased_until=NULL,worker_id=NULL
-          WHERE camera_id=%s AND job_id=%s AND status='queued' RETURNING job_id""",
+          WHERE camera_id=%s AND job_id=%s AND status IN ('queued','running')
+          RETURNING job_id""",
           (camera_id,job_id)).fetchone()
         if row is None:
-            raise HTTPException(409,"Only queued jobs can be cancelled")
+            raise HTTPException(409,"Only queued or running jobs can be cancelled")
         _audit(db,camera_id,actor,"analysis_cancelled",{"job_id":job_id})
     return {"job_id":job_id,"status":"cancelled"}
 

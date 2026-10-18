@@ -102,7 +102,7 @@ def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
     # Camera pipeline must not create ordinary compliance cases.
     assert cases==existing_cases
 
-def test_queue_cancel_never_cancels_running_job():
+def test_queue_cancel_and_running_lease_revocation():
     cam=store.register_camera(C,"Second synthetic camera","synthetic-2.avi","officer-A")
     cid=cam["camera_id"]
     queued=store.queue_job(C,cid,"synthetic-2.avi",SHA,"synthetic-run-v02",12,"officer-A")
@@ -111,6 +111,13 @@ def test_queue_cancel_never_cancels_running_job():
         store.cancel_job(C,cid,queued["job_id"],"officer-A")
     assert again.value.status_code==409
     assert store.claim("CI-TEST")==None
+    next_job=store.queue_job(C,cid,"synthetic-2.avi",SHA,
+                             "synthetic-run-v03",12,"officer-A")
+    claimed=store.claim("CI-TEST")
+    assert claimed is not None and claimed["job_id"]==next_job["job_id"]
+    assert store.cancel_job(C,cid,next_job["job_id"],"officer-A")["status"]=="cancelled"
+    assert store.finish(claimed,{"approved_reference_id":None},"CI-TEST") is False
+    assert store.claim("CI-OTHER") is None
 
 def test_full_private_worker_route_on_synthetic_original_video(tmp_path,monkeypatch):
     """DB enqueue -> worker claim -> fake Drive copy -> decode -> stored review."""

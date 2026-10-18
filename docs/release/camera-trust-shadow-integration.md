@@ -112,3 +112,10 @@ CI synthetic-video tests decode real MJPG frames, check accurate sparse
 positions and abstention, and exercise the durable enqueue→claim→fake
 download→hash validation→analysis→persist lifecycle. This does not replace
 independent original-source or physical-camera qualification.
+
+## Running-job cancellation
+
+An authorized officer can cancel either a queued or running analysis job.
+A running worker discovers cancellation through lease heartbeat, and cannot
+persist a stale observation after cancellation. Reanalysis requires a fresh
+idempotency key and an explicit officer action.
