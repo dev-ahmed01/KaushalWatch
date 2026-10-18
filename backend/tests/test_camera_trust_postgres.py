@@ -33,6 +33,9 @@ def isolated_database(monkeypatch):
     yield
 
 def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
+    dsn=os.environ["KAUSHALWATCH_DATABASE_URL"]
+    with psycopg.connect(dsn) as db:
+        existing_cases=db.execute("SELECT COUNT(*) FROM kw_cases").fetchone()[0]
     cam=store.register_camera(C,"Synthetic entrance camera","synthetic.avi","officer-A")
     cid=cam["camera_id"]
     assert cam["production_qualified"] is False
@@ -94,7 +97,7 @@ def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
     with psycopg.connect(dsn) as db:
         cases=db.execute("SELECT COUNT(*) FROM kw_cases").fetchone()[0]
     # Camera pipeline must not create ordinary compliance cases.
-    assert cases==0
+    assert cases==existing_cases
 
 def test_queue_cancel_never_cancels_running_job():
     cam=store.register_camera(C,"Second synthetic camera","synthetic-2.avi","officer-A")

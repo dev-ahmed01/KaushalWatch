@@ -62,7 +62,7 @@ def main() -> None:
                 db.execute(
                     "INSERT INTO kw_schema_migrations(version) VALUES (%s)", (version,)
                 )
-    print("PostgreSQL v2 schema applied.")
+    print("PostgreSQL v3 schema applied.")
 
 
 if __name__ == "__main__":
