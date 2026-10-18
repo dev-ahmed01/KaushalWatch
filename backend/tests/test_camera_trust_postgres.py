@@ -111,3 +111,51 @@ def test_queue_cancel_never_cancels_running_job():
         store.cancel_job(C,cid,queued["job_id"],"officer-A")
     assert again.value.status_code==409
     assert store.claim("CI-TEST")==None
+
+def test_full_private_worker_route_on_synthetic_original_video(tmp_path,monkeypatch):
+    """DB enqueue -> worker claim -> fake Drive copy -> decode -> stored review."""
+    import hashlib
+    import json
+    import shutil
+    import cv2
+    import numpy as np
+    from scripts import run_camera_trust_worker as worker
+
+    source=tmp_path/"synthetic.avi"
+    writer=cv2.VideoWriter(str(source),cv2.VideoWriter_fourcc(*"MJPG"),6,(128,96))
+    assert writer.isOpened(), "CI FFmpeg MJPG encoder required"
+    for i in range(30):
+        frame=np.full((96,128,3),40+(i%10)*12,dtype=np.uint8)
+        cv2.putText(frame,str(i),(10,40),cv2.FONT_HERSHEY_SIMPLEX,.65,(255,255,255),2)
+        writer.write(frame)
+    writer.release()
+    sha=hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest=tmp_path/"manifest.json"
+    manifest.write_text(json.dumps({"version":"KWTRUST_DRIVE_ASSETS_V1",
+       "files":[{"id":"A"*25,"name":"synthetic.avi","sha256":sha,"group":"full-videos"}]}))
+    monkeypatch.setenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON",
+                       json.dumps({C:["synthetic.avi"]}))
+    cam=store.register_camera(C,"CI replay camera","synthetic.avi","officer-A")
+    jid=store.queue_job(C,cam["camera_id"],"synthetic.avi",sha,"ci-synthetic-replay-001",12,
+                        "officer-A")["job_id"]
+    def controlled_private_download(item,dest,token,client_secret):
+        assert item["sha256"]==sha
+        shutil.copy2(source,dest/item["name"])
+    monkeypatch.setattr(worker,"fetch_approved_file",controlled_private_download)
+    assert worker.run_one(manifest,tmp_path/"cache",tmp_path/"refs",None,None,"ci-worker-A")
+    jobs=store.list_jobs(C,cam["camera_id"])
+    assert len(jobs)==1 and jobs[0]["status"]=="succeeded"
+    obs=store.observations(C,cam["camera_id"])
+    assert len(obs)==1
+    data=obs[0]["payload"]
+    assert data["sampled_frames"]==12 and data["requested_samples"]==12
+    assert data["failed_positions"]==[]
+    assert data["production_qualified"] is False
+    assert data["authorized_reference_file_present"] is False
+    assert data["physical_camera_health"]=="UNKNOWN"
+    assert data["source_sha256"]==sha
+    assert data["auto_incident_mutations"]==0
+    assert data["frame_images_or_video_exported"] is False
+    assert all(row["geometry"]["state"]=="UNKNOWN_NO_APPROVED_REFERENCE" for row in data["samples"])
+    assert worker.run_one(manifest,tmp_path/"cache",tmp_path/"refs",None,None,"ci-worker-B") is False
+    assert len(store.observations(C,cam["camera_id"]))==1

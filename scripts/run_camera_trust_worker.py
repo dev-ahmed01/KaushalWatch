@@ -91,6 +91,13 @@ def heartbeat(job: dict, worker_id: str) -> bool:
           RETURNING job_id""",(job["job_id"],worker_id)).fetchone()
     return row is not None
 
+def fetch_approved_file(item: dict, dest: Path, token: Path | None,
+                        client_secret: Path | None) -> None:
+    """One authenticated transfer boundary, injectable in synthetic tests."""
+    creds=_authorize(token,client_secret,headless=True)
+    from google.auth.transport.requests import AuthorizedSession
+    sync_one(AuthorizedSession(creds),item,dest)
+
 def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
             client_secret: Path | None, worker_id: str) -> bool:
     job=store.claim(worker_id)
@@ -107,10 +114,8 @@ def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
     keeper.start()
     try:
         item=authorized_sources(manifest,job["centre_id"],job["source_alias"],job["source_sha256"])
-        creds=_authorize(token,client_secret,headless=True)
-        from google.auth.transport.requests import AuthorizedSession
         dest.mkdir(parents=True,exist_ok=True,mode=0o700)
-        sync_one(AuthorizedSession(creds),item,dest)
+        fetch_approved_file(item,dest,token,client_secret)
         source=dest/item["name"]
         if stop.is_set() or not heartbeat(job,worker_id):
             raise RuntimeError("Worker lease lost during transfer")
@@ -136,6 +141,8 @@ def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--once",action="store_true")
+    p.add_argument("--preflight",action="store_true",
+                   help="Validate worker setup without claiming or running jobs")
     p.add_argument("--poll-seconds",type=int,default=15)
     args=p.parse_args()
     if os.getenv("KAUSHALWATCH_STORAGE_BACKEND")!="postgres":
@@ -146,10 +153,30 @@ def main():
     refs=Path(os.environ.get("KAUSHALWATCH_CAMERA_REFERENCE_DIR",".private/camera-references"))
     token=os.getenv("KAUSHALWATCH_CAMERA_DRIVE_TOKEN")
     secret=os.getenv("KAUSHALWATCH_CAMERA_DRIVE_OAUTH_CLIENT")
+    token_path=Path(token) if token else None
+    secret_path=Path(secret) if secret else None
+    # Credential and DB preflight happens before claiming a job; wrong
+    # deployment configuration must not consume three processing attempts.
+    try:
+        file_rows=load_manifest(manifest)
+        from app.services.camera_sources import permitted_aliases
+        from app.services.demo_network import DEMO_CENTRES
+        for centre in DEMO_CENTRES:
+            permitted_aliases(centre["centre_id"],file_rows)
+        from app.services.postgres_store import connection
+        with connection() as db:
+            if db.execute("SELECT to_regclass('kw_camera_jobs') AS table_name").fetchone()["table_name"] is None:
+                raise RuntimeError("Camera Trust PostgreSQL migration missing")
+        if not args.preflight:
+            _authorize(token_path,secret_path,headless=True)
+    except Exception as exc:
+        p.error("Camera Trust worker configuration unavailable: "+type(exc).__name__)
+    if args.preflight:
+        print("Camera Trust worker configuration validated (no media transferred).")
+        return
     worker_id=(socket.gethostname()[:40]+"-"+str(os.getpid()))
     while True:
-        had_job=run_one(manifest,dest,refs,Path(token) if token else None,
-                        Path(secret) if secret else None,worker_id)
+        had_job=run_one(manifest,dest,refs,token_path,secret_path,worker_id)
         if args.once:break
         if not had_job:time.sleep(max(3,min(args.poll_seconds,3600)))
 

@@ -96,3 +96,19 @@ shows only its approved aliases; it never renders Drive IDs or source hashes.
 Workers independently enforce grants before downloading, preventing a
 database job from bypassing API-level source ownership checks. Adjust this
 mapping through privileged deployment secrets, not a public GitHub commit.
+
+## Automated private worker deployment and CI runtime
+
+`Dockerfile.camera-trust-worker` and `compose.camera-trust-worker.yaml`
+supply an optional rootless, read-only worker runtime with private read-only
+source manifest, reference directory and credentials, and a writable
+restricted media cache. The worker is a **separate background service only
+when deployed**, never a ChatGPT background task. A startup preflight checks
+schema version, centre grants, and Google credentials before claiming jobs.
+Run `python scripts/run_camera_trust_worker.py --preflight` for a
+non-networking schema/grant check without consuming analysis attempts.
+
+CI synthetic-video tests decode real MJPG frames, check accurate sparse
+positions and abstention, and exercise the durable enqueue→claim→fake
+download→hash validation→analysis→persist lifecycle. This does not replace
+independent original-source or physical-camera qualification.
