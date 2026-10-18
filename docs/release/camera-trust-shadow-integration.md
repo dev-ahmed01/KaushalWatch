@@ -119,3 +119,17 @@ An authorized officer can cancel either a queued or running analysis job.
 A running worker discovers cancellation through lease heartbeat, and cannot
 persist a stale observation after cancellation. Reanalysis requires a fresh
 idempotency key and an explicit officer action.
+
+
+## Phase 7: independent validation and bounded software roadmap
+
+The project has nine defined phases, and Phase 7 adds a strict offline
+evaluation path without any recurring ChatGPT video/report uploads.
+Read [Phase 7 validation and 9-phase roadmap](CAMERA_TRUST_PHASE_7_VALIDATION.md)
+before using the holdout exporter/evaluator. The exporter reads authorized
+PostgreSQL observations by frozen job IDs, strips unexpected fields, and
+creates a label-SHA-bound numeric snapshot. The evaluator reports sparse
+clip-level numerical candidate statistics, **not** physical camera accuracy,
+and always blocks autonomous field enforcement. Real external adjudication,
+deployment credentials and physically verified pilot evidence remain outside
+CI's synthetic tests.

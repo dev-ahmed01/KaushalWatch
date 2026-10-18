@@ -82,6 +82,11 @@ jobs:
           set -e
           test "$result" -eq 2
           python -c 'import json; x=json.load(open("/tmp/kaushalwatch-camera-blocked.json")); assert x["qualified"] is False and x["status"] == "camera_evidence_blocked"'
+      - name: Camera Trust Phase 7 field release must fail closed without independent evidence
+        run: |
+          python scripts/evaluate_camera_trust_holdout.py --status > /tmp/camera-trust-validation-blocked.json
+          python -c 'import json; x=json.load(open("/tmp/camera-trust-validation-blocked.json")); assert x["qualified_for_autonomous_enforcement"] is False and x["field_release"] == "BLOCKED_NO_EXTERNAL_HOLDOUT_SUBMITTED"'
+
       - name: Smoke-test final demo evaluator
         run: |
           python evaluation/evaluate_final_demo.py \
