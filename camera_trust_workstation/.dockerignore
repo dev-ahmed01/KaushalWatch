@@ -1,0 +1,10 @@
+.private
+.env*
+local_drive_sources
+*.avi
+*.mp4
+out
+example_data
+tests
+__pycache__
+.pytest_cache

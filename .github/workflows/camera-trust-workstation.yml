@@ -1,0 +1,26 @@
+name: Camera Trust Research Workstation
+on:
+  pull_request:
+    paths:
+      - 'camera_trust_workstation/**'
+      - '.github/workflows/camera-trust-workstation.yml'
+  push:
+    branches: ['experiment/**']
+    paths:
+      - 'camera_trust_workstation/**'
+      - '.github/workflows/camera-trust-workstation.yml'
+permissions:
+  contents: read
+jobs:
+  source-and-synthetic-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r camera_trust_workstation/requirements.txt
+      - run: python -m compileall -q camera_trust_workstation/kwtrust
+      - run: PYTHONPATH=camera_trust_workstation python -m pytest -q camera_trust_workstation/tests/test_drive_sync.py camera_trust_workstation/tests/test_external_probe.py
+      - run: docker build --file camera_trust_workstation/Dockerfile camera_trust_workstation

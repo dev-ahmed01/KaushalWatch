@@ -1,0 +1,31 @@
+services:
+  research-workstation:
+    build: .
+    image: kaushalwatch-camera-trust-research:local
+    container_name: kwtrust-final
+    ports:
+      - '127.0.0.1:8767:8765'
+    environment:
+      PHASE3R: /inputs/phase3r.json
+      PHASE3S: /inputs/phase3s.json
+      OUTPUT: "${KWTRUST_OUTPUT:-/output/evidence.json}"
+      ENABLE_LOCAL_AVI_ANALYSIS: '${ENABLE_LOCAL_AVI_ANALYSIS:-0}'
+      MAX_CASES_PER_DAY: '${MAX_CASES_PER_DAY:-20}'
+      SAMPLES_PER_CASE: '${SAMPLES_PER_CASE:-12}'
+    volumes:
+      - ./example_data:/inputs:ro
+      - ./drive-sources.json:/inputs/drive-sources.json:ro
+      - ./out:/output:rw
+      - ./local_drive_sources:/research_clips:ro
+      # Original recordings are NEVER included in the image; opt-in only:
+      # - C:/Users/Admin/Desktop/MEVA:/videos:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=96m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 2g
+    restart: 'no'
