@@ -46,6 +46,8 @@ class ReviewIn(BaseModel):
 def _centre(request:Request,centre_id:str,write:bool=False) -> None:
     if centre_id not in CENTRES:raise HTTPException(404,"Centre not found")
     require_centre(request,centre_id,write=write)
+    if os.getenv("KAUSHALWATCH_STORAGE_BACKEND","json")!="postgres":
+        raise HTTPException(503,"Camera Trust requires migrated PostgreSQL storage")
 
 def _actor(request:Request) -> str:
     return getattr(request.state,"protected_officer_actor",None) or resolve_review_actor(request)

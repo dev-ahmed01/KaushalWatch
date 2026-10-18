@@ -12,6 +12,7 @@ from pathlib import Path
 import socket
 import sys
 import time
+from threading import Event, Thread
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
@@ -92,6 +93,16 @@ def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
             client_secret: Path | None, worker_id: str) -> bool:
     job=store.claim(worker_id)
     if not job:return False
+    stop=Event()
+    def renew_lease():
+        # Preserve ownership during long private source downloads.
+        while not stop.wait(60):
+            try:
+                if not heartbeat(job,worker_id):stop.set()
+            except Exception:
+                stop.set()
+    keeper=Thread(target=renew_lease,daemon=True)
+    keeper.start()
     try:
         item=authorized_sources(manifest,job["source_alias"],job["source_sha256"])
         creds=_authorize(token,client_secret,headless=True)
@@ -99,19 +110,25 @@ def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
         dest.mkdir(parents=True,exist_ok=True,mode=0o700)
         sync_one(AuthorizedSession(creds),item,dest)
         source=dest/item["name"]
+        if stop.is_set() or not heartbeat(job,worker_id):
+            raise RuntimeError("Worker lease lost during transfer")
         # Reverify even cached files; never process a changed local source.
         if sha256_file(source)!=job["source_sha256"]:
             raise ValueError("Downloaded file hash differs from enrolled pin")
         ref,reference_id=reference_image(job["camera_id"],refs)
         report=analyze_video(source,job,ref,
-                             heartbeat=lambda:heartbeat(job,worker_id))
+                             heartbeat=lambda:not stop.is_set() and heartbeat(job,worker_id))
         report["approved_reference_id"]=reference_id
         report["authorized_reference_file_present"]=reference_id is not None
         report["physical_reference_custody_verified"]=False
+        if stop.is_set():raise RuntimeError("Worker lease lost")
         store.finish(job,report,worker_id)
     except Exception as exc:
         # Never persist paths, source IDs, tokens or exception string in DB.
         store.fail(job,worker_id,type(exc).__name__)
+    finally:
+        stop.set()
+        keeper.join(timeout=2)
     return True
 
 def main():

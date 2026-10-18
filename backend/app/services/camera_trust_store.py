@@ -16,6 +16,15 @@ from app.services.postgres_store import connection
 def _uid() -> str:
     return str(uuid.uuid4())
 
+def _valid_id(value: str) -> str:
+    try:
+        parsed = uuid.UUID(value)
+        if str(parsed) != value.lower():
+            raise ValueError("Noncanonical UUID")
+        return str(parsed)
+    except (ValueError, TypeError, AttributeError):
+        raise HTTPException(404, "Record not found") from None
+
 def _stamp(value) -> str | None:
     return value.isoformat() if value is not None else None
 
@@ -39,6 +48,7 @@ def _audit(db, camera_id: str, actor: str, event: str, payload: dict) -> None:
        (_uid(), camera_id, seq, actor, event, Jsonb(payload), prev, _json_hash(body)))
 
 def _lock_camera(db, centre_id: str, camera_id: str) -> dict:
+    camera_id = _valid_id(camera_id)
     row = db.execute(
         "SELECT * FROM kw_camera_registry WHERE centre_id=%s AND camera_id=%s FOR UPDATE",
         (centre_id, camera_id)).fetchone()
@@ -88,6 +98,7 @@ def decide_reference(centre_id: str, camera_id: str, reference_id: str,
                      approve: bool, actor: str) -> dict:
     with connection() as db:
         _lock_camera(db,centre_id,camera_id)
+        reference_id = _valid_id(reference_id)
         row = db.execute("""SELECT * FROM kw_camera_references
           WHERE reference_id=%s AND camera_id=%s FOR UPDATE""",
           (reference_id,camera_id)).fetchone()
@@ -150,6 +161,7 @@ def list_jobs(centre_id: str,camera_id: str) -> list[dict]:
             for r in rows]
 
 def cancel_job(centre_id: str,camera_id: str,job_id: str,actor: str) -> dict:
+    job_id = _valid_id(job_id)
     with connection() as db:
         _lock_camera(db,centre_id,camera_id)
         row=db.execute("""UPDATE kw_camera_jobs
@@ -174,6 +186,7 @@ def observations(centre_id: str,camera_id: str) -> list[dict]:
 
 def review_observation(centre_id: str,camera_id: str,obs_id: str,
                        outcome: str,note: str,actor: str) -> dict:
+    obs_id = _valid_id(obs_id)
     with connection() as db:
         _lock_camera(db,centre_id,camera_id)
         row=db.execute("""SELECT review_status FROM kw_camera_observations
@@ -221,8 +234,12 @@ def finish(job: dict, payload: dict, worker_id: str) -> bool:
         held=db.execute("""SELECT status,worker_id FROM kw_camera_jobs
           WHERE job_id=%s FOR UPDATE""",(job["job_id"],)).fetchone()
         if held["status"]!="running" or held["worker_id"]!=worker_id:return False
+        used=payload.get("approved_reference_id")
         ref=db.execute("""SELECT reference_id FROM kw_camera_references
-          WHERE camera_id=%s AND status='approved'""",(job["camera_id"],)).fetchone()
+          WHERE camera_id=%s AND reference_id=%s AND status='approved'""",
+          (job["camera_id"],used)).fetchone() if used else None
+        if used and ref is None:
+            raise RuntimeError("Approved reference changed during analysis")
         obs=_uid()
         db.execute("""INSERT INTO kw_camera_observations
           (observation_id,camera_id,job_id,source_sha256,reference_id,payload)
