@@ -15,8 +15,8 @@ from fastapi import HTTPException
 ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,130}$")
 VIDEO_SUFFIXES = (".avi", ".mp4", ".mov", ".mkv", ".mpeg", ".mpg")
 
-def permitted_aliases(centre_id: str, manifest: list[dict]) -> list[str]:
-    raw=os.getenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")
+def permitted_aliases(centre_id: str, manifest: list[dict], raw_grants: str | None = None) -> list[str]:
+    raw=raw_grants if raw_grants is not None else os.getenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")
     try:
         grants=json.loads(raw)
     except (TypeError,ValueError):

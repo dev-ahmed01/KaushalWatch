@@ -30,8 +30,10 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
         check("oidc_scoped_subject_grants_configured",
               bool(env.get("KAUSHALWATCH_OIDC_GRANTS_JSON","").strip()))
         check("evidence_storage_configured",
-              bool(env.get("KAUSHALWATCH_S3_BUCKET","") or
-                   env.get("KAUSHALWATCH_EVIDENCE_S3_BUCKET","")))
+              bool(env.get("KAUSHALWATCH_EVIDENCE_S3_BUCKET","") and
+                   env.get("KAUSHALWATCH_EVIDENCE_S3_REGION","") and
+                   env.get("KAUSHALWATCH_EVIDENCE_KMS_KEY_ID","") and
+                   not env.get("KAUSHALWATCH_EVIDENCE_S3_ENDPOINT_URL","")))
     if component in ("web","full"):
         check("protected_web_session",
               env.get("KAUSHALWATCH_WEB_AUTH_MODE","")=="protected")
@@ -54,7 +56,8 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
             # No actual source ID or name is ever returned to caller.
             try:
                 from app.services.demo_network import DEMO_CENTRES
-                active=sum(len(permitted_aliases(c["centre_id"],manifest))
+                active=sum(len(permitted_aliases(c["centre_id"],manifest,
+                            env.get("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")))
                            for c in DEMO_CENTRES)
                 grants_ok=active>0
             except Exception:grants_ok=False
