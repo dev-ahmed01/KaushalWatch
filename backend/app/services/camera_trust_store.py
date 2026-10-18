@@ -142,10 +142,11 @@ def queue_job(centre_id: str, camera_id: str, source_alias: str, sha: str,
           ON CONFLICT(camera_id,idempotency_key) DO NOTHING RETURNING job_id,status""",
           (jid,camera_id,source_alias,sha,key,sample_limit,actor)).fetchone()
         if row is None:
-            old=db.execute("""SELECT job_id,status,source_sha256 FROM kw_camera_jobs
+            old=db.execute("""SELECT job_id,status,source_alias,source_sha256,sample_limit FROM kw_camera_jobs
               WHERE camera_id=%s AND idempotency_key=%s""",(camera_id,key)).fetchone()
-            if old["source_sha256"] != sha:
-                raise HTTPException(409,"Idempotency key already used for another source version")
+            if (old["source_sha256"] != sha or old["sample_limit"] != sample_limit or
+                old["source_alias"] != source_alias):
+                raise HTTPException(409,"Idempotency key already used for different job parameters")
             return {"job_id":str(old["job_id"]),"status":old["status"],"replayed":True}
         _audit(db,camera_id,actor,"analysis_queued",{"job_id":jid,"source_sha256":sha})
     return {"job_id":jid,"status":"queued","replayed":False}

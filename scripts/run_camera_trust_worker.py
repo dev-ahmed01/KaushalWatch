@@ -21,15 +21,17 @@ sys.path.insert(0,str(ROOT/"backend"))
 import cv2
 from app.services import camera_trust_store as store
 from app.services.camera_quality import sample
+from app.services.camera_sources import require_source
 from camera_trust_workstation.kwtrust.drive_sync import (
     _authorize, load_manifest, sha256_file, sync_one,
 )
 
-def authorized_sources(path: Path, name: str, expected_sha: str) -> dict:
-    matches=[f for f in load_manifest(path) if f["name"]==name]
-    if len(matches)!=1 or matches[0].get("sha256")!=expected_sha:
-        raise ValueError("Source pin changed or name was never approved")
-    return matches[0]
+def authorized_sources(path: Path, centre_id: str, name: str, expected_sha: str) -> dict:
+    manifest=load_manifest(path)
+    item=require_source(centre_id,name,manifest)
+    if item.get("sha256")!=expected_sha:
+        raise ValueError("Frozen source hash changed since job submission")
+    return item
 
 def reference_image(camera_id: str, reference_dir: Path):
     from app.services.postgres_store import connection
@@ -104,7 +106,7 @@ def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
     keeper=Thread(target=renew_lease,daemon=True)
     keeper.start()
     try:
-        item=authorized_sources(manifest,job["source_alias"],job["source_sha256"])
+        item=authorized_sources(manifest,job["centre_id"],job["source_alias"],job["source_sha256"])
         creds=_authorize(token,client_secret,headless=True)
         from google.auth.transport.requests import AuthorizedSession
         dest.mkdir(parents=True,exist_ok=True,mode=0o700)

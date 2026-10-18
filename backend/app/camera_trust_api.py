@@ -17,6 +17,7 @@ from app.services.officer_permissions import require_centre, require_write
 from app.services.review_access import resolve_review_actor
 from app.services.demo_network import DEMO_CENTRES
 from app.services import camera_trust_store as db
+from app.services.camera_sources import permitted_aliases, require_source
 
 router=APIRouter(prefix="/api/centres/{centre_id}/camera-trust",tags=["Camera Trust shadow"])
 ALIAS=re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,130}$")
@@ -62,12 +63,13 @@ def _manifest() -> list[dict]:
     except (ValueError,OSError,KeyError,json.JSONDecodeError):
         raise HTTPException(503,"Approved source manifest is invalid") from None
 
-def _source(alias:str) -> dict:
-    if not ALIAS.fullmatch(alias):raise HTTPException(422,"Invalid source alias")
-    matches=[x for x in _manifest() if x["name"]==alias]
-    if len(matches)!=1 or not SHA.fullmatch(matches[0].get("sha256","")):
-        raise HTTPException(422,"Source alias requires one SHA-256 pinned approved file")
-    return matches[0]
+def _source(centre_id:str,alias:str) -> dict:
+    return require_source(centre_id,alias,_manifest())
+
+@router.get("/available-sources")
+def available_sources(centre_id:str,request:Request):
+    _centre(request,centre_id)
+    return {"sources":[{"alias":name} for name in permitted_aliases(centre_id,_manifest())]}
 
 @router.get("")
 def overview(centre_id:str,request:Request):
@@ -80,7 +82,7 @@ def overview(centre_id:str,request:Request):
 @router.post("/cameras",status_code=201)
 def register(centre_id:str,body:CameraIn,request:Request):
     _centre(request,centre_id,True)
-    _source(body.source_alias)
+    _source(centre_id,body.source_alias)
     return db.register_camera(centre_id,body.label.strip(),body.source_alias,_actor(request))
 
 @router.get("/{camera_id}/references")
@@ -110,7 +112,7 @@ def start_job(centre_id:str,camera_id:str,body:JobIn,request:Request):
     cameras=db.list_cameras(centre_id)
     found=[c for c in cameras if c["camera_id"]==camera_id]
     if not found:raise HTTPException(404,"Camera not found")
-    source=_source(found[0]["source_alias"])
+    source=_source(centre_id,found[0]["source_alias"])
     return db.queue_job(centre_id,camera_id,source["name"],source["sha256"],
                         body.idempotency_key,body.sample_limit,_actor(request))
 

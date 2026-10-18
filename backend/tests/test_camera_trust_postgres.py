@@ -61,6 +61,9 @@ def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
     with pytest.raises(Exception) as collision:
         store.queue_job(C,cid,"synthetic.avi","c"*64,"synthetic-run-v01",48,"officer-B")
     assert collision.value.status_code==409
+    with pytest.raises(Exception) as different_samples:
+        store.queue_job(C,cid,"synthetic.avi",SHA,"synthetic-run-v01",49,"officer-B")
+    assert different_samples.value.status_code==409
     claimed=store.claim("CI-SYNTHETIC-WORKER")
     assert claimed and claimed["job_id"]==job["job_id"]
     assert store.claim("CI-SECOND-WORKER") is None

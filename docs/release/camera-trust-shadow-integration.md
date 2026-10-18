@@ -77,3 +77,22 @@ references, true normal exposure, night/IR/lighting conditions, actual
 tampering cases, blinded decisions, pre-frozen thresholds, verified operator
 alert burden and latency. Never promote this shadow pipeline merely because
 the build passes.
+
+## Centre-private source grants (required for safe enrollment)
+
+A pinned Drive manifest verifies a file, but alone does not prove it belongs to
+a particular training centre. Configure a private environment value
+`KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON`, for example:
+
+```json
+{"DEMO-KA-104":["approved-camera-a.avi"],
+ "DEMO-KA-112":["approved-camera-b.avi"]}
+```
+
+The aliases must already exist in the private manifest with a SHA-256 pin and
+supported video suffix. Every alias belongs to **at most one centre**. Missing,
+malformed, duplicated, or unpinned assignments fail closed. The centre UI
+shows only its approved aliases; it never renders Drive IDs or source hashes.
+Workers independently enforce grants before downloading, preventing a
+database job from bypassing API-level source ownership checks. Adjust this
+mapping through privileged deployment secrets, not a public GitHub commit.

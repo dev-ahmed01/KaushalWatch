@@ -32,6 +32,8 @@ def client(monkeypatch):
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_TOKENS_JSON",json.dumps(TOKENS))
     monkeypatch.setenv("KAUSHALWATCH_OFFICER_PERMISSIONS_JSON",json.dumps(GRANTS))
     monkeypatch.setenv("KAUSHALWATCH_STORAGE_BACKEND","postgres")
+    monkeypatch.setenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON",
+                       json.dumps({CENTRE:["camera.avi"]}))
     monkeypatch.setattr(store,"list_cameras",lambda centre_id: [])
     return TestClient(main.app)
 
@@ -61,7 +63,7 @@ def test_unpinned_alias_denied_in_authorized_context(client,monkeypatch,tmp_path
     response=client.post(f"/api/centres/{CENTRE}/camera-trust/cameras",
                       headers=headers("review-key"),
                       json={"label":"Synthetic camera","source_alias":"camera.avi"})
-    assert response.status_code==422
+    assert response.status_code==503
     assert "token" not in response.text.lower()
 
 def test_invalid_record_id_returns_not_found_without_sql():
@@ -73,3 +75,29 @@ def test_audit_hash_stability():
     value={"camera_id":"test","sequence":1,"actor":"officer","event":"test",
           "payload":{"k":"v"},"previous_sha256":"0"*64}
     assert store._json_hash(value)==store._json_hash(dict(reversed(list(value.items()))))
+
+def test_approved_centre_alias_list_never_exposes_drive_ids(client,monkeypatch,tmp_path):
+    manifest=tmp_path/"sources.json"
+    manifest.write_text(json.dumps({"version":"KWTRUST_DRIVE_ASSETS_V1",
+        "files":[{"name":"camera.avi","id":"A"*25,
+                  "sha256":"b"*64,"group":"full-videos"}]}))
+    monkeypatch.setenv("KAUSHALWATCH_CAMERA_DRIVE_MANIFEST",str(manifest))
+    url=f"/api/centres/{CENTRE}/camera-trust/available-sources"
+    result=client.get(url,headers=headers("review-key"))
+    assert result.status_code==200
+    assert result.json()=={"sources":[{"alias":"camera.avi"}]}
+    assert "A"*25 not in result.text and "b"*64 not in result.text
+    assert client.get(url).status_code==401
+
+def test_cross_centre_source_collision_is_not_admitted(client,monkeypatch,tmp_path):
+    manifest=tmp_path/"sources.json"
+    manifest.write_text(json.dumps({"version":"KWTRUST_DRIVE_ASSETS_V1",
+        "files":[{"name":"camera.avi","id":"A"*25,
+                  "sha256":"b"*64,"group":"full-videos"}]}))
+    monkeypatch.setenv("KAUSHALWATCH_CAMERA_DRIVE_MANIFEST",str(manifest))
+    monkeypatch.setenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON",
+                       json.dumps({CENTRE:["camera.avi"],OTHER:["camera.avi"]}))
+    res=client.get(f"/api/centres/{CENTRE}/camera-trust/available-sources",
+                   headers=headers("admin-key"))
+    assert res.status_code==503
+    assert "A"*25 not in res.text

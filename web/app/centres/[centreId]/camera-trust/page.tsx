@@ -48,6 +48,8 @@ export default function CameraTrustPage(){
   const [notice,setNotice]=useState('');
   const [label,setLabel]=useState('');
   const [alias,setAlias]=useState('');
+  const [sourceAliases,setSourceAliases]=useState<string[]>([]);
+  const [sourcesError,setSourcesError]=useState('');
   const [key,setKey]=useState('');
   const [sampleLimit,setSampleLimit]=useState(48);
   const [refsha,setRefsha]=useState('');
@@ -69,6 +71,12 @@ export default function CameraTrustPage(){
     try{
       const o=await request<{cameras:Camera[]}>(path);
       setCameras(o.cameras);
+      try{
+        const options=await request<{sources:Array<{alias:string}>}>(path+'/available-sources');
+        setSourceAliases(options.sources.map(s=>s.alias));setSourcesError('');
+      }catch{
+        setSourceAliases([]);setSourcesError('Approved sources unavailable. Source enrollment remains disabled.');
+      }
       setSelected(previous=>o.cameras.some(c=>c.camera_id===previous)?previous:(o.cameras[0]?.camera_id||''));
     }catch(e){setError(message(e));}
     finally{setLoading(false);}
@@ -148,10 +156,13 @@ export default function CameraTrustPage(){
             <input className={'mt-1 '+classes} value={label} onChange={e=>setLabel(e.target.value)} minLength={3} maxLength={80} required/>
           </label>
           <label className="block text-[12px]">Approved private source filename
-            <input className={'mt-1 '+classes} value={alias} onChange={e=>setAlias(e.target.value)} required placeholder="camera-day3.avi"/>
+            <select className={'mt-1 '+classes} value={alias} onChange={e=>setAlias(e.target.value)} required>
+              <option value="">Choose an approved centre source</option>
+              {sourceAliases.map(name=><option key={name} value={name}>{name}</option>)}
+            </select>
           </label>
-          <p className="text-[11px] text-[#667085]">Source must already have an approved SHA-256 pin in the server-side private manifest.</p>
-          <button className={btn} type="submit" disabled={busy}>Register camera</button>
+          <p className="text-[11px] text-[#667085]">{sourcesError||'Only SHA-256-pinned sources explicitly assigned to this centre appear here.'}</p>
+          <button className={btn} type="submit" disabled={busy||!alias||!!sourcesError}>Register camera</button>
         </form>}
       </section>
       <div className="space-y-5">
