@@ -9,6 +9,6 @@ test('Camera Trust centre workspace abstains instead of inventing a healthy came
   await expect(page.getByText('None — shadow only')).toBeVisible();
   await expect(page.getByText('UNKNOWN', { exact: true }).first()).toBeVisible();
   // The demo JSON backend intentionally cannot masquerade as migrated PostgreSQL.
-  await expect(page.getByRole('alert')).toContainText('requires migrated PostgreSQL');
+  await expect(page.getByText('Camera Trust requires migrated PostgreSQL storage', { exact: true })).toBeVisible();
   await expect(page.getByText('No cameras registered. This is not a healthy-camera finding.')).toBeVisible();
 });
