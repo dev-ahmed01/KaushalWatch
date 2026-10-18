@@ -1,0 +1,138 @@
+"""Private dedicated Camera Trust worker. No chat uploads or public media URLs.
+
+An authorized runtime needs a SHA-pinned private manifest and Google ADC or a
+pre-authorized OAuth token. The worker runs separately from the FastAPI server.
+Original media never enters GitHub, browser or model conversation.
+"""
+from __future__ import annotations
+import argparse
+from datetime import datetime, timezone
+import os
+from pathlib import Path
+import socket
+import sys
+import time
+
+ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+sys.path.insert(0,str(ROOT/"backend"))
+
+import cv2
+from app.services import camera_trust_store as store
+from app.services.camera_quality import sample
+from camera_trust_workstation.kwtrust.drive_sync import (
+    _authorize, load_manifest, sha256_file, sync_one,
+)
+
+def authorized_sources(path: Path, name: str, expected_sha: str) -> dict:
+    matches=[f for f in load_manifest(path) if f["name"]==name]
+    if len(matches)!=1 or matches[0].get("sha256")!=expected_sha:
+        raise ValueError("Source pin changed or name was never approved")
+    return matches[0]
+
+def reference_image(camera_id: str, reference_dir: Path):
+    from app.services.postgres_store import connection
+    with connection() as db:
+        row=db.execute("""SELECT sha256,reference_id FROM kw_camera_references
+          WHERE camera_id=%s AND status='approved'""",(camera_id,)).fetchone()
+    if row is None:return None,None
+    path=reference_dir/(row["sha256"]+".png")
+    if not path.is_file() or sha256_file(path)!=row["sha256"]:
+        # Never substitute first source frame as a custodial reference.
+        return None,None
+    frame=cv2.imread(str(path),cv2.IMREAD_COLOR)
+    return (frame,str(row["reference_id"])) if frame is not None else (None,None)
+
+def analyze_video(path: Path, job: dict, reference, heartbeat=None) -> dict:
+    capture=cv2.VideoCapture(str(path))
+    if not capture.isOpened():raise ValueError("Video cannot be decoded")
+    try:
+        total=int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps=float(capture.get(cv2.CAP_PROP_FPS))
+        if total<2 or total>2_000_000 or not (0.1<=fps<=240):
+            raise ValueError("Video frame metadata outside supported range")
+        # Source-wide deterministic sparse inspection, never claimed to be full decode.
+        n=min(int(job["sample_limit"]),total)
+        positions=sorted({round(i*(total-1)/max(1,n-1)) for i in range(n)})
+        previous=None;results=[];failed=[]
+        for idx,pos in enumerate(positions):
+            if heartbeat and idx%4==0 and not heartbeat():
+                raise RuntimeError("Worker lease was lost; do not persist stale result")
+            capture.set(cv2.CAP_PROP_POS_FRAMES,int(pos))
+            ok,frame=capture.read()
+            observed=int(round(capture.get(cv2.CAP_PROP_POS_FRAMES)))-1
+            if not ok or frame is None or abs(observed-pos)>1:
+                failed.append(pos);continue
+            outcome=sample(frame,reference,previous)
+            results.append({"requested_frame0":pos,"decoded_frame0":observed,
+                            "time_seconds_estimated":round(observed/fps,3),
+                            **outcome})
+            previous=frame
+        if not results:raise ValueError("No decodable positions")
+        return {"schema":"CAMERA_TRUST_SHADOW_SAMPLE_V1",
+                "source_sha256":job["source_sha256"],
+                "sampled_frames":len(results),"requested_samples":len(positions),
+                "failed_positions":failed,"source_frame_count_reported":total,
+                "fps_reported":fps,"sampling":"SPARSE_RANDOM_ACCESS_NOT_FULL_VIDEO_DECODE",
+                "possible_review_samples":sum(bool(x["candidate_for_human_review"]) for x in results),
+                "physical_camera_health":"UNKNOWN",
+                "production_qualified":False,"auto_incident_mutations":0,
+                "frame_images_or_video_exported":False,"samples":results}
+    finally:capture.release()
+
+def heartbeat(job: dict, worker_id: str) -> bool:
+    from app.services.postgres_store import connection
+    with connection() as db:
+        row=db.execute("""UPDATE kw_camera_jobs SET leased_until=NOW()+INTERVAL '45 minutes',
+          updated_at=NOW() WHERE job_id=%s AND worker_id=%s AND status='running'
+          RETURNING job_id""",(job["job_id"],worker_id)).fetchone()
+    return row is not None
+
+def run_one(manifest: Path, dest: Path, refs: Path, token: Path | None,
+            client_secret: Path | None, worker_id: str) -> bool:
+    job=store.claim(worker_id)
+    if not job:return False
+    try:
+        item=authorized_sources(manifest,job["source_alias"],job["source_sha256"])
+        creds=_authorize(token,client_secret,headless=True)
+        from google.auth.transport.requests import AuthorizedSession
+        dest.mkdir(parents=True,exist_ok=True,mode=0o700)
+        sync_one(AuthorizedSession(creds),item,dest)
+        source=dest/item["name"]
+        # Reverify even cached files; never process a changed local source.
+        if sha256_file(source)!=job["source_sha256"]:
+            raise ValueError("Downloaded file hash differs from enrolled pin")
+        ref,reference_id=reference_image(job["camera_id"],refs)
+        report=analyze_video(source,job,ref,
+                             heartbeat=lambda:heartbeat(job,worker_id))
+        report["approved_reference_id"]=reference_id
+        report["authorized_reference_file_present"]=reference_id is not None
+        report["physical_reference_custody_verified"]=False
+        store.finish(job,report,worker_id)
+    except Exception as exc:
+        # Never persist paths, source IDs, tokens or exception string in DB.
+        store.fail(job,worker_id,type(exc).__name__)
+    return True
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument("--once",action="store_true")
+    p.add_argument("--poll-seconds",type=int,default=15)
+    args=p.parse_args()
+    if os.getenv("KAUSHALWATCH_STORAGE_BACKEND")!="postgres":
+        p.error("Camera Trust worker requires PostgreSQL")
+    manifest=Path(os.environ.get("KAUSHALWATCH_CAMERA_DRIVE_MANIFEST",""))
+    if not manifest.is_file():p.error("Approved private Drive manifest is missing")
+    dest=Path(os.environ.get("KAUSHALWATCH_CAMERA_MEDIA_DIR",".private/camera-media"))
+    refs=Path(os.environ.get("KAUSHALWATCH_CAMERA_REFERENCE_DIR",".private/camera-references"))
+    token=os.getenv("KAUSHALWATCH_CAMERA_DRIVE_TOKEN")
+    secret=os.getenv("KAUSHALWATCH_CAMERA_DRIVE_OAUTH_CLIENT")
+    worker_id=(socket.gethostname()[:40]+"-"+str(os.getpid()))
+    while True:
+        had_job=run_one(manifest,dest,refs,Path(token) if token else None,
+                        Path(secret) if secret else None,worker_id)
+        if args.once:break
+        if not had_job:time.sleep(max(3,min(args.poll_seconds,3600)))
+
+if __name__=="__main__":
+    main()
