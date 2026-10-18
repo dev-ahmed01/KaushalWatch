@@ -9,6 +9,7 @@ The reviewer never sees the sealed model comparison key or event labels.
 from __future__ import annotations
 
 import argparse
+import csv
 import math
 from pathlib import Path
 import sys
@@ -57,7 +58,10 @@ class BlindReviewApp:
     def _build(self):
         tk, ttk = self.tk, self.ttk
         self.root.title("KaushalWatch | Independent camera review — BLINDED / LOCAL")
-        self.root.geometry("1480x920")
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+        self.root.geometry(f"{max(1080, min(1480, screen_w-70))}x"
+                           f"{max(740, min(920, screen_h-90))}")
         self.root.minsize(1120, 740)
         self.root.configure(bg="#f5f7f7")
         outer = ttk.Frame(self.root, padding=12)
@@ -227,6 +231,12 @@ class BlindReviewApp:
             )
             return False
         self._refresh_list()
+        self.loading = True
+        try:
+            self.case_list.selection_set(self.case_index)
+            self.case_list.see(self.case_index)
+        finally:
+            self.loading = False
         return True
 
     def _manual_save(self):
@@ -495,5 +505,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import csv
     main()
