@@ -61,7 +61,7 @@ def audit(report: dict, r: dict, s: dict) -> dict:
         require(pin.get("video_sha256") == ref["source_video_sha256"] and
                 pin.get("annotations_sha256") == ref["source_annotations_sha256"] and
                 pin.get("unapproved_development_reference_sha256") ==
-                ref["frozen_unapproved_reference_pixel_sha256"],
+                ref.get("frozen_unapproved_reference_pixel_sha256"),
                 "Pinned video/annotation/reference SHA mismatch")
         expected.update({
             f"{day}-{w['start_frame']}-{w['end_frame']}": w
