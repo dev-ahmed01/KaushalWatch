@@ -1,0 +1,38 @@
+name: Camera Trust Private Worker
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile.camera-trust-worker'
+      - 'compose.camera-trust-worker.yaml'
+      - 'camera_trust_workstation/requirements-worker.txt'
+      - 'scripts/run_camera_trust_worker.py'
+      - 'backend/app/camera_trust_api.py'
+      - 'backend/app/services/camera_quality.py'
+      - 'backend/app/services/camera_trust_store.py'
+      - 'backend/app/services/camera_sources.py'
+      - 'backend/tests/test_camera_trust_*'
+      - '.github/workflows/camera-trust-worker.yml'
+  push:
+    branches: ['experiment/**']
+    paths:
+      - 'Dockerfile.camera-trust-worker'
+      - 'compose.camera-trust-worker.yaml'
+      - 'camera_trust_workstation/requirements-worker.txt'
+      - 'scripts/run_camera_trust_worker.py'
+      - '.github/workflows/camera-trust-worker.yml'
+permissions:
+  contents: read
+jobs:
+  worker-container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build rootless private-media worker
+        run: docker build -f Dockerfile.camera-trust-worker -t kw-camera-worker:ci .
+      - name: Verify runtime imports and non-root execution
+        run: |
+          docker run --rm --entrypoint python kw-camera-worker:ci -c "import os;assert os.geteuid()!=0;from app.services.camera_quality import sample;from camera_trust_workstation.kwtrust.drive_sync import load_manifest;import scripts.run_camera_trust_worker;print('camera worker imports ok')"
+      - name: Verify container has no baked-in runtime secrets or media
+        run: |
+          docker run --rm --entrypoint python kw-camera-worker:ci -c "from pathlib import Path;root=Path('/srv/kaushalwatch');assert not list(root.rglob('*.avi'));assert not list(root.rglob('*.mp4'));assert not list(root.rglob('drive-token.json'));assert not list(root.rglob('drive-sources.json'));print('camera worker privacy assets excluded')"
