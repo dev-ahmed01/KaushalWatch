@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from app.services.camera_visibility_quality_shadow import VisibilityQualityShadow  # noqa: E402
 from run_phase3p_bounded_causal_quality import _verify_day, _replay_window  # noqa: E402
-from run_phase3q_numeric_continuity import (  # noqa: E402
+from analyze_phase3q_numeric_continuity import (  # noqa: E402
     _counterfactual_flags, POLICIES, CUTOFF,
 )
 
@@ -252,6 +252,10 @@ def run_day(
     window_seconds: int = 180, sample_seconds: float = 2.0,
 ) -> dict:
     info, stored, labels, events, reference = _verify_day(video, annotations, report)
+    if (sample_seconds not in (1.0, 2.0, 3.0)
+            or abs(sample_seconds * info["fps"] -
+                   round(sample_seconds * info["fps"])) > 1e-6):
+        raise ValueError("Whole-second cadence must align with source FPS and 30s lookback")
     windows, audit = choose_controls(
         labels, events, fps=info["fps"], window_seconds=window_seconds,
         time_bins=time_bins, adjacent_each=adjacent_each,
@@ -341,10 +345,8 @@ def main() -> None:
     args = parser.parse_args()
     if not args.allow_unapproved_development_reference:
         parser.error("Explicit offline unapproved reference acknowledgement required")
-    if (not np.isfinite(args.sample_seconds) or
-            args.sample_seconds < 1 or args.sample_seconds > 4 or
-            abs(30 / args.sample_seconds - round(30 / args.sample_seconds)) > 1e-8):
-        parser.error("Sample seconds must be 1–4 and evenly divide 30s lookback")
+    if args.sample_seconds not in (1.0, 2.0, 3.0):
+        parser.error("Use exactly 1, 2 or 3 seconds to preserve frame-aligned 30s lookback")
     if args.out.suffix.lower() != ".json" or args.out.exists():
         parser.error("Output must be a new unused JSON path")
     results = {}
