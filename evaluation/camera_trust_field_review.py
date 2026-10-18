@@ -7,6 +7,7 @@ decide whether submitted measurements genuinely represent physical events.
 """
 from __future__ import annotations
 import base64
+import binascii
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -68,7 +69,7 @@ def signed_dossier(bundle:dict, trusted_keys:dict) -> dict:
             require(pub not in seen,"Field reviewer roles must have distinct keys")
             seen.add(pub)
             Ed25519PublicKey.from_public_bytes(pub).verify(sig,message)
-        except (ValueError,TypeError,KeyError,InvalidSignature) as exc:
+        except (ValueError,TypeError,KeyError,binascii.Error,InvalidSignature) as exc:
             raise FieldReviewError("External field signature invalid for "+role) from exc
     policy=bundle["policy"]
     metrics=bundle["measurements"]

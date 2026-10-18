@@ -21,7 +21,8 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
     protected=env.get("KAUSHALWATCH_ENV","").strip().lower() in {"pilot","production","prod"}
     check("protected_environment",protected)
     check("postgres_selected",env.get("KAUSHALWATCH_STORAGE_BACKEND","")=="postgres")
-    check("private_evidence_selected",env.get("KAUSHALWATCH_EVIDENCE_BACKEND","")=="s3")
+    if component in ("api","full"):
+        check("private_evidence_selected",env.get("KAUSHALWATCH_EVIDENCE_BACKEND","")=="s3")
     dsn=env.get("KAUSHALWATCH_DATABASE_URL","")
     check("postgres_dsn_configured",dsn.startswith(("postgres://","postgresql://")))
     if component in ("api","full"):

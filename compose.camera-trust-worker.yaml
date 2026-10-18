@@ -8,6 +8,7 @@ services:
     image: kaushalwatch-camera-trust-worker:local
     restart: unless-stopped
     environment:
+      KAUSHALWATCH_ENV: pilot
       KAUSHALWATCH_STORAGE_BACKEND: postgres
       KAUSHALWATCH_DATABASE_URL: ${KAUSHALWATCH_DATABASE_URL:?private PostgreSQL DSN required}
       KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON: ${KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON:?private centre source grants required}
