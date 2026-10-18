@@ -1,5 +1,5 @@
 # KaushalWatch Camera Trust unified research workstation.
-# Runs read-only API on localhost:8766 without interfering with older container.
+# Runs read-only API on localhost:8767 without interfering with older container.
 param([switch]$WithFullVideos)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
