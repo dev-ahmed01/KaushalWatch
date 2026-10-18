@@ -10,6 +10,7 @@ const tabs = [
   { suffix: '/practical', label: 'Activity' },
   { suffix: '/infrastructure', label: 'Infrastructure' },
   { suffix: '/evidence', label: 'Evidence' },
+  { suffix: '/camera-trust', label: 'Camera Trust' },
 ];
 
 export default function CentreTabs({ centreId }: { centreId: string }) {
