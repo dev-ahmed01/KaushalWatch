@@ -81,7 +81,7 @@ def test_duplicate_control_range_rejected(paired_reports):
     r, s = paired_reports
     data = full_synthetic_report(r, s)
     data["priority_queue"][0] = deepcopy(data["priority_queue"][1])
-    with pytest.raises(ValueError, match="duplicated"):
+    with pytest.raises(ValueError, match="duplicate"):
         summarize(data, r, s)
 
 
