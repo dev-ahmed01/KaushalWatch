@@ -20,6 +20,8 @@ type Observation = {
       localized_coverage:{state:string}}>;
   };
 };
+type AuditEvent = {sequence:number; actor:string; event:string; created_at:string;
+  payload:Record<string,unknown>; event_sha256:string; previous_sha256:string};
 type Reference = {reference_id:string; status:string; proposed_by:string;
   sha256:string; captured_at:string; approved_by:string|null};
 const classes='w-full rounded-xl border border-[#D0D9E4] bg-white px-3 py-2 text-[13px] text-[#344054]';
@@ -38,6 +40,7 @@ export default function CameraTrustPage(){
   const [jobs,setJobs]=useState<Job[]>([]);
   const [observations,setObservations]=useState<Observation[]>([]);
   const [references,setReferences]=useState<Reference[]>([]);
+  const [audit,setAudit]=useState<AuditEvent[]>([]);
   const [canWrite,setCanWrite]=useState(!SECURE_PROXY);
   const [busy,setBusy]=useState(false);
   const [loading,setLoading]=useState(true);
@@ -76,15 +79,16 @@ export default function CameraTrustPage(){
     getReviewAccess().then(x=>setCanWrite(x.can_write===true)).catch(()=>setCanWrite(false));
   },[]);
   const refreshCamera=useCallback(async()=>{
-    if(!selected){setJobs([]);setObservations([]);setReferences([]);return;}
+    if(!selected){setJobs([]);setObservations([]);setReferences([]);setAudit([]);return;}
     try{
       const url=path+'/'+encodeURIComponent(selected);
-      const [j,o,r]=await Promise.all([
+      const [j,o,r,a]=await Promise.all([
         request<{jobs:Job[]}>(url+'/jobs'),
         request<{observations:Observation[]}>(url+'/observations'),
         request<{references:Reference[]}>(url+'/references'),
+        request<{events:AuditEvent[]}>(url+'/audit'),
       ]);
-      setJobs(j.jobs);setObservations(o.observations);setReferences(r.references);
+      setJobs(j.jobs);setObservations(o.observations);setReferences(r.references);setAudit(a.events);
     }catch(e){setError(message(e));}
   },[selected,path,request]);
   useEffect(()=>{void refreshCamera();},[refreshCamera]);
@@ -250,6 +254,28 @@ export default function CameraTrustPage(){
               </div>}
             </div>)}
             {!observations.length&&<p className="mt-4 text-[12px] text-[#667085]">No completed evaluations; camera health remains unknown.</p>}
+          </section>
+
+          <section className={card}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-[16px] font-semibold">Custody and review audit</h2>
+              <span className="text-[11px] text-[#667085]">{audit.length} events</span>
+            </div>
+            <p className="mt-1 text-[12px] text-[#667085]">Append-only hash-linked events. Decisions are attributed to authenticated officers.</p>
+            <ol className="mt-3 divide-y divide-[#EEF2F6]">
+              {audit.slice(-15).reverse().map(a=><li className="py-3 text-[12px]" key={a.sequence}>
+                <div className="flex justify-between gap-2">
+                  <strong className="capitalize">{stateLabel(a.event)}</strong>
+                  <span className="text-[11px] text-[#98A2B3]">#{a.sequence}</span>
+                </div>
+                <p className="mt-1 text-[11px] text-[#667085]">{a.actor} · {new Date(a.created_at).toLocaleString()}</p>
+                <details className="mt-1 text-[11px] text-[#667085]"><summary className="cursor-pointer">Integrity hashes</summary>
+                  <p className="mt-1 break-all">Event: {a.event_sha256}</p>
+                  <p className="mt-1 break-all">Previous: {a.previous_sha256}</p>
+                </details>
+              </li>)}
+              {!audit.length&&<li className="py-4 text-[12px] text-[#667085]">No audit entries available.</li>}
+            </ol>
           </section>
           <p className="text-[11px] text-[#667085]">Audit records are maintained in the protected PostgreSQL ledger. No observation can confirm, close or penalize a compliance case.</p>
         </>}

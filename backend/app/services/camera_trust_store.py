@@ -210,7 +210,32 @@ def audit_events(centre_id: str,camera_id: str) -> list[dict]:
           ORDER BY sequence ASC LIMIT 2000""",(camera_id,)).fetchall()
     return [{**r,"created_at":_stamp(r["created_at"])} for r in rows]
 
+def _reap_exhausted_jobs() -> None:
+    # A worker can crash on its final attempt. Expired leases cannot remain
+    # forever "running": move them to a visible failed state with an audit.
+    with connection() as db:
+        candidates=db.execute("""SELECT job_id,camera_id FROM kw_camera_jobs
+          WHERE status='running' AND attempts>=3 AND leased_until<NOW()
+          ORDER BY updated_at LIMIT 50""").fetchall()
+    for candidate in candidates:
+        with connection() as db:
+            db.execute("SELECT camera_id FROM kw_camera_registry WHERE camera_id=%s FOR UPDATE",
+                       (candidate["camera_id"],))
+            row=db.execute("""SELECT job_id FROM kw_camera_jobs
+              WHERE job_id=%s AND status='running' AND attempts>=3
+              AND leased_until<NOW() FOR UPDATE SKIP LOCKED""",
+              (candidate["job_id"],)).fetchone()
+            if row is None:continue
+            db.execute("""UPDATE kw_camera_jobs SET status='failed',
+              worker_id=NULL,leased_until=NULL,updated_at=NOW(),
+              last_error='WorkerLeaseExpired' WHERE job_id=%s""",
+              (candidate["job_id"],))
+            _audit(db,str(candidate["camera_id"]),"camera_worker",
+                   "analysis_failed",{"job_id":str(candidate["job_id"]),
+                                      "error_type":"WorkerLeaseExpired"})
+
 def claim(worker_id: str) -> dict | None:
+    _reap_exhausted_jobs()
     with connection() as db:
         row=db.execute("""SELECT j.*,r.centre_id FROM kw_camera_jobs j
           JOIN kw_camera_registry r ON r.camera_id=j.camera_id
