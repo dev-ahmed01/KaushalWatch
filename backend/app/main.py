@@ -1586,3 +1586,7 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
         "received_payload_bytes": json_payload_bytes(request.events),
         "raw_video_required": False,
     }
+
+# Camera Trust is an isolated shadow workflow; protected_read_boundary is reused.
+from app.camera_trust_api import router as camera_trust_router
+app.include_router(camera_trust_router)

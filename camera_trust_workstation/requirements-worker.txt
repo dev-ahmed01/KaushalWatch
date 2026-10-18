@@ -1,0 +1,7 @@
+fastapi==0.142.2
+opencv-python-headless==4.10.0.84
+numpy==2.2.1
+psycopg[binary]==3.2.10
+google-auth>=2.31,<3
+google-auth-oauthlib>=1.2,<2
+requests>=2.31,<3

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = (
     (1, ROOT / "backend" / "sql" / "0001_initial.sql"),
     (2, ROOT / "backend" / "sql" / "0002_private_evidence.sql"),
+    (3, ROOT / "backend" / "sql" / "0003_camera_trust.sql"),
 )
 
 
@@ -40,10 +41,11 @@ def main() -> None:
                 parser.error("PostgreSQL schema migration incomplete: "
                              + repr(sorted(required - applied)))
             for name in ("kw_cases", "kw_analysis_history", "kw_edge_events",
-                         "kw_centre_settings", "kw_evidence_objects"):
+                         "kw_centre_settings", "kw_evidence_objects", "kw_camera_registry",
+                         "kw_camera_jobs", "kw_camera_observations", "kw_camera_audit", "kw_camera_references"):
                 if db.execute("SELECT to_regclass(%s)", (name,)).fetchone()[0] is None:
                     parser.error("Missing PostgreSQL table: " + name)
-            print("PostgreSQL v2 schema verified.")
+            print("PostgreSQL v3 schema verified.")
             return
 
         # All steps in a single transaction: partial schema migrations abort.
@@ -60,7 +62,7 @@ def main() -> None:
                 db.execute(
                     "INSERT INTO kw_schema_migrations(version) VALUES (%s)", (version,)
                 )
-    print("PostgreSQL v2 schema applied.")
+    print("PostgreSQL v3 schema applied.")
 
 
 if __name__ == "__main__":

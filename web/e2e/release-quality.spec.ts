@@ -61,6 +61,7 @@ test('mobile shell stays usable without document-level horizontal overflow', asy
     '/centres/DEMO-KA-104/practical',
     '/centres/DEMO-KA-104/infrastructure',
     '/centres/DEMO-KA-104/evidence',
+    '/centres/DEMO-KA-104/camera-trust',
     '/cases/SIM-KA-104-ATT',
     '/insights',
     '/actions',

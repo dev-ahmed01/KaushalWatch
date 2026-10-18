@@ -1,0 +1,10 @@
+# Optional pinned originals, downloaded via approved Drive source manifest.
+# No original video is copied into the Docker image.
+services:
+  research-workstation:
+    environment:
+      ENABLE_LOCAL_AVI_ANALYSIS: '1'
+      DAY3_VIDEO: /videos/day3-source.avi
+      DAY4_VIDEO: /videos/day4-source.avi
+    volumes:
+      - ./local_drive_sources:/videos:ro

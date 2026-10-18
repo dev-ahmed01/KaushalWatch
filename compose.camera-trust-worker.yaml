@@ -1,0 +1,32 @@
+# Private Camera Trust worker; never expose a public port or bundle video.
+# All variables below must come from a non-committed deployment env.
+services:
+  camera-trust-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.camera-trust-worker
+    image: kaushalwatch-camera-trust-worker:local
+    restart: unless-stopped
+    environment:
+      KAUSHALWATCH_ENV: pilot
+      KAUSHALWATCH_STORAGE_BACKEND: postgres
+      KAUSHALWATCH_DATABASE_URL: ${KAUSHALWATCH_DATABASE_URL:?private PostgreSQL DSN required}
+      KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON: ${KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON:?private centre source grants required}
+      KAUSHALWATCH_CAMERA_DRIVE_MANIFEST: /run/camera-private/manifest.json
+      KAUSHALWATCH_CAMERA_DRIVE_TOKEN: /run/camera-private/auth/drive-token.json
+      KAUSHALWATCH_CAMERA_MEDIA_DIR: /data/camera-media
+      KAUSHALWATCH_CAMERA_REFERENCE_DIR: /run/camera-private/references
+    volumes:
+      - ${KAUSHALWATCH_PRIVATE_DRIVE_MANIFEST_PATH:?private manifest path required}:/run/camera-private/manifest.json:ro
+      - ${KAUSHALWATCH_PRIVATE_AUTH_DIR:?private OAuth token directory required}:/run/camera-private/auth:rw
+      - ${KAUSHALWATCH_PRIVATE_REFERENCE_DIR:?private reference PNG dir required}:/run/camera-private/references:ro
+      - ${KAUSHALWATCH_PRIVATE_MEDIA_DIR:?private media cache required}:/data/camera-media:rw
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 3g
