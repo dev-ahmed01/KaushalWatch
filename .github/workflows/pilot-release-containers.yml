@@ -12,6 +12,13 @@ on:
       - 'web/package.json'
       - 'web/package-lock.json'
       - 'web/public/**'
+      - 'backend/sql/**'
+      - 'scripts/**'
+      - 'evaluation/**'
+      - 'configs/**'
+      - 'demo/**'
+      - 'web/tsconfig.json'
+      - 'web/postcss.config.mjs'
   push:
     branches: [main]
     paths:
@@ -19,6 +26,19 @@ on:
       - 'Dockerfile.web'
       - '.dockerignore'
       - '.github/workflows/pilot-release-containers.yml'
+      - 'backend/app/**'
+      - 'backend/sql/**'
+      - 'backend/requirements.txt'
+      - 'scripts/**'
+      - 'evaluation/**'
+      - 'configs/**'
+      - 'demo/**'
+      - 'web/app/**'
+      - 'web/package.json'
+      - 'web/package-lock.json'
+      - 'web/public/**'
+      - 'web/tsconfig.json'
+      - 'web/postcss.config.mjs'
 permissions:
   contents: read
 jobs:
@@ -27,10 +47,33 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Identify the actual checked-out source revision
+        run: echo "KW_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Build rootless API image from curated sources
-        run: docker build --pull -f Dockerfile.api -t kw-api:ci .
+        run: docker build --pull --build-arg KW_SOURCE_REVISION="$KW_SOURCE_REVISION" -f Dockerfile.api -t kw-api:ci .
       - name: Build protected-only Next.js image with no private environment
-        run: docker build --pull -f Dockerfile.web -t kw-web:ci .
+        run: docker build --pull --build-arg KW_SOURCE_REVISION="$KW_SOURCE_REVISION" -f Dockerfile.web -t kw-web:ci .
+      - name: Verify image revision labels match actual checkout
+        run: |
+          set -euo pipefail
+          test "$(docker image inspect kw-api:ci --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$KW_SOURCE_REVISION"
+          test "$(docker image inspect kw-web:ci --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = "$KW_SOURCE_REVISION"
+      - name: Save local-only build evidence, explicitly not a registry digest
+        run: |
+          set -euo pipefail
+          python scripts/pilot_release_lock.py ci \
+            --source-commit "$KW_SOURCE_REVISION" \
+            --api-image-id "$(docker image inspect kw-api:ci --format '{{.Id}}')" \
+            --web-image-id "$(docker image inspect kw-web:ci --format '{{.Id}}')" \
+            --output /tmp/kw-ci-image-evidence.json
+          python -c "import json; x=json.load(open('/tmp/kw-ci-image-evidence.json')); assert x['source_commit']=='$KW_SOURCE_REVISION'; assert x['registry_digest_independently_verified'] is False; assert x['real_site_deployment_independently_verified'] is False"
+      - name: Retain nonsecret local build evidence for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: kw-local-image-evidence
+          path: /tmp/kw-ci-image-evidence.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Verify code and immutable sources are present; private assets absent
         run: |
           docker run --rm --entrypoint python kw-api:ci -c "from pathlib import Path;import os;assert os.geteuid()!=0; r=Path('/srv/kaushalwatch'); assert (r/'backend/sql/0003_camera_trust.sql').exists(); assert (r/'backend/sql/0002_private_evidence.sql').exists(); assert (r/'configs/vision_profiles/kaushalwatch-fixed-camera-v1.json').exists(); assert not list(r.rglob('*.avi')); assert not list(r.rglob('*.mp4')); assert not list(r.rglob('.env')); print('API image contains only reviewed source/config')"

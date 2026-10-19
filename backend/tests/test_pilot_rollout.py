@@ -15,6 +15,7 @@ def test_absent_inputs_always_block_field_activation():
     result=evaluate({})
     assert result["software_preflight"]=="BLOCKED"
     assert result["checks"]["real_https_readiness"]=="NOT_PROBED"
+    assert result["checks"]["immutable_release_lock_format"]=="NOT_SUBMITTED"
     assert result["checks"]["signed_independent_field_dossier"]=="NOT_SUBMITTED"
     assert result["eligible_to_request_external_pilot_signoff"] is False
     assert result["autonomous_enforcement_authorized"] is False
@@ -67,7 +68,18 @@ def test_all_technical_checks_only_make_external_review_eligible(monkeypatch):
         "manual_review_readiness":module.FIELD_READY})
     result=module.evaluate({},api="https://api.example.org",web="https://web.example.org",
                            probe_db=True,field_bundle={"schema":"synthetic"},
-                           trusted_public_keys={"mock":"mock"})
+                           trusted_public_keys={"mock":"mock"},
+                           release_lock={
+                               "schema":"KW_PILOT_RELEASE_LOCK_V1",
+                               "source_commit":"a"*40,
+                               "images":{"api":"registry.example/kw-api@sha256:"+"1"*64,
+                                         "web":"registry.example/kw-web@sha256:"+"2"*64},
+                               "database":{"required_migrations":[1,2,3],
+                                           "apply":"separate_approved_migration_only_role",
+                                           "verify":"scripts/migrate_postgres.py --check"},
+                               "rollback":{"on_failed_readiness":"halt_traffic_and_request_operator_review",
+                                           "database_rollback":"manual_restore_from_verified_isolated_backup_only"}},
+                           expected_release_commit="a"*40)
     assert result["eligible_to_request_external_pilot_signoff"] is True
     assert result["software_preflight"]=="CHECKS_PASS"
     assert result["pilot_activation"]=="BLOCKED_PENDING_EXTERNAL_AUTHORIZATION"
