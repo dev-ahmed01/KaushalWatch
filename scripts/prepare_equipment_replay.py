@@ -38,7 +38,7 @@ def build(root:Path,source_origin:str,license_basis:str,privacy_basis:str,
     for part in (recording,saved):
         if part.is_symlink() or not part.is_file() or part.stat().st_size<20:
             raise ValueError("Local source or model receipt missing")
-    if not 10_000<=recording.stat().st_size<=130_000_000:
+    if not 1_000<=recording.stat().st_size<=130_000_000:
         raise ValueError("Unsupported local recording size")
     if saved.stat().st_size>700_000:raise ValueError("Saved result too large")
     with recording.open("rb") as stream:
