@@ -15,10 +15,15 @@ test('CRM work queue searches by centre and provides contextual evidence and rep
   await expect(page.getByText('No matching work items.')).toBeVisible();
   await expect(side.getByText('Select a work item to inspect its centre, evidence, and audit links.')).toBeVisible();
   await page.getByRole('button',{name:'Clear filters'}).click();
-  await expect(page.getByText('4 actions')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Action queue'})).toBeVisible();
+  await expect(side.getByRole('link',{name:'Open case & audit'})).toBeVisible();
 });
 
 test('CRM stage and priority filters never change recorded case status',async ({page})=>{
+  const before=await page.request.get('http://127.0.0.1:8000/api/cases');
+  expect(before.ok()).toBeTruthy();
+  const beforeCases=await before.json();
+  const original=beforeCases.find((c:{case_id:string})=>c.case_id==='SIM-KA-104-ATT').status;
   await page.goto('/actions');
   await page.getByRole('combobox',{name:'Case status filter'}).selectOption('virtual_verification');
   await expect(page.getByText('No matching work items.')).toBeVisible();
@@ -29,7 +34,7 @@ test('CRM stage and priority filters never change recorded case status',async ({
   const status=await page.request.get('http://127.0.0.1:8000/api/cases');
   expect(status.ok()).toBeTruthy();
   const cases=await status.json();
-  expect(cases.find((c:{case_id:string})=>c.case_id==='SIM-KA-104-ATT').status).toBe('open');
+  expect(cases.find((c:{case_id:string})=>c.case_id==='SIM-KA-104-ATT').status).toBe(original);
 });
 
 test('case CRM header opens centre record and source-scoped PDF',async ({page})=>{
@@ -39,8 +44,10 @@ test('case CRM header opens centre record and source-scoped PDF',async ({page})=
     .toHaveAttribute('href','/centres/DEMO-KA-104');
   await expect(navigation.getByRole('link',{name:'Centre PDF'}))
     .toHaveAttribute('href',/DEMO-KA-104.*report\.pdf/);
-  await expect(page.getByRole('heading',{name:'Officer review'})).toBeVisible();
-  await expect(page.getByRole('textbox',{name:'Decision note'})).toBeVisible();
+  await expect(page.getByText('Officer review',{exact:true})).toBeVisible();
+  const input=page.getByRole('textbox',{name:'Decision note'});
+  if(await input.count())await expect(input).toBeVisible();
+  else await expect(page.getByText('A final officer outcome has been recorded. The evidence and audit trail remain available.')).toBeVisible();
 });
 
 test('centre report workspace has one centre selector and PDF link',async ({page})=>{

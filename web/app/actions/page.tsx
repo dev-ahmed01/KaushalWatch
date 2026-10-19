@@ -321,7 +321,7 @@ function PriorityBar({
     <div>
       <div className="flex items-center justify-between text-[11px] text-[#667085]">
         <span>{label}</span>
-        <span className="font-semibold text-[#475467]">{value}</span>
+        <span className="font-semibold text-[#475467]">{value} / {total}</span>
       </div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#F2F4F7]">
         <div className={'h-full rounded-full ' + bar} style={{ width: width + '%' }} />
