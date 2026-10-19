@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowRight, Building2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { StatusPill } from '../components/CalmUi';
+import { DataRetry } from '../components/NetworkStatus';
 import { buttonVariants } from '../components/ui/button';
 import { getCentres } from '../lib/api';
 import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from '../lib/presentation';
@@ -13,6 +14,7 @@ export default function CentresPage() {
   const [centres, setCentres] = useState<Centre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryKey,setRetryKey] = useState(0);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'all'|'review'|'uncertain'|'verified'>('all');
 
@@ -35,7 +37,7 @@ export default function CentresPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [retryKey]);
 
   const counts = useMemo(() => ({
     verified: centres.filter(item => centreUiState(item) === 'verified').length,
@@ -60,8 +62,9 @@ export default function CentresPage() {
       </header>
 
       {error && (
-        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
-          {error}
+        <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          <span>{error}</span>
+          <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
         </div>
       )}
 

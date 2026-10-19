@@ -22,6 +22,7 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
   const [elapsed,setElapsed]=useState(0);
   const [ready,setReady]=useState(false);
   const [missing,setMissing]=useState(false);
+  const [retries,setRetries]=useState(0);
   const [playing,setPlaying]=useState(false);
   const [speed,setSpeed]=useState(1);
   const [reviewed,setReviewed]=useState<Record<string,boolean>>({});
@@ -106,7 +107,7 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
           <span className="rounded-full bg-[#F2F5FA] px-2.5 py-1 text-[10px] font-semibold tracking-wider text-[#475467]">PLAYBACK</span>
         </div>
         <div className="relative aspect-video w-full overflow-hidden bg-[#15232B]">
-          <video key={feed.id} ref={video} src={source(feed)} autoPlay muted playsInline preload="auto"
+          <video key={feed.id+"-"+retries} ref={video} src={source(feed)} autoPlay muted playsInline preload="auto"
             aria-label={feed.name+' recorded footage'} className="h-full w-full object-cover"
             onCanPlay={event=>{setReady(true);setMissing(false);event.currentTarget.playbackRate=speed;void event.currentTarget.play().catch(()=>setPlaying(false));}}
             onTimeUpdate={event=>setElapsed(event.currentTarget.currentTime)}
@@ -125,8 +126,10 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
               <Activity size={13} className="text-amber-300"/>{feed.cue}
             </span>
           </div>}
-          {missing&&<div role="alert" className="absolute inset-0 flex items-center justify-center px-5 text-center text-[12px] text-white">
-            Sample recording unavailable. Run the bundled recording generator.
+          {missing&&<div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-5 text-center text-[12px] text-white">
+            <span>Sample recording unavailable. Run the bundled recording generator.</span>
+            <button type="button" className="kw-focus rounded-lg border border-white/50 px-3 py-2 font-semibold"
+              onClick={()=>{setMissing(false);setReady(false);setElapsed(0);setRetries(n=>n+1);}}>Retry recording</button>
           </div>}
           {!ready&&!missing&&<div className="absolute inset-0 flex items-center justify-center text-[12px] text-[#B6C4CC]">Opening recording…</div>}
         </div>

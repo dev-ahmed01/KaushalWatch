@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { buttonVariants } from '../components/ui/button';
+import { DataRetry } from '../components/NetworkStatus';
 import { getActionQueue, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
 import type { ActionPriority, ActionQueue, ActionQueueItem } from '../lib/types';
@@ -34,6 +35,7 @@ export default function ActionsPage() {
   const { period, label } = useBriefPeriod();
   const [queue, setQueue] = useState<ActionQueue | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retryKey,setRetryKey] = useState(0);
   const [priorityFilter,setPriorityFilter] = useState<'all'|ActionPriority>('all');
   const [statusFilter,setStatusFilter] = useState<'all'|'open'|'under_review'|'virtual_verification'|'follow_up'>('all');
   const [search,setSearch] = useState('');
@@ -42,6 +44,7 @@ export default function ActionsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setQueue(null);
     getActionQueue(period)
       .then(payload => {
         if (active) setQueue(payload);
@@ -55,7 +58,7 @@ export default function ActionsPage() {
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period,retryKey]);
 
   const grouped = useMemo(() => {
     const result: Record<ActionPriority, ActionQueueItem[]> = {
@@ -231,11 +234,11 @@ export default function ActionsPage() {
         </>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
-          <div className="h-96 rounded-[18px] kw-skeleton" />
-          <div className="h-64 rounded-[18px] kw-skeleton" />
+          {loading&&<><div className="h-96 rounded-[18px] kw-skeleton" /><div className="h-64 rounded-[18px] kw-skeleton" /></>}
           {!loading && (
-            <div className="lg:col-span-2 rounded-xl border border-[#E4EAF2] bg-white px-5 py-4 text-[13px] text-[#667085]">
-              The grounded action queue is temporarily unavailable.
+            <div className="lg:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4EAF2] bg-white px-5 py-4 text-[13px] text-[#667085]">
+              <span>The grounded action queue is temporarily unavailable.</span>
+              <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
             </div>
           )}
         </div>

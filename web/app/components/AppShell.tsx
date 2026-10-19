@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { cn } from '../lib/cn';
 import { PeriodProvider, useBriefPeriod } from '../lib/period';
 import AssistantDrawer from './AssistantDrawer';
+import { NetworkStatus } from './NetworkStatus';
 import SecureSessionGate from './SecureSessionGate';
 import { SECURE_PROXY, logoutOfficer, getReviewAccess } from '../lib/api';
 import { Button } from './ui/button';
@@ -213,6 +214,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             )}
           </div>
         </header>
+        <NetworkStatus/>
 
         <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1280px] px-4 py-6 pb-24 sm:px-6 md:px-9 md:py-8 md:pb-10">{children}</main>
       </div>
