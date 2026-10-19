@@ -75,3 +75,6 @@ web/.controlled-replay/
 
 # Never commit operator-local research manifests or original selection clips
 kw-research-replay.local.json
+
+# Operator-supplied private source/receipt admission manifest
+equipment-replay.local.json

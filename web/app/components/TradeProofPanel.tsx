@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowRight,CameraOff,CheckCircle2,ClipboardCheck,Eye,EyeOff,ShieldAlert,ToolCase} from 'lucide-react';
 import type {TradeItem,TradeProof} from '../lib/server/trade-proof';
+import PrivateEquipmentReplay from './PrivateEquipmentReplay';
 
 const badge=(active:boolean)=>active
  ? 'border-[#A6C5E6] bg-[#ECF5FE] text-[#2B6194]'
@@ -131,6 +132,7 @@ export default function TradeProofPanel(){
        </div>
       </aside>
      </div>
+     <PrivateEquipmentReplay withheld={blocked}/>
      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
        <p className="max-w-[650px] text-[11px] leading-5 text-[#657F99]">
          Three authored sample timestamps, not a detector run. ROI consistency, item recall and practical-work authorization remain unverified. A blocked camera withholds every visual count.
