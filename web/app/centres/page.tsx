@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StatusPill } from '../components/CalmUi';
 import { DataRetry } from '../components/NetworkStatus';
 import { buttonVariants } from '../components/ui/button';
-import { getCentres } from '../lib/api';
+import { getCentres, SECURE_PROXY } from '../lib/api';
 import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from '../lib/presentation';
 import type { Centre } from '../lib/types';
 
@@ -22,14 +22,17 @@ export default function CentresPage() {
     let active = true;
     setLoading(true);
     setError('');
+    setCentres([]);
     getCentres()
       .then(payload => {
         if (active) setCentres(aiFirstCentres(payload.centres, false));
       })
       .catch(() => {
         if (!active) return;
-        setCentres(aiFirstCentres(FALLBACK_CENTRES));
-        setError('Live centre records are unavailable. Showing clearly marked simulated demo fallback data.');
+        setCentres(SECURE_PROXY?[]:aiFirstCentres(FALLBACK_CENTRES));
+        setError(SECURE_PROXY
+          ? 'Centre directory unavailable. No offline or simulated records have been substituted.'
+          : 'Live centre records are unavailable. Showing clearly marked simulated demo fallback data.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -56,7 +59,7 @@ export default function CentresPage() {
       <header className="mb-7">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Centres</h1>
-          {error && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated fallback</span>}
+          {error && !SECURE_PROXY && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated fallback</span>}
         </div>
         <p className="mt-1 text-[13px] text-[var(--kw-muted)]">{centres.length} monitored centres</p>
       </header>

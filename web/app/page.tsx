@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { StatusPill } from './components/CalmUi';
 import { DataRetry } from './components/NetworkStatus';
 import { buttonVariants } from './components/ui/button';
-import { getKaushalBrief } from './lib/api';
+import { getKaushalBrief, SECURE_PROXY } from './lib/api';
 import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from './lib/presentation';
 import { useBriefPeriod } from './lib/period';
 import type { KaushalBrief, KaushalBriefCentre } from './lib/types';
@@ -101,6 +101,16 @@ export default function KaushalAIHome() {
       ];
 
   const topAction = recommendations[0] || null;
+  // Never substitute shared demo centre identities after a protected read fails.
+  if (SECURE_PROXY && error && !loading && !brief) {
+    return <div className="space-y-4">
+      <h1 className="text-[32px] font-semibold text-[#233952]">KaushalAI</h1>
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-4 text-[12px] text-[#77541E]">
+        <span>Centre intelligence is unavailable. No operational data or simulated centre records are shown.</span>
+        <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
+      </div>
+    </div>;
+  }
 
   return (
     <div className="space-y-6">

@@ -28,8 +28,6 @@ import { useBriefPeriod } from '../../lib/period';
 import { FALLBACK_CENTRES } from '../../lib/presentation';
 import type { Centre, CentreEngine, CentreIntelligence } from '../../lib/types';
 
-const FALLBACK = FALLBACK_CENTRES[0];
-
 const ENGINE_ICONS: Record<string, typeof Users> = {
   attendance: Users,
   practical_activity: Activity,

@@ -6,9 +6,13 @@ export const SECURE_PROXY = process.env.NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY ==
 export const API = SECURE_PROXY ? '/api/proxy' : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
 
 export async function officerFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  if (!SECURE_PROXY) return fetch(url, init);
-  const headers = new Headers(init.headers);
   const method = (init.method || 'GET').toUpperCase();
+  // A stalled rural-network GET must terminate so the officer can retry.
+  // Never time out/replay non-idempotent review writes from the UI layer.
+  const signal = method === 'GET' && !init.signal && typeof AbortSignal.timeout === 'function'
+    ? AbortSignal.timeout(20000) : init.signal;
+  if (!SECURE_PROXY) return fetch(url, { ...init, signal });
+  const headers = new Headers(init.headers);
   if (method !== 'GET' && method !== 'HEAD') {
     const response = await fetch('/api/auth/status', { cache: 'no-store', credentials: 'same-origin' });
     if (!response.ok) throw new Error('Officer session unavailable.');
@@ -16,7 +20,7 @@ export async function officerFetch(url: string, init: RequestInit = {}): Promise
     if (!status.csrfToken) throw new Error('Officer session expired. Sign in again.');
     headers.set('X-KaushalWatch-CSRF', status.csrfToken);
   }
-  const response = await fetch(url, { ...init, headers, credentials: 'same-origin', cache: 'no-store' });
+  const response = await fetch(url, { ...init, signal, headers, credentials: 'same-origin', cache: 'no-store' });
   if (response.status === 401 && typeof window !== 'undefined') {
     window.location.assign('/login?next=' + encodeURIComponent(window.location.pathname));
   }
