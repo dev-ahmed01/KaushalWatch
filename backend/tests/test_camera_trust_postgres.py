@@ -95,7 +95,15 @@ def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
             "payload":event["payload"],"previous_sha256":prev})
         assert event["event_sha256"]==recomputed
         prev=recomputed
-    dsn=os.environ["KAUSHALWATCH_DATABASE_URL"]
+    # The private operator's read-only verifier sees the entire v3 chain;
+    # this is still synthetic, and only the production operator can attest
+    # a real deployed PostgreSQL instance.
+    from psycopg.rows import dict_row
+    from scripts.check_camera_audit_integrity import scan_database
+    with psycopg.connect(dsn, row_factory=dict_row) as db:
+        db.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        integrity = scan_database(db)
+    assert all(integrity.values()), integrity
     with pytest.raises(psycopg.Error):
         with psycopg.connect(dsn) as db:
             db.execute("DELETE FROM kw_camera_audit WHERE camera_id=%s",(cid,))

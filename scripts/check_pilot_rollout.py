@@ -18,6 +18,7 @@ from scripts.check_camera_trust_deployment import check_environment
 from scripts.check_protected_staging import run_check
 from scripts.pilot_release_lock import load_lock, valid_lock
 from scripts.check_private_storage_cloud import evaluate as inspect_private_storage
+from scripts.check_camera_audit_integrity import evaluate as inspect_camera_audit
 from evaluation.camera_trust_field_review import FieldReviewError,signed_dossier
 
 SCHEMA="KW_PILOT_ACCEPTANCE_V1"
@@ -35,9 +36,20 @@ def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
              probe_db:bool=False,field_bundle:dict|None=None,
              trusted_public_keys:dict|None=None,
              release_lock:dict|None=None,expected_release_commit:str|None=None,
-             probe_private_storage_cloud:bool=False)->dict[str,Any]:
+             probe_private_storage_cloud:bool=False,
+             probe_camera_audit:bool=False)->dict[str,Any]:
     config=check_environment("full",env,probe_db=probe_db)
     checks=dict(config["checks"])
+    if not probe_camera_audit:
+        checks["camera_audit_chain_integrity"]="NOT_PROBED"
+    else:
+        try:
+            audit=inspect_camera_audit(env,probe=True)
+            checks["camera_audit_chain_integrity"]=(
+                "PASS" if audit.get("read_only_database_audit")=="CHECKS_PASS"
+                and audit.get("database_snapshot_attempted") is True else "BLOCKED")
+        except Exception:
+            checks["camera_audit_chain_integrity"]="BLOCKED"
     if not probe_private_storage_cloud:
         checks["private_storage_cloud_controls"]="NOT_PROBED"
     else:
@@ -102,6 +114,7 @@ def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
             "Real IdP MFA and subject-revocation verification",
             "Independent private S3 IAM/KMS and source custody audit",
             "Operator read-only AWS bucket/KMS controls probe (does not test media)",
+            "Verify full camera audit chain from one read-only PostgreSQL snapshot",
             "Verify actual registry and running image digests against source revision",
             "Verify rollback image compatibility with current PostgreSQL v3 schema",
             "Real infrastructure backup and disaster-recovery drill",
@@ -128,6 +141,8 @@ def main()->int:
     p.add_argument("--probe-database",action="store_true")
     p.add_argument("--probe-private-storage-cloud",action="store_true",
                    help="Opt-in read-only AWS bucket/KMS policy checks")
+    p.add_argument("--probe-camera-audit",action="store_true",
+                   help="Opt-in read-only Camera Trust v3 audit chain inspection")
     p.add_argument("--field-bundle",type=Path)
     p.add_argument("--trusted-public-keys",type=Path)
     p.add_argument("--release-lock",type=Path)
@@ -135,7 +150,7 @@ def main()->int:
     p.add_argument("--output",type=Path)
     args=p.parse_args()
     if args.status:
-        if any((args.api,args.web,args.probe_database,args.probe_private_storage_cloud,args.field_bundle,args.trusted_public_keys,args.release_lock,args.expected_release_commit,args.output)):
+        if any((args.api,args.web,args.probe_database,args.probe_private_storage_cloud,args.probe_camera_audit,args.field_bundle,args.trusted_public_keys,args.release_lock,args.expected_release_commit,args.output)):
             p.error("--status cannot be combined with other options")
         print(json.dumps(evaluate({}),indent=2))
         return 0
@@ -150,6 +165,7 @@ def main()->int:
             dict(os.environ),api=args.api,web=args.web,
             probe_db=args.probe_database,
             probe_private_storage_cloud=args.probe_private_storage_cloud,
+            probe_camera_audit=args.probe_camera_audit,
             field_bundle=load_private(args.field_bundle) if args.field_bundle else None,
             trusted_public_keys=load_private(args.trusted_public_keys) if args.trusted_public_keys else None,
             release_lock=load_lock(args.release_lock) if args.release_lock else None,
