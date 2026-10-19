@@ -46,7 +46,7 @@ On a secured operator workstation with real infrastructure configured:
 ```bash
 python scripts/migrate_postgres.py --check
 python scripts/check_protected_staging.py --api https://api.example.org --web https://console.example.org
-python scripts/check_pilot_rollout.py --api https://api.example.org --web https://console.example.org --probe-database --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
+python scripts/check_pilot_rollout.py --api https://api.example.org --web https://console.example.org --probe-database --probe-private-storage-cloud --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
 ```
 
 This does not create a pilot. The external owner must verify hosted OIDC MFA/revocation, cloud IAM/KMS and disaster recovery, private source custody, blind physical-camera labels, false-alert burden and real operator approval. The signed-field gate can mark a package ready **to request** sign-off; `pilot_activation` and autonomous enforcement remain blocked.
@@ -106,3 +106,13 @@ or restore over active records.
 The private pilot gate now also requires the lock and expected source commit.
 No automatic provisioning, publication, migration, DNS mutation or activation
 is performed by this workflow.
+
+### AWS controls audit before independent sign-off
+
+On the approved operator runtime, run
+`python scripts/check_private_storage_cloud.py --probe-cloud` or include
+`--probe-private-storage-cloud` in the unified pilot preflight. Without this
+live read-only check, the technical gate stays NOT_PROBED/BLOCKED. The probe
+is deliberately non-mutating and returns only generic PASS/BLOCKED check names;
+it never handles evidence objects or media. It does not authorize deployment
+or replace independent security, backup, MFA, custody and field sign-off.

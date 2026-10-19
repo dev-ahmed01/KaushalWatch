@@ -11,7 +11,7 @@ This milestone follows the four completed officer OS/CRM sprints. The new gate c
 
     python scripts/migrate_postgres.py --check
 
-    python scripts/check_pilot_rollout.py --api https://api.example.org --web https://officers.example.org --probe-database --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
+    python scripts/check_pilot_rollout.py --api https://api.example.org --web https://officers.example.org --probe-database --probe-private-storage-cloud --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
 
 5. A signed field dossier must use KW_CAMERA_FIELD_REVIEW_V1 and three distinct, separately trusted Ed25519 public keys. The frozen measurement and policy validator is the existing evaluation/camera_trust_field_review.py. Raw videos are never read by this gate.
 6. The output is created with exclusive-create mode and private user permissions (0600); it refuses a path anywhere inside the repository. It contains checks and blockers only. No camera source names, Drive IDs, URLs, access tokens, DB credentials, field images or individual trainee data are included.
@@ -59,3 +59,25 @@ only `postgres_tls_hostname_validation: PASS/BLOCKED`; it never prints a DSN.
 Independent cloud CA, host identity, network policy and backup/restore remain
 operator responsibilities. Real certificate failures stop readiness and pilot
 acceptance; synthetic local CI connections are not production qualifications.
+
+## Real read-only AWS bucket/KMS controls
+
+A live operator probe is now required for *technical eligibility* to request
+pilot approval: run `scripts/check_private_storage_cloud.py --probe-cloud`
+from a privately authorized workload (or use
+`scripts/check_pilot_rollout.py --probe-private-storage-cloud` with the other
+normal checks). **Status-only mode uses no AWS credentials or network calls.**
+
+The probe performs only read-only AWS control-plane calls:
+bucket location, public-access block, public policy status, bucket ownership,
+HTTPS-only deny policy, default SSE-KMS and KMS DescribeKey. The latter checks
+that the bucket's default key resolves to the configured enabled customer-managed
+key. It does **not** list or fetch evidence, write an object, decrypt a key,
+change configuration, inspect raw video, or output the bucket/account/key
+identifiers. Incomplete IAM permissions return BLOCKED, never a claimed PASS.
+
+This is a *bounded technical configuration observation*, **not** independent
+proof of IAM least privilege, real encrypt/decrypt permissions, data retention,
+object-lock/legal hold, operational recovery, organization identity policy, or
+physical-camera accuracy. The pilot stays blocked until separate operator
+sign-off and independent field assessment.
