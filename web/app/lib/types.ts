@@ -168,6 +168,30 @@ export type CentreEngine = {
   href_suffix: string;
 };
 
+export type CentreVerificationMetric = {
+  status: 'verified' | 'review' | 'uncertain' | 'unavailable';
+  reported: number | null;
+  observed: number | null;
+  source: 'case' | 'analysis' | 'unavailable';
+  source_id: string | null;
+  simulated: boolean;
+};
+
+export type CentreVerificationSnapshot = {
+  attendance: CentreVerificationMetric;
+  infrastructure: CentreVerificationMetric;
+  practical_activity: {
+    status: 'verified' | 'review' | 'uncertain' | 'unavailable';
+    active_work_cells: number | null;
+    peak_workers: number | null;
+    source: 'analysis' | 'unavailable';
+    source_id: string | null;
+    simulated: boolean;
+  };
+  camera: { status: 'verified' | 'review' | 'uncertain' | 'unavailable' };
+  evidence: { retained_count: number; cases_requiring_review: number };
+};
+
 export type CentreIntelligence = {
   generated_at: string;
   timezone: string;
@@ -191,6 +215,7 @@ export type CentreIntelligence = {
   };
   brief: { headline: string; bullets: string[] };
   engines: CentreEngine[];
+  verification: CentreVerificationSnapshot;
   actions: Array<{ priority: string; title: string; reason: string; href: string }>;
   contact: {
     role: string;

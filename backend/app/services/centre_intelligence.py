@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from app.models import ComplianceCase
+from app.services.centre_verification import snapshot
 
 
 LOCAL_TIMEZONE = timezone(timedelta(hours=5, minutes=30), name="Asia/Kolkata")
@@ -251,9 +252,11 @@ def build_centre_intelligence(
             recent.append(row)
     recent.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
 
-    attendance_latest = _latest(history, "attendance")
-    practical_latest = _latest(history, "practical_work")
-    infrastructure_latest = _latest(history, "infrastructure")
+    # An officer must never see another centre's latest source observations.
+    scoped_history = [row for row in history if row.get("centre_id") == centre_id]
+    attendance_latest = _latest(scoped_history, "attendance")
+    practical_latest = _latest(scoped_history, "practical_work")
+    infrastructure_latest = _latest(scoped_history, "infrastructure")
 
     attendance_state = _dependent_state(centre.get("attendance_status"), current_camera_state)
     practical_state = _dependent_state(centre.get("practical_status"), current_camera_state)
@@ -332,6 +335,11 @@ def build_centre_intelligence(
         bullets.append("Camera integrity: Camera evidence remained usable for current conclusions.")
     bullets = bullets[:4]
 
+    verification = snapshot(
+        centre_id=centre_id, camera_state=current_camera_state,
+        cases=centre_cases, history=scoped_history,
+        engine_states={item["key"]: item["state"] for item in engines},
+    )
     actions = _action_rows(centre_id, centre, centre_cases, engines)
     if actions and len(bullets) < 4:
         bullets.append(f"Recommended next step: {actions[0]['title']}.")
@@ -376,6 +384,7 @@ def build_centre_intelligence(
             "bullets": bullets,
         },
         "engines": engines,
+        "verification": verification,
         "actions": actions,
         "contact": contact,
         "schedule": {
