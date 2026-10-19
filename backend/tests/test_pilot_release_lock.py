@@ -44,6 +44,7 @@ def test_full_pinned_manifest_is_valid_syntax_only():
 
 @pytest.mark.parametrize("bad", [
     "registry.example/kw-api:latest",
+    "registry.example/kw-api:latest@sha256:" + "1" * 64,
     "registry.example/kw-api@sha256:" + "g" * 64,
     "https://registry.example/kw-api@sha256:" + "1" * 64,
     "registry.example/../kw-api@sha256:" + "1" * 64,

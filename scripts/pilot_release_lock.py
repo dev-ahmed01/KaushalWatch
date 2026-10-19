@@ -50,7 +50,9 @@ def _pinned(ref: Any) -> bool:
         return False
     if "//" in repo or "/./" in repo or "/../" in repo or ".." in repo:
         return False
-    if "@" in repo or not repo:
+    # A digest reference should never also carry a mutable tag. A registry
+    # host may include :port, but the final repository segment may not.
+    if "@" in repo or not repo or ":" in repo.rsplit("/", 1)[-1]:
         return False
     return True
 
