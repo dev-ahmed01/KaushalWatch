@@ -104,7 +104,7 @@ def test_non_demo_settings_and_real_edge_receipt_block(tmp_path):
  path=tmp_path/"data"
  prepare_demo_state(path)
  settings=path/"centre_settings.json"
- config=json.loads(settings.read_text())
+ config=json.loads(settings.read_text()) if settings.exists() else {}
  config["ACTUAL-GOV-CENTRE"]={"automatic_analysis":True}
  write_json(settings,config)
  with pytest.raises(ValueError,match="Non-demo centre settings"):
