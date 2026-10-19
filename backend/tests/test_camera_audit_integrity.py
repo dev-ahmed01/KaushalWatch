@@ -107,6 +107,8 @@ class StubDB:
     def execute(self, query, params=None):
         sql = " ".join(query.split())
         self.queries.append(sql)
+        if sql == "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY":
+            return Cursor(None)
         if "FROM kw_camera_registry" in sql and "COUNT(" in sql:
             return Cursor({"count": 1})
         if "FROM kw_camera_registry r" in sql:
