@@ -163,6 +163,8 @@ jobs:
         run: node --experimental-strip-types --test app/lib/server/replay-catalog.test.mjs
       - name: Test private research cache source and loopback guards
         run: node --experimental-strip-types --test app/lib/server/research-replay.test.mjs
+      - name: Verify role-specific controlled equipment fixtures
+        run: node --experimental-strip-types --test app/lib/server/trade-proof.test.mjs
       - run: npm run build
 
   e2e:
