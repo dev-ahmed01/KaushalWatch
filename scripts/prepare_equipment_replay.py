@@ -58,7 +58,7 @@ def build(root:Path,source_origin:str,license_basis:str,privacy_basis:str,
         height=int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         fps=float(capture.get(cv2.CAP_PROP_FPS))
         frame_count=int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-        if not 0.75<=width/height<=2.5 if height else True:
+        if height <= 0 or not (0.75 <= width / height <= 2.5):
             raise ValueError("Unsupported video aspect ratio")
         if not 32<=width<=4096 or not 32<=height<=4096:
             raise ValueError("Video dimensions unavailable")
