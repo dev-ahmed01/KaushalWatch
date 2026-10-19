@@ -19,6 +19,7 @@ import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import AnalysisModal from '../../components/AnalysisModal';
 import CentreTabs from '../../components/CentreTabs';
+import CentreVerificationCockpit from '../../components/CentreVerificationCockpit';
 import { StatusPill } from '../../components/CalmUi';
 import { Button } from '../../components/ui/button';
 import { getCentre, getCentreIntelligence } from '../../lib/api';
@@ -112,6 +113,11 @@ export default function CentreOverview() {
       </header>
 
       <CentreTabs centreId={id} />
+
+      <div className="mt-5 mb-7">
+        <CentreVerificationCockpit centreId={id} verification={intelligence?.verification||null}
+          action={actions[0]||null} loading={loading}/>
+      </div>
 
       {degraded && (
         <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
