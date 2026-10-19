@@ -1,0 +1,27 @@
+# The public artifact is compiled in same-origin protected-proxy mode.
+# No production officer bearer tokens or private API address at build time.
+FROM node:22-bookworm-slim AS build
+WORKDIR /srv/web
+ENV NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY=true
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY web/app ./app
+COPY web/public ./public
+COPY web/postcss.config.mjs web/tsconfig.json web/next-env.d.ts ./
+RUN npm run build && npm prune --omit=dev --no-audit --no-fund
+
+FROM node:22-bookworm-slim
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY=true \
+    KAUSHALWATCH_WEB_AUTH_MODE=protected \
+    KAUSHALWATCH_WEB_IDENTITY_MODE=oidc \
+    PORT=3000
+WORKDIR /srv/web
+COPY --chown=node:node --from=build /srv/web/node_modules ./node_modules
+COPY --chown=node:node --from=build /srv/web/.next ./.next
+COPY --chown=node:node --from=build /srv/web/app ./app
+COPY --chown=node:node --from=build /srv/web/public ./public
+COPY --chown=node:node --from=build /srv/web/package.json ./package.json
+USER node
+EXPOSE 3000
+CMD ["node","node_modules/next/dist/bin/next","start","-H","0.0.0.0","-p","3000"]

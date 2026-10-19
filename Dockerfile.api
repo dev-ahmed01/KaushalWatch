@@ -1,0 +1,27 @@
+# Immutable source build: compile from a clean git-archive context, not from
+# an operator workstation containing real videos, .env files or cloud secrets.
+FROM python:3.12-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+WORKDIR /srv/kaushalwatch
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libglib2.0-0 libstdc++6 libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10001 kwapi && useradd --uid 10001 --gid kwapi --create-home --shell /usr/sbin/nologin kwapi
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt && rm /tmp/requirements.txt
+COPY --chown=kwapi:kwapi backend/app ./backend/app
+COPY --chown=kwapi:kwapi backend/sql ./backend/sql
+COPY --chown=kwapi:kwapi configs ./configs
+COPY --chown=kwapi:kwapi demo ./demo
+COPY --chown=kwapi:kwapi scripts ./scripts
+COPY --chown=kwapi:kwapi evaluation ./evaluation
+RUN mkdir -p /srv/kaushalwatch/data/evidence && chown -R kwapi:kwapi /srv/kaushalwatch/data
+ENV PYTHONPATH=/srv/kaushalwatch/backend:/srv/kaushalwatch \
+    KAUSHALWATCH_ENV=pilot \
+    KAUSHALWATCH_STORAGE_BACKEND=postgres \
+    KAUSHALWATCH_EVIDENCE_BACKEND=s3 \
+    KAUSHALWATCH_REVIEW_AUTH_MODE=oidc
+USER kwapi
+EXPOSE 8000
+# Never apply migrations at startup. Migrations require a separate role.
+CMD ["python","-m","uvicorn","app.main:app","--app-dir","backend","--host","0.0.0.0","--port","8000","--workers","1"]

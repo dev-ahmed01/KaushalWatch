@@ -1,0 +1,80 @@
+name: Pilot Release Containers
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile.api'
+      - 'Dockerfile.web'
+      - '.dockerignore'
+      - '.github/workflows/pilot-release-containers.yml'
+      - 'backend/app/**'
+      - 'backend/requirements.txt'
+      - 'web/app/**'
+      - 'web/package.json'
+      - 'web/package-lock.json'
+      - 'web/public/**'
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile.api'
+      - 'Dockerfile.web'
+      - '.dockerignore'
+      - '.github/workflows/pilot-release-containers.yml'
+permissions:
+  contents: read
+jobs:
+  protected-release-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build rootless API image from curated sources
+        run: docker build --pull -f Dockerfile.api -t kw-api:ci .
+      - name: Build protected-only Next.js image with no private environment
+        run: docker build --pull -f Dockerfile.web -t kw-web:ci .
+      - name: Verify code and immutable sources are present; private assets absent
+        run: |
+          docker run --rm --entrypoint python kw-api:ci -c "from pathlib import Path;import os;assert os.geteuid()!=0; r=Path('/srv/kaushalwatch'); assert (r/'backend/sql/0003_camera_trust.sql').exists(); assert (r/'backend/sql/0002_private_evidence.sql').exists(); assert (r/'configs/vision_profiles/kaushalwatch-fixed-camera-v1.json').exists(); assert not list(r.rglob('*.avi')); assert not list(r.rglob('*.mp4')); assert not list(r.rglob('.env')); print('API image contains only reviewed source/config')"
+          docker run --rm --entrypoint node kw-web:ci -e "const fs=require('node:fs');const p='/srv/web';if(process.getuid()===0)process.exit(2);if(process.env.NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY!=='true'||process.env.KAUSHALWATCH_WEB_AUTH_MODE!=='protected'||process.env.KAUSHALWATCH_WEB_IDENTITY_MODE!=='oidc')process.exit(2);const dirs=fs.readdirSync(p+'/public/camera-trust').sort();if(JSON.stringify(dirs)!==JSON.stringify(['east-corridor.mp4','manifest.json','training-bay.mp4','workshop-floor.mp4']))process.exit(2);console.log('Web image protected; only approved sample media present')"
+      - name: Exercise API container under an explicit synthetic, isolated config
+        run: |
+          docker run -d --name kw-api-smoke -p 127.0.0.1:18080:8000 \
+            -e KAUSHALWATCH_ENV=development \
+            -e KAUSHALWATCH_STORAGE_BACKEND=json \
+            -e KAUSHALWATCH_EVIDENCE_BACKEND=local \
+            -e KAUSHALWATCH_REVIEW_AUTH_MODE=demo \
+            -e KAUSHAL_AI_ENABLED=false kw-api:ci
+          for i in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:18080/api/health > /tmp/kw-container-health.json; then break; fi
+            sleep 1
+          done
+          python -c "import json; x=json.load(open('/tmp/kw-container-health.json')); assert x['ok'] is True"
+          curl --fail --silent http://127.0.0.1:18080/api/ready | python -c "import sys,json; assert json.load(sys.stdin)=={'ready':True}"
+      - name: Confirm protected browser rejects missing production session configuration
+        run: |
+          docker run -d --name kw-web-smoke -p 127.0.0.1:13030:3000 kw-web:ci
+          code=000
+          for i in {1..40}; do
+            code="$(curl -s -o /tmp/kw-web-auth.json -w '%{http_code}' http://127.0.0.1:13030/api/auth/status || true)"
+            if test "$code" = 503; then break; fi
+            sleep 1
+          done
+          if test "$code" != 503; then docker logs kw-web-smoke; exit 1; fi
+          python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['authenticated'] is False and x['detail']=='Officer session storage unavailable.'"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 503
+          docker rm -f kw-web-smoke
+      - name: Confirm anonymous proxy denial with isolated synthetic session configuration
+        run: |
+          docker run -d --name kw-web-smoke -p 127.0.0.1:13030:3000 \
+            -e KAUSHALWATCH_ENV=staging \
+            -e KAUSHALWATCH_ALLOW_EPHEMERAL_SESSIONS=true \
+            -e KAUSHALWATCH_SESSION_STORE=memory kw-web:ci
+          for i in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:13030/api/auth/status > /tmp/kw-web-auth.json; then break; fi
+            sleep 1
+          done
+          if ! test -s /tmp/kw-web-auth.json; then docker logs kw-web-smoke; exit 1; fi
+          python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['identityMode']=='oidc' and x['authenticated'] is False"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 401
+      - name: Cleanup isolated smoke services
+        if: always()
+        run: docker rm -f kw-api-smoke kw-web-smoke 2>/dev/null || true
