@@ -44,7 +44,9 @@ def postgres_tls_configured(dsn: str) -> bool:
             and not options.get("service")
             and not options.get("servicefile")
         )
-    except (ValueError, TypeError, KeyError):
+    except Exception:
+        # psycopg may raise a ProgrammingError for malformed/unsupported
+        # connection options. Invalid configuration always fails closed.
         return False
 
 

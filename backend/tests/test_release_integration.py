@@ -73,6 +73,16 @@ def cross_stack(monkeypatch):
             "TRUNCATE kw_evidence_objects, kw_cases, kw_analysis_history, "
             "kw_edge_events, kw_centre_settings RESTART IDENTITY"
         )
+    # This existing identity/S3/SQL integration slice uses a disposable local
+    # PostgreSQL service without TLS. Its assertions are NOT PostgreSQL
+    # transport certification; the separate pilot TLS tests enforce that
+    # production and genuine strict staging reject this DSN. Bypass only the
+    # transport requirement in this synthetic fixture, never in application code.
+    from app.services import postgres_store, dependency_readiness
+    monkeypatch.setattr(postgres_store, "require_postgres_transport",
+                        lambda _dsn, _env: None)
+    monkeypatch.setattr(dependency_readiness, "require_postgres_transport",
+                        lambda _dsn, _env: None)
     monkeypatch.setenv("KAUSHALWATCH_ENV", "staging")
     monkeypatch.setenv("KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT", "true")
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE", "oidc")
