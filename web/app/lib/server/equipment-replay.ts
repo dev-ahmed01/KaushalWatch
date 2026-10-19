@@ -110,6 +110,7 @@ export async function verifiedEquipmentReplay(root:string):Promise<{catalog:Equi
    ||typeof entry.width!=='number'||typeof entry.height!=='number'
    ||!Number.isSafeInteger(entry.width)||!Number.isSafeInteger(entry.height)
    ||entry.width<32||entry.height<32||entry.width>4096||entry.height>4096
+   ||entry.width/entry.height<0.75||entry.width/entry.height>2.5
    ||!num(entry.duration_seconds)||entry.duration_seconds<0.3||entry.duration_seconds>360
    ||!obj(entry.roi)||!str(entry.roi_basis))
    throw Error('Invalid media custody metadata');

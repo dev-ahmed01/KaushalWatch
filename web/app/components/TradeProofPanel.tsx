@@ -68,7 +68,6 @@ export default function TradeProofPanel(){
    </div>}
    {state==='loading'&&<p role="status" className="mt-4 text-[12px] text-[#6D849E]">Verifying role and example samples…</p>}
    {state==='ready'&&proof&&item&&<>
-     <PrivateEquipmentReplay withheld={blocked}/>
      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
        <div className="flex flex-wrap gap-2" aria-label="Example time samples">
          {proof.sampling_seconds.map(second=><button key={second} type="button"
@@ -133,6 +132,7 @@ export default function TradeProofPanel(){
        </div>
       </aside>
      </div>
+     <PrivateEquipmentReplay withheld={blocked}/>
      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
        <p className="max-w-[650px] text-[11px] leading-5 text-[#657F99]">
          Three authored sample timestamps, not a detector run. ROI consistency, item recall and practical-work authorization remain unverified. A blocked camera withholds every visual count.

@@ -55,9 +55,9 @@ export default function PrivateEquipmentReplay({withheld}:{withheld:boolean}){
          These are unreviewed proposals, not independently verified model accuracy or sanctioned equipment counts.
        </p>
      </div>
-     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF5FC] px-3 py-1.5 text-[11px] font-semibold text-[#315E8A]">
-       <ShieldCheck size={13}/> SHA matched
-     </span>
+     {catalog&&<span className="inline-flex items-center gap-1.5 rounded-full bg-[#EEF5FC] px-3 py-1.5 text-[11px] font-semibold text-[#315E8A]">
+       <ShieldCheck size={13}/> Source + receipt SHA matched
+     </span>}
    </div>
    {state==='failed'&&<p role="alert" className="mt-4 text-[12px] text-[#915B21]">
      Model receipt or video could not be admitted; no equipment proposals can be shown.
@@ -65,7 +65,7 @@ export default function PrivateEquipmentReplay({withheld}:{withheld:boolean}){
    {catalog&&<>
      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(210px,.6fr)]">
        <div className="min-w-0">
-         <div className="relative aspect-video overflow-hidden rounded-xl bg-[#172C41]">
+         <div className="relative overflow-hidden rounded-xl bg-[#172C41]" style={{aspectRatio:catalog.width+"/"+catalog.height}}>
            <video ref={player} src={catalog.video_url} muted playsInline preload="metadata"
              aria-label="Private recorded equipment source"
              className="h-full w-full object-contain"
