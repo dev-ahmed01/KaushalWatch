@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'Dockerfile.camera-trust-worker'
+      - 'Dockerfile.camera-trust-worker.dockerignore'
       - 'compose.camera-trust-worker.yaml'
       - 'camera_trust_workstation/requirements-worker.txt'
       - 'scripts/run_camera_trust_worker.py'
@@ -16,6 +17,7 @@ on:
     branches: [main, 'experiment/**']
     paths:
       - 'Dockerfile.camera-trust-worker'
+      - 'Dockerfile.camera-trust-worker.dockerignore'
       - 'compose.camera-trust-worker.yaml'
       - 'camera_trust_workstation/requirements-worker.txt'
       - 'scripts/run_camera_trust_worker.py'
