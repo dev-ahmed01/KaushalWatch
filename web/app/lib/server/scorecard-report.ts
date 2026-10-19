@@ -1,7 +1,6 @@
 /** Validate private local cross-pillar qualification receipts before any UI display. */
 import {lstat,readFile,realpath} from 'node:fs/promises';
 import path from 'node:path';
-import {localTransportReportAllowed} from './offline-report.ts';
 
 const PILLARS=['attendance','camera_trust','equipment_count','equipment_localization','practical_activity','offline_transport'] as const;
 export type PillarId=(typeof PILLARS)[number];
@@ -16,7 +15,18 @@ const ratio=(v:unknown)=>v===null||typeof v==='number'&&Number.isFinite(v)&&v>=0
 const hex=(v:unknown)=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 
 export function localScorecardAllowed(env:NodeJS.ProcessEnv,headers:Headers):boolean{
- return localTransportReportAllowed({...env,KAUSHALWATCH_LOCAL_OFFLINE_REPORT:env.KAUSHALWATCH_LOCAL_SCORECARD},headers);
+ const mode=(env.KAUSHALWATCH_ENV||'development').toLowerCase();
+ const host=headers.get('host')||'',origin=headers.get('origin');
+ let sameOrigin=true;
+ if(origin){try{sameOrigin=new URL(origin).host===host;}catch{sameOrigin=false;}}
+ return env.KAUSHALWATCH_LOCAL_SCORECARD==='true'
+  && ['development','local','test'].includes(mode)
+  && env.NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY!=='true'
+  && env.KAUSHALWATCH_WEB_AUTH_MODE!=='protected'
+  && env.KAUSHALWATCH_STAGING_ACCEPTANCE_STRICT!=='true'
+  && /^(localhost|127\.0\.0\.1|\[::1\])(?::[0-9]{1,5})?$/.test(host)
+  && (!headers.get('x-forwarded-host')||headers.get('x-forwarded-host')===host)
+  && headers.get('sec-fetch-site')!=='cross-site'&&sameOrigin;
 }
 export function parseTrustScorecard(value:unknown):TrustScorecard{
  if(!obj(value)||value.schema!=='KW_PROOF_OF_TRAINING_SCORECARD_V1'
@@ -39,7 +49,7 @@ export function parseTrustScorecard(value:unknown):TrustScorecard{
    if(!obj(p.metric)||!integer(p.metric.request_body_bytes)||p.metric.request_body_bytes===0
      ||!integer(p.metric.response_body_bytes)||p.metric.response_body_bytes===0
      ||!integer(p.metric.delivered)||!integer(p.metric.queued)
-     ||p.metric.delivered>p.metric.queued)
+     ||(p.metric.delivered as number)>(p.metric.queued as number))
       throw Error('Invalid network-body measurement');
   }else if(id==='equipment_localization'&&p.state==='candidate_measured_not_independently_qualified'){
    if(!obj(p.metric)||!integer(p.metric.tp)||!integer(p.metric.fp)||!integer(p.metric.fn)
