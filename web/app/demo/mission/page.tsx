@@ -7,6 +7,7 @@ import {SECURE_PROXY,getCases,getCentreIntelligence} from '../../lib/api';
 import SourceLockedReplay from '../../components/SourceLockedReplay';
 import TradeProofPanel from '../../components/TradeProofPanel';
 import OfflineTransportPanel from '../../components/OfflineTransportPanel';
+import OfficerProofJourney from '../../components/OfficerProofJourney';
 import type {CaseRecord,CentreIntelligence} from '../../lib/types';
 
 const surface='rounded-[22px] border border-[#E0E9F4] bg-white shadow-[0_3px_20px_rgba(20,44,77,0.04)]';
@@ -41,6 +42,7 @@ export default function MissionPage(){
   const reported=apiFacts?metric!.reported:scene.reported;
   const observed=scene.id==='camera'?null:apiFacts?metric!.observed:scene.observed;
   const caseRecord=cases.find(c=>scene.id==='attendance'?c.case_type==='attendance_discrepancy':
+    scene.id==='camera'?c.case_type==='camera_integrity':
     scene.id==='equipment'?c.case_type==='infrastructure_compliance':false);
   const decision=scene.id==='camera'?'Evidence insufficient':scene.id==='normal'?'No exception in this scenario':'Officer review needed';
 
@@ -108,6 +110,7 @@ export default function MissionPage(){
         </div>
         {scene.id==='equipment'&&<TradeProofPanel/>}
         <SourceLockedReplay sceneId={scene.id}/>
+        <OfficerProofJourney centreId={scene.centreId} caseId={caseRecord?.case_id||null} normalControl={scene.id==='normal'}/>
         <div className="mt-7">
           <div className="flex items-center justify-between"><h3 className="text-[14px] font-bold text-[#2B415C]">The evidence trail</h3><span className="text-[11px] text-[#7E90A7]">{step+1}/4</span></div>
           <div className="mt-3 grid grid-cols-4 gap-2">{STAGES.map((label,i)=><button key={label} type="button" aria-pressed={step===i}
