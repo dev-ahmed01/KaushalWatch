@@ -19,6 +19,7 @@ ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 \
 WORKDIR /srv/web
 COPY --chown=node:node --from=build /srv/web/node_modules ./node_modules
 COPY --chown=node:node --from=build /srv/web/.next ./.next
+COPY --chown=node:node --from=build /srv/web/app ./app
 COPY --chown=node:node --from=build /srv/web/public ./public
 COPY --chown=node:node --from=build /srv/web/package.json ./package.json
 USER node

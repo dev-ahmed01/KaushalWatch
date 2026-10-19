@@ -56,6 +56,10 @@ jobs:
             if curl --fail --silent http://127.0.0.1:13030/api/auth/status > /tmp/kw-web-auth.json; then break; fi
             sleep 1
           done
+          if ! test -s /tmp/kw-web-auth.json; then
+            docker logs kw-web-smoke 2>&1 | tail -100
+            exit 1
+          fi
           python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['identityMode']=='oidc' and x['authenticated'] is False"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 401
       - name: Cleanup isolated smoke services
