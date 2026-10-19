@@ -133,6 +133,23 @@ async function redisCommand(store: Extract<SessionStore, { kind: 'redis-rest' }>
   return (data as { result: unknown }).result;
 }
 
+/** Read-only live probe of the durable officer session dependency.
+ * An anonymous request has no session cookie, so getSession() cannot test Redis.
+ * Never qualify ephemeral memory sessions as protected pilot readiness.
+ * No officer token, session ID, or evidence record is read or emitted.
+ */
+export async function sessionStoreReady(): Promise<boolean> {
+  if (!protectedMode()) return false;
+  try {
+    const store = storeConfig();
+    if (store.kind !== 'redis-rest') return false;
+    const result = await redisCommand(store, ['GET', 'kaushalwatch:session-readiness:v1']);
+    return result === null || typeof result === 'string';
+  } catch {
+    return false;
+  }
+}
+
 function sweepMemory(): void {
   const now = Date.now();
   for (const [key, session] of sessions.entries()) {

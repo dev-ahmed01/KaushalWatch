@@ -18,3 +18,23 @@ The KaushalWatch Phase 2 release uses separate public **process liveness** and *
 6. Operator acceptance requires actual HTTPS OIDC/MFA, private S3/KMS custody and access audit, PostgreSQL restore drill, source-authorized camera worker, and independently signed blind field measurements.
 
 The CI tests in \`backend/tests/test_pilot_schema_readiness.py\` use entirely synthetic database connections to verify v2 and incomplete v3 remain unready, that all ten v3 tables are required, that real receipts never include candidate DSNs, and that local demo readiness remains unaffected. CI passing is **not** evidence of a real centre rollout.
+
+## Protected browser session readiness (Phase 2 follow-up)
+
+The Next.js BFF has a separate public, read-only `GET /api/auth/readiness` dependency check.
+HTTP **200** with exactly `{"ready":true,"mode":"protected"}` means the deployed
+BFF has accepted a harmless Redis REST `GET` with its configured server-side
+credentials. HTTP **503** is returned for absent/invalid configuration, ephemeral
+memory sessions, an unavailable Redis network connection, or an invalid response.
+No officer session, token, Redis endpoint, key, or private evidence is returned.
+Responses always use `Cache-Control: no-store`.
+
+**Do not mistake `GET /api/auth/status` for Redis readiness.** It may truthfully
+return unauthenticated HTTP 200 for a no-cookie visitor without a storage lookup.
+`scripts/check_protected_staging.py` now requires the durable session readiness
+endpoint in addition to API readiness, OIDC redirect, cookie, and anonymous
+access denial. The endpoint proves a live read-only dependency interaction,
+not session durability across regions, user revocation, IdP MFA or field approval.
+CI explicitly checks missing configuration, synthetic memory, and unreachable
+Redis all fail closed; a separate synthetic Redis/OIDC integration proves the
+positive path. No real cloud session service is asserted by these tests.
