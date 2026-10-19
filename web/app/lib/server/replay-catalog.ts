@@ -60,7 +60,7 @@ export function validateReplayReceipt(raw:unknown,sourceSha:string):ReplayModelR
  const samples:ReplaySample[]=[];
  for(const entry of raw.samples){
    if(!plain(entry)||!safeNumber(entry.second)||entry.second<0||entry.second>=20
-     ||entry.second<=last||!Number.isSafeInteger(entry.frame)||entry.frame<0
+     ||entry.second<=last||!safeNumber(entry.frame)||!Number.isSafeInteger(entry.frame)||entry.frame<0
      ||!Array.isArray(entry.boxes)||entry.boxes.length>MAX_BOXES||!entry.boxes.every(safeBox))return null;
    const second=entry.second;
    const frame=entry.frame as number;
