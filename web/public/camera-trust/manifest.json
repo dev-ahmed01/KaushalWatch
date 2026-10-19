@@ -1,0 +1,15 @@
+{
+  "clips": {
+    "east-corridor": {
+      "sha256": "921b7279d6d95e1db1d0b048d89b6d0b901168c477d7d2b9f077385166cb470a"
+    },
+    "training-bay": {
+      "sha256": "3257f56f031bdfa7503c409a65734adaa6663e90cb6bab36e3a63d824bfe371d"
+    },
+    "workshop-floor": {
+      "sha256": "e13a59808a91435f267ce81344e9e417c84f2e9979957f0dccfff422163199ec"
+    }
+  },
+  "provenance": "PROCEDURALLY_GENERATED_RECORDING_NOT_REAL_CCTV",
+  "schema": "KW_SUBMISSION_SAMPLE_MEDIA_V1"
+}

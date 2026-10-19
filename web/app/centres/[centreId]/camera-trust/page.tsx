@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import CentreTabs from '../../../components/CentreTabs';
+import CameraTrustShowcase from '../../../components/CameraTrustShowcase';
 import { API, SECURE_PROXY, getReviewAccess, officerFetch } from '../../../lib/api';
 
 type Camera = {
@@ -31,7 +32,7 @@ const stateLabel=(s:string)=>s.replaceAll('_',' ');
 function short(value:string){return value.slice(0,10);}
 function message(e:unknown){return e instanceof Error?e.message:'Request unavailable';}
 
-export default function CameraTrustPage(){
+function ProtectedCameraTrustPage(){
   const {centreId}=useParams<{centreId:string}>();
   const centre=String(centreId);
   const path=`${API}/api/centres/${encodeURIComponent(centre)}/camera-trust`;
@@ -293,4 +294,9 @@ export default function CameraTrustPage(){
       </div>
     </div>
   </div>;
+}
+
+export default function CameraTrustPage(){
+ const {centreId}=useParams<{centreId:string}>();
+ return SECURE_PROXY ? <ProtectedCameraTrustPage/> : <CameraTrustShowcase centreId={String(centreId)}/>;
 }

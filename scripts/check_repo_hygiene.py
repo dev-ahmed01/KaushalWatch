@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import json
+import hashlib
 import subprocess
 from pathlib import Path
 
@@ -20,6 +22,36 @@ BLOCKED_PREFIXES = (
 )
 MODEL_BINARY_PREFIX = "models/"
 DEFAULT_MAX_BYTES = 5 * 1024 * 1024
+SAFE_SAMPLE_CLIPS = frozenset({
+    "web/public/camera-trust/training-bay.mp4",
+    "web/public/camera-trust/workshop-floor.mp4",
+    "web/public/camera-trust/east-corridor.mp4",
+})
+SAMPLE_LIMIT_BYTES = 128 * 1024
+
+def approved_sample_clip(root: Path, rel: str, path: Path) -> bool:
+    """Allow only pinned, tiny, procedurally generated offline preview clips.
+
+    Never grant an exception for original CCTV, arbitrary MP4s or model files.
+    """
+    if rel not in SAFE_SAMPLE_CLIPS or not path.is_file():
+        return False
+    if path.stat().st_size > SAMPLE_LIMIT_BYTES:
+        return False
+    try:
+        manifest=json.loads((root/"web/public/camera-trust/manifest.json").read_text())
+        if manifest.get("schema")!="KW_SUBMISSION_SAMPLE_MEDIA_V1":
+            return False
+        if manifest.get("provenance")!="PROCEDURALLY_GENERATED_RECORDING_NOT_REAL_CCTV":
+            return False
+        clips=manifest.get("clips")
+        if not isinstance(clips,dict) or set(clips)!={p.rsplit("/",1)[-1].removesuffix(".mp4") for p in SAFE_SAMPLE_CLIPS}:
+            return False
+        expected=clips[path.stem]["sha256"]
+        return hashlib.sha256(path.read_bytes()).hexdigest()==expected
+    except (OSError,ValueError,TypeError,KeyError):
+        return False
+
 
 
 def tracked_files(root: Path) -> list[Path]:
@@ -51,6 +83,8 @@ def main() -> None:
             continue
 
         if suffix in BLOCKED_SUFFIXES:
+            if approved_sample_clip(root,rel,path):
+                continue
             failures.append(f"binary/video/model asset is tracked: {rel}")
             continue
 
@@ -69,7 +103,7 @@ def main() -> None:
             print(f"- {failure}")
         raise SystemExit(1)
 
-    print("Repository hygiene check passed: no tracked video/model/runtime artifacts or oversized files.")
+    print("Repository hygiene passed: only SHA-pinned generated preview clips; no source media or model binaries.")
 
 
 if __name__ == "__main__":
