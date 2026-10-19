@@ -44,7 +44,7 @@
 **/*credential*
 **/*secret*
 **/*token*
-**/*private*
+**/*private-key*
 **/*drive-sources*
 **/*.avi
 **/*.mov
