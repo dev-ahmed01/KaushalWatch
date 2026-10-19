@@ -23,8 +23,11 @@ def _json(path:Path):
  return json.loads(path.read_text(encoding="utf-8"))
 
 def validate(data_dir:Path)->dict:
- root=Path(data_dir).expanduser().resolve()
- if root==Path(root.anchor) or root.is_symlink() or not root.is_dir():
+ original=Path(data_dir).expanduser()
+ if original.is_symlink():
+  raise ValueError("Data root cannot be symlinked")
+ root=original.resolve()
+ if root==Path(root.anchor) or not root.is_dir():
   raise ValueError("An existing ordinary demo data folder is required")
  for name in MUTABLE_FILES:
   p=root/name
@@ -59,6 +62,18 @@ def validate(data_dir:Path)->dict:
     for r in events)):
    raise ValueError("Real or unknown edge receipts block demo reset")
   known["edge_events.json"]=len(events)
+ # An old edge queue/scheduler is not reset by prepare_demo_state.
+ # Refuse a supposedly clean rehearsal that would silently retain it.
+ edge_local=root/"edge"
+ if edge_local.exists():
+  if edge_local.is_symlink() or not edge_local.is_dir():
+   raise ValueError("Unsafe pending local edge state")
+  for filename in ("queue.json","schedule-state.json"):
+   state=edge_local/filename
+   if not state.exists():continue
+   value=_json(state)
+   if (filename=="queue.json" and value!=[]) or (filename=="schedule-state.json" and value!={}):
+    raise ValueError("Pending local edge state must be isolated before controlled reset")
  evidence=root/"evidence"
  if evidence.exists():
   if evidence.is_symlink() or not evidence.is_dir():
