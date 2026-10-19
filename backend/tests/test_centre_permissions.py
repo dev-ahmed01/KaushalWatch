@@ -297,3 +297,19 @@ def test_live_role_reassignment_applies_to_next_request(protected, monkeypatch):
     assert client.get(f"/api/centres/{C2}", headers=auth("centre-reviewer")).status_code == 200
     assert client.post("/api/cases/RBAC-CASE-B/review", headers=auth("centre-reviewer"),
                        json={"action": "under_review"}).status_code == 403
+
+
+@pytest.mark.parametrize("suffix",["report","report.pdf"])
+def test_crm_centre_reports_preserve_officer_scope_and_allow_read_only(protected,suffix):
+    client,_,_=protected
+    for actor,permitted,denied in (("centre-reviewer",C1,C2),("centre-viewer",C2,C1)):
+        forbidden=client.get(f"/api/centres/{denied}/{suffix}",headers=auth(actor))
+        assert forbidden.status_code==404
+        assert denied not in forbidden.text
+        own=client.get(f"/api/centres/{permitted}/{suffix}",headers=auth(actor))
+        assert own.status_code==200,own.text[:180]
+        if suffix.endswith(".pdf"):
+            assert own.headers["content-type"].startswith("application/pdf")
+            assert own.content.startswith(b"%PDF-")
+        else:
+            assert permitted in own.text

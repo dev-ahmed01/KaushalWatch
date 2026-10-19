@@ -797,20 +797,24 @@ def _build_centre_report(
 @app.get("/api/centres/{centre_id}/report")
 def centre_report(
     centre_id: str,
+    request: Request,
     period: str = "7d",
     start_date: str | None = None,
     end_date: str | None = None,
 ):
+    require_centre(request, centre_id)
     return _build_centre_report(centre_id, period, start_date, end_date)
 
 
 @app.get("/api/centres/{centre_id}/report.pdf")
 def centre_report_pdf(
     centre_id: str,
+    request: Request,
     period: str = "7d",
     start_date: str | None = None,
     end_date: str | None = None,
 ):
+    require_centre(request, centre_id)
     report = _build_centre_report(centre_id, period, start_date, end_date)
     content = build_report_pdf(report)
     filename = f"KaushalWatch-{centre_id}-{period}.pdf"
