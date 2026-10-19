@@ -136,7 +136,7 @@ export default function KaushalAIHome() {
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Network verification statistics">
         {[
-          ['Centres',counts.total,'/centres'],
+          ['Monitored sites',counts.total,'/centres'],
           ['Need review',counts.review,'/actions'],
           ['Uncertain',counts.uncertain,'/centres'],
           ['Verified',counts.verified,'/insights'],
@@ -186,7 +186,7 @@ export default function KaushalAIHome() {
             </Link>)}
             {!recommendations.length&&<p className="py-5 text-[12px] text-[#718199]">No follow-ups queued.</p>}
           </div>
-          {topAction&&<Link href="/actions" className="kw-focus mt-3 inline-flex items-center gap-2 text-[12px] font-semibold text-[#2563EB]">Open actions <ArrowRight size={14}/></Link>}
+          {topAction&&<Link href="/actions" className="kw-focus mt-3 inline-flex items-center gap-2 text-[12px] font-semibold text-[#2563EB]" >Open review queue <ArrowRight size={14}/></Link>}
         </aside>
       </div>
     </div>

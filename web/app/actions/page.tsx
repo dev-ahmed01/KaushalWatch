@@ -140,7 +140,7 @@ export default function ActionsPage() {
                 </div>
               </div>
 
-              {queue.actions.length ? (
+              {visibleActions.length ? (
                 <div className="mt-3 divide-y divide-[#EEF2F6]">
                   {visibleActions.map((item, index) => (
                     <ActionRow key={item.action_id} item={item} rank={index + 1} />
@@ -148,7 +148,7 @@ export default function ActionsPage() {
                 </div>
               ) : (
                 <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-8 text-center">
-                  <div className="text-[13px] font-medium text-[#475467]">No officer action is queued.</div>
+                  <div className="text-[13px] font-medium text-[#475467]">No actions match this priority.</div>
                   <p className="mt-1 text-[12px] text-[#98A2B3]">Latest trusted evidence does not require follow-up.</p>
                 </div>
               )}
