@@ -3,6 +3,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {AlertCircle,ArrowRight,CheckCircle2,Pause,Play,RotateCcw,ShieldCheck,Video} from 'lucide-react';
 import type {SceneId} from '../lib/demoMission';
+import ResearchReplayPanel from './ResearchReplayPanel';
 import type {ReplayCatalog,ReplayClip,ReplaySample} from '../lib/server/replay-catalog';
 
 const CLIP_BY_SCENE:Record<SceneId,string>={
@@ -182,5 +183,6 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
         </aside>
       </div>
     </>}
+    <ResearchReplayPanel/>
   </section>;
 }
