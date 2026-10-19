@@ -56,6 +56,6 @@ def test_duplicate_demo_invalid_extra_fields_rejected(monkeypatch):
 
 def test_controls_cannot_be_embedded_in_centre_metadata(monkeypatch):
     item=real_centre()
-    item["name"]="Site\\nInjected"
+    item["name"]="Site" + chr(10) + "Injected"
     configure(monkeypatch,item)
     with pytest.raises(HTTPException):provisioned_centres()
