@@ -29,6 +29,7 @@ Do not claim this rival has zero real model inference; it has real COCO-SSD. Do 
 Controlled fixture scenes with attendance shortfall, obstructed camera, missing equipment visibility and normal outcome. Each shows reported → required → observed → accountable decision. Where available, link actual saved API cases; never write to a case as a demo side effect. Authored fixtures clearly labelled and disabled entirely in protected mode. Pass: Next production build, browser E2E, mobile overflow checks.
 
 ### Phase 2 — Source-locked replay
+Phase 2A implements a SHA-pinned procedural clip replay with timestamped authored quality cues and optional strictly source-matched, operator-imported inference receipts. This does not assert that the procedural clip proves attendance counts; actual approved private-CCTV admission remains an external integration (see `docs/demo/SOURCE_LOCKED_REPLAY.md`).
 Use already-authorised local/private footage, with no upload loop. Exact source SHA-256, frozen OpenVINO model/profile, replay with timestamps, evidence overlays derived from actual inference, camera quality events. Clear label: recorded playback, never disguised as a live stream. Fail closed on missing source, unsupported permission or mismatched hash. Pass: replay reproducible and coverage bounded.
 
 ### Phase 3 — Manifest and practical proof

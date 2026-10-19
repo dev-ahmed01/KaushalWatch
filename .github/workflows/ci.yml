@@ -159,6 +159,8 @@ jobs:
         run: |
           npm audit --json > /tmp/kw-npm-audit.json || true
           node -e 'const x=require("/tmp/kw-npm-audit.json");console.log(JSON.stringify(Object.entries(x.vulnerabilities||{}).map(([name,v])=>({name,severity:v.severity,fix:v.fixAvailable})),null,2))'
+      - name: Verify controlled replay SHA and receipt checks
+        run: node --experimental-strip-types --test app/lib/server/replay-catalog.test.mjs
       - run: npm run build
 
   e2e:
