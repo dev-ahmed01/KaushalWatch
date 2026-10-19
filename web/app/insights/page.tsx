@@ -12,6 +12,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
 import { DataRetry } from '../components/NetworkStatus';
+import TrustScorecardPanel from '../components/TrustScorecardPanel';
 import { getNetworkInsights, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
 import type { InsightState, NetworkInsights } from '../lib/types';
@@ -188,6 +189,8 @@ export default function InsightsPage() {
         <InfrastructureChart data={data} />
         <TrustAndOutcomes data={data} />
       </div>
+
+      <TrustScorecardPanel/>
 
       <section className="kw-os-card mt-5 px-5 py-5 sm:px-6" aria-label="Centre report workspace">
         <div className="flex flex-wrap items-start justify-between gap-3">
