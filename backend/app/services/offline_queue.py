@@ -10,6 +10,10 @@ import uuid
 from typing import Any
 
 
+MAX_EDGE_QUEUE_EVENTS = 1000
+MAX_EDGE_QUEUE_BYTES = 2_000_000
+
+
 class EdgeEventQueue:
     """Durable single-process edge queue; not a multi-agent message broker."""
 
@@ -52,6 +56,8 @@ class EdgeEventQueue:
         }
         with self._lock:
             rows = self._load()
+            if len(rows) >= MAX_EDGE_QUEUE_EVENTS or json_payload_bytes(rows + [event]) > MAX_EDGE_QUEUE_BYTES:
+                raise ValueError("Bounded edge queue capacity reached; no event silently discarded")
             rows.append(event)
             self._save(rows)
         return event
