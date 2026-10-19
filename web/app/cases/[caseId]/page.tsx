@@ -6,6 +6,8 @@ import {
   Check,
   CircleAlert,
   FileSearch,
+  Download,
+  Building2,
   ShieldCheck,
   X,
 } from 'lucide-react';
@@ -19,7 +21,7 @@ import {
 } from '../../components/CalmUi';
 import Toast from '../../components/Toast';
 import { Button } from '../../components/ui/button';
-import { API, getEvidencePack, getReviewAccess, reviewCase } from '../../lib/api';
+import { API, getEvidencePack, getReviewAccess, reviewCase, reportPdfUrl } from '../../lib/api';
 import type { ReviewAccessStatus } from '../../lib/api';
 import { caseUiState, plainCaseType } from '../../lib/presentation';
 import type { EvidenceReviewPack } from '../../lib/types';
@@ -133,10 +135,21 @@ export default function CaseDetailPage() {
 
   return (
     <div>
-      <Link href="/actions" className="kw-focus inline-flex items-center gap-2 rounded-lg text-[13px] font-medium text-[#667085] hover:text-[#344054]">
-        <ArrowLeft size={15} />
-        Back to actions
-      </Link>
+      <nav aria-label="Case record navigation" className="flex flex-wrap items-center justify-between gap-3">
+        <Link href="/actions" className="kw-focus inline-flex items-center gap-2 rounded-lg text-[12px] font-medium text-[#667085] hover:text-[#344054]">
+          <ArrowLeft size={15}/> Back to actions
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={'/centres/'+encodeURIComponent(record.centre_id)}
+            className="kw-focus inline-flex items-center gap-1.5 rounded-xl border border-[#DCE5F0] bg-white px-3 py-2 text-[11px] font-semibold text-[#48627F] hover:bg-[#F6F9FD]">
+            <Building2 size={14}/> Centre record
+          </Link>
+          <a href={reportPdfUrl(record.centre_id)} target="_blank" rel="noreferrer"
+            className="kw-focus inline-flex items-center gap-1.5 rounded-xl border border-[#DCE5F0] bg-white px-3 py-2 text-[11px] font-semibold text-[#48627F] hover:bg-[#F6F9FD]">
+            <Download size={14}/> Centre PDF
+          </a>
+        </div>
+      </nav>
 
       <header className="mb-7 mt-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
@@ -149,13 +162,14 @@ export default function CaseDetailPage() {
           </div>
           <p className="mt-2 text-[13px] text-[#667085]">{record.centre_id} · {record.batch_id} · Case {record.case_id}</p>
         </div>
-        <div className="text-right text-[11px] text-[#98A2B3]">
-          <div>{pack.decision_policy}</div>
-          <div className="mt-1">{pack.privacy_note}</div>
-        </div>
+        <details className="max-w-[280px] text-[11px] text-[#8190A4]">
+          <summary className="kw-focus cursor-pointer text-right font-medium">Review policy</summary>
+          <p className="mt-2">{pack.decision_policy}</p>
+          <p className="mt-1">{pack.privacy_note}</p>
+        </details>
       </header>
 
-      <section className="grid gap-7 lg:grid-cols-[1.12fr_.88fr]">
+      <section className="grid gap-5 lg:grid-cols-[1.12fr_.88fr]">
         <div>
           <EvidenceFrame
             src={src}

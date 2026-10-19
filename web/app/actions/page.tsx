@@ -6,6 +6,8 @@ import {
   Bot,
   Camera,
   Clock3,
+  Search,
+  Download,
   FileSearch,
   HardHat,
   ListChecks,
@@ -14,7 +16,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { buttonVariants } from '../components/ui/button';
-import { getActionQueue } from '../lib/api';
+import { getActionQueue, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
 import type { ActionPriority, ActionQueue, ActionQueueItem } from '../lib/types';
 
@@ -33,6 +35,9 @@ export default function ActionsPage() {
   const [queue, setQueue] = useState<ActionQueue | null>(null);
   const [loading, setLoading] = useState(true);
   const [priorityFilter,setPriorityFilter] = useState<'all'|ActionPriority>('all');
+  const [statusFilter,setStatusFilter] = useState<'all'|'open'|'under_review'|'virtual_verification'|'follow_up'>('all');
+  const [search,setSearch] = useState('');
+  const [selectedId,setSelectedId] = useState<string|null>(null);
 
   useEffect(() => {
     let active = true;
@@ -62,7 +67,15 @@ export default function ActionsPage() {
     return result;
   }, [queue]);
 
-  const visibleActions=(queue?.actions||[]).filter(item=>priorityFilter==='all'||item.priority===priorityFilter);
+  const visibleActions=useMemo(()=> (queue?.actions||[]).filter(item=>{
+    if(priorityFilter!=='all'&&item.priority!==priorityFilter)return false;
+    if(statusFilter==='follow_up'&&item.source!=='activity')return false;
+    if(statusFilter!=='all'&&statusFilter!=='follow_up'&&item.case_status!==statusFilter)return false;
+    const q=search.trim().toLocaleLowerCase();
+    return !q||[item.centre_name,item.title,item.reason,item.case_id||'',item.centre_id]
+      .some(value=>value.toLocaleLowerCase().includes(q));
+  }),[queue,priorityFilter,statusFilter,search]);
+  const selected=visibleActions.find(item=>item.action_id===selectedId)||visibleActions[0]||null;
 
   return (
     <div>
@@ -123,72 +136,96 @@ export default function ActionsPage() {
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
             <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Action queue</h2>
-                  <p className="mt-1 text-[11px] text-[#98A2B3]">Unresolved cases · {label.toLowerCase()}</p>
+                  <p className="mt-1 text-[11px] text-[#98A2B3]">{queue.counts.total} actions · {label.toLowerCase()}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-medium text-[#667085]">{queue.counts.total} actions</span>
-                  <label className="sr-only" htmlFor="kw-action-priority">Priority filter</label>
-                  <select id="kw-action-priority" value={priorityFilter} onChange={event=>setPriorityFilter(event.target.value as typeof priorityFilter)}
-                    aria-label="Priority filter"
-                    className="kw-focus h-9 rounded-lg border border-[#DCE5F0] bg-white px-2 text-[11px] text-[#667085]">
-                    <option value="all">All priorities</option><option value="high">High</option>
-                    <option value="medium">Medium</option><option value="low">Low</option>
-                  </select>
-                </div>
+                <span className="text-[11px] text-[#667085]">{visibleActions.length} shown</span>
+              </div>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <label className="relative min-w-0 flex-1 sm:min-w-[170px]">
+                  <span className="sr-only">Search work queue</span>
+                  <Search size={15} aria-hidden="true" className="pointer-events-none absolute left-3 top-3 text-[#97A5B8]"/>
+                  <input value={search} onChange={event=>setSearch(event.target.value)}
+                    placeholder="Search centre, case or task"
+                    className="kw-focus h-10 w-full min-w-0 rounded-xl border border-[#DCE5F0] bg-white pl-9 pr-3 text-[12px] outline-none placeholder:text-[#9AA8BA]"/>
+                </label>
+                <select value={priorityFilter} onChange={event=>setPriorityFilter(event.target.value as typeof priorityFilter)}
+                  aria-label="Priority filter" className="kw-focus h-10 rounded-xl border border-[#DCE5F0] bg-white px-3 text-[12px] text-[#475467]">
+                  <option value="all">All priorities</option><option value="high">High</option>
+                  <option value="medium">Medium</option><option value="low">Low</option>
+                </select>
+                <select value={statusFilter} onChange={event=>setStatusFilter(event.target.value as typeof statusFilter)}
+                  aria-label="Case status filter" className="kw-focus h-10 rounded-xl border border-[#DCE5F0] bg-white px-3 text-[12px] text-[#475467]">
+                  <option value="all">All stages</option><option value="open">Open</option>
+                  <option value="under_review">Under review</option>
+                  <option value="virtual_verification">Virtual verification</option>
+                  <option value="follow_up">Activity follow-up</option>
+                </select>
               </div>
 
               {visibleActions.length ? (
                 <div className="mt-3 divide-y divide-[#EEF2F6]">
                   {visibleActions.map((item, index) => (
-                    <ActionRow key={item.action_id} item={item} rank={index + 1} />
+                    <ActionRow key={item.action_id} item={item} rank={index + 1} selected={selected?.action_id===item.action_id} onInspect={()=>setSelectedId(item.action_id)}/>
                   ))}
                 </div>
               ) : (
                 <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-8 text-center">
-                  <div className="text-[13px] font-medium text-[#475467]">No actions match this priority.</div>
-                  <p className="mt-1 text-[12px] text-[#98A2B3]">Latest trusted evidence does not require follow-up.</p>
+                  <div className="text-[13px] font-medium text-[#475467]">{queue.counts.total?'No matching work items.':'No actions are queued.'}</div>
+                  <p className="mt-1 text-[12px] text-[#98A2B3]">{queue.counts.total?'Change the search or filters.':'No current officer follow-up was returned.'}</p>
+                  {queue.counts.total>0&&<button type="button" className="kw-focus mt-3 text-[12px] font-semibold text-[#2563EB]" onClick={()=>{setSearch('');setPriorityFilter('all');setStatusFilter('all');}}>Clear filters</button>}
                 </div>
               )}
             </section>
 
-            <aside className="space-y-4">
-              <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
-                <h2 className="text-[15px] font-semibold text-[var(--kw-text)]">Priority mix</h2>
+            <aside className="min-w-0 space-y-4">
+              <section aria-label="Selected work item" className="sticky top-[92px] rounded-[20px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-[15px] font-semibold text-[#223955]">Case at a glance</h2>
+                  {selected&&<PriorityPill priority={selected.priority}/>}
+                </div>
+                {selected ? <>
+                  <div className="mt-5 text-[11px] font-semibold uppercase tracking-[.12em] text-[#98A5B6]">Centre record</div>
+                  <Link href={'/centres/'+encodeURIComponent(selected.centre_id)}
+                    className="kw-focus mt-1 inline-flex max-w-full items-center gap-2 text-[14px] font-semibold text-[#245B9F] hover:underline">
+                    <span className="truncate">{selected.centre_name}</span><ArrowRight size={13}/>
+                  </Link>
+                  <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-[#F7FAFE] p-3">
+                    <QueueFact label="Stage" value={(selected.case_status||'Follow-up').replaceAll('_',' ')}/>
+                    <QueueFact label="Age" value={selected.source==='case'?selected.age_days+'d':'—'}/>
+                    <QueueFact label="Source" value={selected.source==='case'?'Recorded case':'Activity analysis'}/>
+                    <QueueFact label="Escalation" value={selected.escalation_level?selected.escalation_label:'Normal'}/>
+                  </div>
+                  <p className="mt-4 text-[12px] leading-5 text-[#61738B]">{selected.reason}</p>
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {selected.evidence_basis.map(basis=><span key={basis} className="rounded-full bg-[#F1F5FB] px-2.5 py-1 text-[10px] text-[#60738B]">{basis}</span>)}
+                  </div>
+                  {selected.simulated&&<span className="mt-3 inline-block text-[10px] font-medium text-[#8D9BAC]">Simulated records</span>}
+                  <div className="mt-5 grid gap-2">
+                    <Link href={selected.href} className={buttonVariants({variant:'primary',size:'sm'})}>
+                      {selected.source==='case'?'Open case & audit':'Open activity details'}<ArrowRight size={14}/>
+                    </Link>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link href={'/centres/'+encodeURIComponent(selected.centre_id)+'/evidence'}
+                        className="kw-focus flex items-center justify-center rounded-xl border border-[#DDE6F1] px-2 py-2.5 text-[11px] font-semibold text-[#47617E] hover:bg-[#F7FAFE]">Evidence</Link>
+                      <a href={reportPdfUrl(selected.centre_id,queue.period==='last_30_days'?'30d':queue.period==='last_7_days'?'7d':queue.period)}
+                        target="_blank" rel="noreferrer"
+                        className="kw-focus inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#DDE6F1] px-2 py-2.5 text-[11px] font-semibold text-[#47617E] hover:bg-[#F7FAFE]"><Download size={13}/> Centre PDF</a>
+                    </div>
+                  </div>
+                </>:<p className="mt-4 text-[12px] text-[#718198]">Select a work item to inspect its centre, evidence, and audit links.</p>}
+              </section>
+              <details className="rounded-[18px] border border-[#E6EAF0] bg-[#FCFDFE] p-4">
+                <summary className="kw-focus cursor-pointer text-[12px] font-semibold text-[#475467]">Queue breakdown · {queue.counts.total}</summary>
                 <div className="mt-4 space-y-3">
                   <PriorityBar label="High" value={queue.counts.high} total={queue.counts.total} tone="high" />
                   <PriorityBar label="Medium" value={queue.counts.medium} total={queue.counts.total} tone="medium" />
                   <PriorityBar label="Low" value={queue.counts.low} total={queue.counts.total} tone="low" />
+                  <div className="border-t border-[#EEF2F6] pt-3 text-[11px] text-[#718198]">{queue.counts.centres} centres · {queue.counts.camera_blockers} camera blockers</div>
                 </div>
-              </section>
-
-              <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
-                <h2 className="text-[15px] font-semibold text-[var(--kw-text)]">Queue state</h2>
-                <div className="mt-4 space-y-3 text-[12px]">
-                  <QueueFact label="Centres needing action" value={queue.counts.centres} />
-                  <QueueFact label="Camera blockers" value={queue.counts.camera_blockers} />
-                  <QueueFact label="Selected period" value={label} />
-                </div>
-              </section>
-
-              {grouped.high.length > 0 && (
-                <details className="rounded-[18px] border border-[#E6EAF0] bg-[#FCFDFE] p-5">
-                  <summary className="kw-focus flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-[#475467]">
-                    <Clock3 size={14} />
-                    Priority evidence
-                  </summary>
-                  <div className="mt-3 space-y-3">
-                    {grouped.high.slice(0, 2).map(item => (
-                      <div key={item.action_id}>
-                        <div className="text-[12px] font-semibold text-[#475467]">{item.centre_name}</div>
-                        <div className="mt-1 text-[11px] leading-5 text-[#667085]">{item.evidence_basis.join(' · ')}</div>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
+              </details>
             </aside>
           </div>
         </>
@@ -207,10 +244,10 @@ export default function ActionsPage() {
   );
 }
 
-function ActionRow({ item, rank }: { item: ActionQueueItem; rank: number }) {
+function ActionRow({ item, rank, selected, onInspect }: { item: ActionQueueItem; rank: number; selected: boolean; onInspect: ()=>void }) {
   const Icon = KIND_ICONS[item.kind] || ListChecks;
   return (
-    <div className="grid gap-4 py-4 md:grid-cols-[36px_1fr_auto] md:items-center">
+    <div className={'grid gap-3 py-4 md:grid-cols-[32px_minmax(0,1fr)_auto] md:items-center '+(selected?'rounded-xl bg-[#F8FBFF]':'')}>
       <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#F5F8FD] text-[12px] font-semibold text-[#456A9B]">{rank}</span>
 
       <div className="min-w-0">
@@ -236,16 +273,16 @@ function ActionRow({ item, rank }: { item: ActionQueueItem; rank: number }) {
         </details>
       </div>
 
-      <Link
-        href={item.href}
-        className={buttonVariants({
-          variant: rank === 1 ? 'primary' : 'secondary',
-          size: 'sm',
-        })}
-      >
-        {item.cta}
-        <ArrowRight size={13} />
-      </Link>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onInspect} aria-pressed={selected}
+          aria-label={'Inspect '+item.centre_name+' '+item.title}
+          className={'kw-focus rounded-xl border px-3 py-2 text-[11px] font-semibold '+(selected?'border-[#AFC8EC] bg-[#ECF4FF] text-[#225DA8]':'border-[#DCE5F0] bg-white text-[#6D819B] hover:bg-[#F7FAFE]')}>
+          Inspect
+        </button>
+        <Link href={item.href} className={buttonVariants({variant:rank===1?'primary':'secondary',size:'sm'})}>
+          {item.cta}<ArrowRight size={13}/>
+        </Link>
+      </div>
     </div>
   );
 }
@@ -284,7 +321,7 @@ function PriorityBar({
     <div>
       <div className="flex items-center justify-between text-[11px] text-[#667085]">
         <span>{label}</span>
-        <span className="font-semibold text-[#475467]">{value}</span>
+        <span className="font-semibold text-[#475467]">{value} / {total}</span>
       </div>
       <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-[#F2F4F7]">
         <div className={'h-full rounded-full ' + bar} style={{ width: width + '%' }} />

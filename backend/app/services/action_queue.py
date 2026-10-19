@@ -158,15 +158,20 @@ def build_action_queue(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     current_time = now or datetime.now(timezone.utc)
-    centre_by_id = {
-        str(centre.get("centre_id") or ""): centre
-        for centre in centres
-        if str(centre.get("centre_id") or "") in AI_FIRST_CENTRE_IDS
+    # Preserve curated demo-centre behaviour while admitting all provisioned
+    # real centres. `centres` has already been filtered by officer permissions.
+    eligible = {
+        str(item.get("centre_id") or "")
+        for item in centres
+        if (str(item.get("centre_id") or "") in AI_FIRST_CENTRE_IDS
+            or (str(item.get("centre_id") or "") and
+                not str(item.get("centre_id") or "").startswith("DEMO-")))
     }
-    all_cases = [
-        case for case in cases
-        if case.centre_id in AI_FIRST_CENTRE_IDS
-    ]
+    centre_by_id = {
+        str(centre.get("centre_id")): centre
+        for centre in centres if str(centre.get("centre_id")) in eligible
+    }
+    all_cases = [case for case in cases if case.centre_id in centre_by_id]
 
     actions: list[dict[str, Any]] = []
 
