@@ -165,6 +165,8 @@ jobs:
         run: node --experimental-strip-types --test app/lib/server/research-replay.test.mjs
       - name: Verify role-specific controlled equipment fixtures
         run: node --experimental-strip-types --test app/lib/server/trade-proof.test.mjs
+      - name: Verify private model-to-source admission and denials
+        run: node --experimental-strip-types --test app/lib/server/equipment-replay.test.mjs
       - run: npm run build
 
   e2e:
