@@ -9,9 +9,15 @@ import os
 
 from app.services.review_access import LOCAL_ENVS
 
+# Production readiness must cover the *same* schema contract as the
+# explicit migration checker, including the Camera Trust shadow workflow.
+# A v2 database cannot serve a v3 API merely because its legacy tables exist.
+REQUIRED_MIGRATIONS = frozenset({1, 2, 3})
 REQUIRED_TABLES = (
     "kw_cases", "kw_analysis_history", "kw_centre_settings",
-    "kw_edge_events", "kw_evidence_objects",
+    "kw_edge_events", "kw_evidence_objects", "kw_camera_registry",
+    "kw_camera_jobs", "kw_camera_observations", "kw_camera_audit",
+    "kw_camera_references",
 )
 
 
@@ -46,7 +52,7 @@ def dependencies_ready() -> bool:
             versions = db.execute(
                 "SELECT version FROM kw_schema_migrations ORDER BY version"
             ).fetchall()
-            if not {1, 2}.issubset({row["version"] for row in versions}):
+            if not REQUIRED_MIGRATIONS.issubset({row["version"] for row in versions}):
                 return False
             for table in REQUIRED_TABLES:
                 if db.execute("SELECT to_regclass(%s) AS name", (table,)).fetchone()["name"] is None:

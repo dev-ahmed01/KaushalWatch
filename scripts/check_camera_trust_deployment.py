@@ -87,14 +87,28 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
     if probe_db:
         if dsn.startswith(("postgres://","postgresql://")):
             try:
-                from app.services.postgres_store import connection
-                with connection() as db:
-                    rows=db.execute("""SELECT
-                      to_regclass('kw_camera_registry') AS registry,
-                      to_regclass('kw_camera_jobs') AS jobs,
-                      to_regclass('kw_camera_references') AS refs,
-                      to_regclass('kw_camera_audit') AS audit""").fetchone()
-                check("postgres_camera_schema_v3",all(rows.values()))
+                import psycopg
+                from psycopg.rows import dict_row
+                # IMPORTANT: this preflight can receive an explicit candidate
+                # environment. Never silently probe the runner's ambient DSN.
+                # Only read schema state; never run DDL or read centre records.
+                with psycopg.connect(dsn, row_factory=dict_row, connect_timeout=5) as db:
+                    versions=db.execute(
+                        "SELECT version FROM kw_schema_migrations").fetchall()
+                    applied={row["version"] for row in versions}
+                    tables=(
+                        "kw_cases","kw_analysis_history","kw_centre_settings",
+                        "kw_edge_events","kw_evidence_objects",
+                        "kw_camera_registry","kw_camera_jobs",
+                        "kw_camera_observations","kw_camera_audit",
+                        "kw_camera_references",
+                    )
+                    present=all(
+                        db.execute("SELECT to_regclass(%s) AS name", (name,))
+                          .fetchone()["name"] is not None
+                        for name in tables
+                    )
+                check("postgres_camera_schema_v3", {1,2,3}.issubset(applied) and present)
             except Exception:
                 check("postgres_camera_schema_v3",False)
         else:check("postgres_camera_schema_v3",False)
