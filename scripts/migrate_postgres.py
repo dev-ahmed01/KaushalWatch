@@ -8,8 +8,13 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
+import sys
 
 import psycopg
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "backend"))
+from app.services.postgres_transport import require_postgres_transport
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = (
@@ -28,6 +33,10 @@ def main() -> None:
     dsn = os.getenv("KAUSHALWATCH_DATABASE_URL", "")
     if not dsn.startswith(("postgresql://", "postgres://")):
         parser.error("KAUSHALWATCH_DATABASE_URL must be a PostgreSQL DSN")
+    try:
+        require_postgres_transport(dsn, dict(os.environ))
+    except RuntimeError:
+        parser.error("Protected PostgreSQL requires verified TLS transport")
 
     with psycopg.connect(dsn, connect_timeout=5) as db:
         if args.check:

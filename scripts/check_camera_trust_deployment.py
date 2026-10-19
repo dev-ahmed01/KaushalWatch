@@ -13,6 +13,9 @@ import sys
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/"backend"))
+from app.services.postgres_transport import (
+    postgres_tls_configured, requires_verified_postgres_tls,
+)
 
 def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) -> dict:
     checks={}
@@ -34,6 +37,10 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
         check("private_evidence_selected",env.get("KAUSHALWATCH_EVIDENCE_BACKEND","")=="s3")
     dsn=env.get("KAUSHALWATCH_DATABASE_URL","")
     check("postgres_dsn_configured",dsn.startswith(("postgres://","postgresql://")))
+    if requires_verified_postgres_tls(env):
+        check("postgres_tls_hostname_validation", postgres_tls_configured(dsn))
+    else:
+        checks["postgres_tls_hostname_validation"]="NOT_REQUIRED_LOCAL_ONLY"
     if component in ("api","full"):
         check("oidc_officer_identity_selected",
               env.get("KAUSHALWATCH_REVIEW_AUTH_MODE","")=="oidc")
@@ -85,7 +92,9 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
               Path(media).exists() and os.access(media,os.W_OK))
         checks["external_custody_and_field_accuracy"]="NOT_VERIFIED"
     if probe_db:
-        if dsn.startswith(("postgres://","postgresql://")):
+        if (dsn.startswith(("postgres://","postgresql://"))
+                and (not requires_verified_postgres_tls(env)
+                     or postgres_tls_configured(dsn))):
             try:
                 import psycopg
                 from psycopg.rows import dict_row

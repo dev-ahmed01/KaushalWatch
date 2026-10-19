@@ -38,3 +38,20 @@ not session durability across regions, user revocation, IdP MFA or field approva
 CI explicitly checks missing configuration, synthetic memory, and unreachable
 Redis all fail closed; a separate synthetic Redis/OIDC integration proves the
 positive path. No real cloud session service is asserted by these tests.
+
+## Protected PostgreSQL transport gate
+
+In `KAUSHALWATCH_ENV=pilot|production|prod` and strict staging,
+the runtime store, readiness endpoint, explicit migration CLI and candidate
+deployment checker now require a PostgreSQL URI containing
+`sslmode=verify-full&gssencmode=disable` with an explicit host.
+These settings force libpq TLS certificate/hostname verification and prevent
+GSS transport from taking precedence. Plain `require`, `prefer`,
+`verify-ca`, missing modes, Unix sockets, missing host, or service-selected
+transport fail closed **before** the database connection is attempted.
+Do not print connection strings in logs. Certificate trust stores and actual
+hostnames must be provisioned by the environment owner. A configuration PASS
+alone does not prove a trustworthy certificate; the real PostgreSQL connection
+must succeed. Local demos and non-strict synthetic CI staging preserve existing
+disposable connectivity. Do not relax this guard to accommodate an unapproved
+cloud database. Keep migrations in a separate authorized operation.
