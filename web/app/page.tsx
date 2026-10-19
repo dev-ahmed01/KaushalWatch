@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { StatusPill } from './components/CalmUi';
+import { DataRetry } from './components/NetworkStatus';
 import { buttonVariants } from './components/ui/button';
-import { getKaushalBrief } from './lib/api';
+import { getKaushalBrief, SECURE_PROXY } from './lib/api';
 import { aiFirstCentres, centreReason, centreUiState, FALLBACK_CENTRES } from './lib/presentation';
 import { useBriefPeriod } from './lib/period';
 import type { KaushalBrief, KaushalBriefCentre } from './lib/types';
@@ -17,11 +18,13 @@ export default function KaushalAIHome() {
   const [brief, setBrief] = useState<KaushalBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [retryKey,setRetryKey] = useState(0);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError('');
+    setBrief(null);
     getKaushalBrief(period)
       .then(payload => {
         if (active) setBrief(payload);
@@ -37,7 +40,7 @@ export default function KaushalAIHome() {
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period,retryKey]);
 
   const fallbackCentres = useMemo(() => aiFirstCentres(FALLBACK_CENTRES), []);
 
@@ -98,6 +101,17 @@ export default function KaushalAIHome() {
       ];
 
   const topAction = recommendations[0] || null;
+  // Never substitute shared demo centre identities after a protected read fails.
+  if (SECURE_PROXY && !brief) {
+    return <div className="space-y-4">
+      <h1 className="text-[32px] font-semibold text-[#233952]">KaushalAI</h1>
+      {loading?<div role="status" className="h-44 rounded-2xl kw-skeleton" aria-label="Loading authorised centre intelligence"/>:
+      <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-4 text-[12px] text-[#77541E]">
+        <span>Centre intelligence is unavailable. No operational data or simulated centre records are shown.</span>
+        <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
+      </div>}
+    </div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -111,7 +125,7 @@ export default function KaushalAIHome() {
         </Link>
       </header>
 
-      {error && !loading && <div role="alert" className="rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-3 text-[12px] text-[#88591D]">{error}</div>}
+      {error && !loading && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-3 text-[12px] text-[#88591D]"><span>{error}</span><DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/></div>}
 
       <section className="kw-os-hero rounded-[22px] border border-[#DFE8F5] px-6 py-7 shadow-[var(--kw-shadow)] sm:px-8 sm:py-9">
         <div className="relative z-10 max-w-[760px]">

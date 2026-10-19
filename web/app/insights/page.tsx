@@ -11,6 +11,7 @@ import {
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { Button } from '../components/ui/button';
+import { DataRetry } from '../components/NetworkStatus';
 import { getNetworkInsights, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
 import type { InsightState, NetworkInsights } from '../lib/types';
@@ -19,6 +20,7 @@ export default function InsightsPage() {
   const { period } = useBriefPeriod();
   const [data, setData] = useState<NetworkInsights | null>(null);
   const [loading, setLoading] = useState(true);
+  const [retryKey,setRetryKey] = useState(0);
   const [selectedReportId,setSelectedReportId] = useState('');
 
   useEffect(()=>{
@@ -29,6 +31,7 @@ export default function InsightsPage() {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setData(null);
     getNetworkInsights(period)
       .then(payload => {
         if (active) setData(payload);
@@ -42,19 +45,20 @@ export default function InsightsPage() {
     return () => {
       active = false;
     };
-  }, [period]);
+  }, [period,retryKey]);
 
   if (!data) {
     return (
       <div>
         <Header periodLabel="Selected period" simulated={false} />
-        <div className="grid gap-5 md:grid-cols-3">
+        {loading&&<div className="grid gap-5 md:grid-cols-3">
           <div className="h-72 rounded-[18px] kw-skeleton" />
           <div className="h-72 rounded-[18px] kw-skeleton md:col-span-2" />
-        </div>
+        </div>}
         {!loading && (
-          <div className="mt-5 rounded-xl border border-[#E4EAF2] bg-white px-5 py-4 text-[13px] text-[#667085]">
-            Grounded insights are temporarily unavailable.
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4EAF2] bg-white px-5 py-4 text-[13px] text-[#667085]">
+            <span>Grounded insights are temporarily unavailable.</span>
+            <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
           </div>
         )}
       </div>
