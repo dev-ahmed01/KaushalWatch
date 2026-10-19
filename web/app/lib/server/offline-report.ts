@@ -39,17 +39,18 @@ export function parseOfflineReport(raw:unknown):OfflineReport{
  const required=['queued_before','delivered','remaining','attempts','failed_attempts',
   'duplicate_ack_count','server_event_rows','observed_request_body_bytes_final',
   'observed_response_body_bytes_final','observed_request_body_bytes_all_received'] as const;
+ const n=raw as Record<string,number>;
  if(required.some(k=>!integer(raw[k]))
-  ||raw.delivered!==raw.server_event_rows||raw.delivered+raw.remaining!==raw.queued_before
-  ||raw.attempts<3||raw.failed_attempts<2||raw.duplicate_ack_count<1
-  ||raw.observed_request_body_bytes_final===0||raw.observed_response_body_bytes_final===0
-  ||raw.observed_request_body_bytes_all_received<raw.observed_request_body_bytes_final
+  ||n.delivered!==n.server_event_rows||n.delivered+n.remaining!==n.queued_before
+  ||n.attempts<3||n.failed_attempts<2||n.duplicate_ack_count<1
+  ||n.observed_request_body_bytes_final===0||n.observed_response_body_bytes_final===0
+  ||n.observed_request_body_bytes_all_received<n.observed_request_body_bytes_final
   ||typeof raw.last_success_utc!=='string'
   ||Number.isNaN(Date.parse(raw.last_success_utc))
   ||typeof raw.measurement_boundary!=='string'
   ||raw.measurement_boundary.length>300)
     throw Error('Invalid measured offline counters');
- return raw as OfflineReport;
+ return raw as unknown as OfflineReport;
 }
 export async function loadPrivateOfflineReport(file:string):Promise<OfflineReport>{
  if(!path.isAbsolute(file))throw Error('Private absolute report path required');
