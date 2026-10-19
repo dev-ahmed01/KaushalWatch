@@ -135,3 +135,40 @@ def test_network_insights_rejects_unknown_period(tmp_path, monkeypatch):
 
     assert response.status_code == 422
     assert "period must be one of" in response.json()["detail"]
+
+
+def test_provisioned_real_centre_appears_in_insights_and_report_selector():
+    from app.services.network_insights import build_network_insights
+    from app.services.demo_network import centre_rows
+    from app.models import ComplianceCase
+    from datetime import datetime, timezone
+    centre={**centre_rows([])[0],"centre_id":"SITE-KA-001","name":"Authorized real centre"}
+    case=ComplianceCase(
+        case_id="SCOPE-REAL-001",centre_id="SITE-KA-001",
+        batch_id=centre["batch_id"],case_type="infrastructure_compliance",
+        severity="medium",summary="Evidence-backed real centre case"
+    )
+    payload=build_network_insights(
+        centres=[centre],cases=[case],history=[],
+        period="last_7_days",now=datetime(2026,10,19,tzinfo=timezone.utc))
+    assert payload["counts"]["total"]==1
+    assert payload["report_centres"][0]["centre_id"]=="SITE-KA-001"
+    assert payload["centre_health"][0]["centre_id"]=="SITE-KA-001"
+    assert "DEMO-KA-104" not in str(payload)
+
+
+def test_network_insights_do_not_leak_ungranted_real_site():
+    from app.services.network_insights import build_network_insights
+    from app.services.demo_network import centre_rows
+    from app.models import ComplianceCase
+    from datetime import datetime, timezone
+    allowed={**centre_rows([])[0],"centre_id":"SITE-KA-001"}
+    foreign=ComplianceCase(
+        case_id="FOREIGN-CASE",centre_id="SITE-KA-999",
+        batch_id=allowed["batch_id"],case_type="camera_integrity",
+        severity="high",summary="Should not leak")
+    result=build_network_insights(
+        centres=[allowed],cases=[foreign],history=[],
+        period="last_7_days",now=datetime(2026,10,19,tzinfo=timezone.utc))
+    assert result["counts"]["total"]==1
+    assert "FOREIGN-CASE" not in str(result)

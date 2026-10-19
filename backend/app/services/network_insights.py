@@ -194,20 +194,24 @@ def build_network_insights(
 ) -> dict[str, Any]:
     current_time = now or datetime.now(timezone.utc)
     start, end, normalized_period, period_label = _bounds(period, current_time)
+    # Historical local demo keeps its approved five-centre insights view.
+    # Privately provisioned real sites use the identical scope and report UI.
     selected_centres = [
         centre for centre in centres
-        if str(centre.get("centre_id") or "") in AI_FIRST_CENTRE_IDS
+        if (str(centre.get("centre_id") or "") in AI_FIRST_CENTRE_IDS
+            or (str(centre.get("centre_id") or "")
+                and not str(centre.get("centre_id") or "").startswith("DEMO-")))
     ]
     order = {centre_id: index for index, centre_id in enumerate(AI_FIRST_CENTRE_IDS)}
-    selected_centres.sort(key=lambda item: order.get(str(item.get("centre_id")), 99))
-
-    all_cases = [
-        case for case in cases
-        if case.centre_id in AI_FIRST_CENTRE_IDS
-    ]
+    selected_centres.sort(key=lambda item: (
+        order.get(str(item.get("centre_id")), 99),
+        str(item.get("name") or ""),
+    ))
+    permitted_ids = {str(centre.get("centre_id")) for centre in selected_centres}
+    all_cases = [case for case in cases if case.centre_id in permitted_ids]
     period_history = []
     for row in history:
-        if str(row.get("centre_id") or "") not in AI_FIRST_CENTRE_IDS:
+        if str(row.get("centre_id") or "") not in permitted_ids:
             continue
         created = _parse(row.get("created_at"))
         if created and start <= created < end:
