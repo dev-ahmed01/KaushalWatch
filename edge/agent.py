@@ -199,8 +199,9 @@ def sync(args) -> int:
     accepted = payload.get("accepted_event_ids", []) if isinstance(payload, dict) else None
     duplicates = payload.get("already_accepted_event_ids", []) if isinstance(payload, dict) else None
     sent = {event["event_id"] for event in events[:200]}
-    if (not isinstance(accepted, list) or len(set(accepted)) != len(accepted)
-        or any(not isinstance(item, str) or item not in sent for item in accepted)
+    if (not isinstance(accepted, list) or any(not isinstance(item, str) for item in accepted)
+        or len(set(accepted)) != len(accepted)
+        or any(item not in sent for item in accepted)
         or not isinstance(duplicates, list)
         or any(item not in accepted for item in duplicates)):
         state = record_sync_attempt(queue.path, error_code="invalid_ack")
