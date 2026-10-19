@@ -19,6 +19,12 @@ export default function InsightsPage() {
   const { period } = useBriefPeriod();
   const [data, setData] = useState<NetworkInsights | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedReportId,setSelectedReportId] = useState('');
+
+  useEffect(()=>{
+    const requested=new URLSearchParams(window.location.search).get('centre');
+    if(requested)setSelectedReportId(requested);
+  },[]);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +66,9 @@ export default function InsightsPage() {
     : data.period === 'last_30_days'
       ? '30d'
       : data.period;
+  const selectedReport=data.report_centres.find(item=>item.centre_id===selectedReportId)||data.report_centres[0]||null;
+  const reportAttendance=selectedReport?data.attendance.find(item=>item.centre_id===selectedReport.centre_id):null;
+  const reportEquipment=selectedReport?data.infrastructure.find(item=>item.centre_id===selectedReport.centre_id):null;
   const attendanceMax = Math.max(
     1,
     ...data.attendance.flatMap(item => [item.reported || 0, item.observed || 0]),
@@ -176,27 +185,40 @@ export default function InsightsPage() {
         <TrustAndOutcomes data={data} />
       </div>
 
-      <section className="mt-5 rounded-[18px] border border-[var(--kw-border)] bg-white px-5 py-4 shadow-[var(--kw-shadow)]">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="kw-os-card mt-5 px-5 py-5 sm:px-6" aria-label="Centre report workspace">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <div className="text-[14px] font-semibold text-[var(--kw-text)]">Centre verification reports</div>
-            <div className="mt-0.5 text-[11px] text-[#98A2B3]">Auditable PDF · same selected reporting window where supported.</div>
+            <h2 className="text-[16px] font-semibold text-[#263B57]">Centre verification reports</h2>
+            <p className="mt-1 text-[11px] text-[#8290A5]">{data.period_label} · saved evidence and officer decisions</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {data.report_centres.map(centre => (
-              <a
-                key={centre.centre_id}
-                href={reportPdfUrl(centre.centre_id, reportPeriod)}
-                target="_blank"
-                rel="noreferrer"
-                className="kw-focus inline-flex h-9 items-center gap-2 rounded-lg border border-[#DCE3EC] bg-white px-3 text-[11px] font-medium text-[#475467] hover:border-[#BFCBDC] hover:text-[var(--kw-accent-strong)]"
-              >
-                <Download size={13} />
-                {centre.name.split(' TC-')[0]}
-              </a>
-            ))}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <label className="sr-only" htmlFor="centre-report-picker">Report centre</label>
+            <select id="centre-report-picker" aria-label="Report centre"
+              value={selectedReport?.centre_id||''}
+              onChange={event=>setSelectedReportId(event.target.value)}
+              className="kw-focus h-10 min-w-0 rounded-xl border border-[#DCE5F0] bg-white px-3 text-[12px] text-[#445B75] sm:min-w-[205px]">
+              {data.report_centres.map(centre=><option key={centre.centre_id} value={centre.centre_id}>{centre.name}</option>)}
+            </select>
+            {selectedReport&&<a href={reportPdfUrl(selectedReport.centre_id,reportPeriod)} target="_blank" rel="noreferrer"
+              className="kw-focus inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 text-[12px] font-semibold text-white hover:bg-[#1D4ED8]">
+              <Download size={14}/> Download PDF
+            </a>}
           </div>
         </div>
+        {selectedReport?<div className="mt-4 flex flex-col gap-4 rounded-xl bg-[#F8FAFD] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap gap-x-7 gap-y-3">
+            <div><div className="text-[10px] text-[#8290A5]">Reported trainees</div>
+              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportAttendance?.available?reportAttendance.reported??'—':'—'}</strong></div>
+            <div><div className="text-[10px] text-[#8290A5]">Observed trainees</div>
+              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportAttendance?.available?reportAttendance.observed??'—':'—'}</strong></div>
+            <div><div className="text-[10px] text-[#8290A5]">Equipment gaps</div>
+              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportEquipment&&reportEquipment.status!=='uncertain'&&reportEquipment.status!=='unavailable'?reportEquipment.missing_units:'—'}</strong></div>
+            <div><div className="text-[10px] text-[#8290A5]">Centre status</div>
+              <strong className="mt-1 block text-[12px] font-semibold capitalize text-[#566C85]">{selectedReport.state.replaceAll('_',' ')}</strong></div>
+          </div>
+          <Link href={'/centres/'+encodeURIComponent(selectedReport.centre_id)}
+            className="kw-focus inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[#2563EB]">Open centre record <ArrowRight size={14}/></Link>
+        </div>:<div className="mt-4 rounded-xl bg-[#F8FAFD] p-4 text-[12px] text-[#718198]">No accessible centre reports.</div>}
       </section>
     </div>
   );
