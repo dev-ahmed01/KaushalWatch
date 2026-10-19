@@ -175,69 +175,28 @@ export default function CentreOverview() {
         )}
       </section>
 
-      <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_340px]">
-        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Recent analysis</h2>
-              <p className="mt-0.5 text-[12px] text-[#98A2B3]">{intelligence?.period_label || 'Selected period'} · latest recorded runs</p>
-            </div>
-            <span className="text-[12px] text-[#98A2B3]">{intelligence?.period_activity.analysis_runs || 0} runs</span>
-          </div>
-
-          {recent.length ? (
-            <div className="mt-3 divide-y divide-[#EEF2F6]">
-              {recent.slice(0, 4).map(row => (
-                <div key={row.analysis_id} className="grid gap-2 py-4 md:grid-cols-[130px_1fr_auto] md:items-center">
-                  <div>
-                    <div className="text-[12px] font-semibold capitalize text-[var(--kw-text)]">{row.analysis_type.replaceAll('_', ' ')}</div>
-                    <div className="mt-0.5 text-[10px] text-[#98A2B3]">{new Date(row.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
-                  </div>
-                  <div className="truncate text-[12px] text-[var(--kw-muted)]">{row.summary}</div>
-                  <StatusPill state={analysisState(row.outcome)} />
+      <details className="mt-6 rounded-2xl border border-[#E6EAF0] bg-white px-5 py-4 shadow-[var(--kw-shadow)]">
+        <summary className="kw-focus flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold text-[#314763]">
+          <span>Analysis history</span>
+          <span className="text-[11px] font-normal text-[#8291A6]">{intelligence?.period_activity.analysis_runs ?? 0} runs · {intelligence?.period_label || 'Current'}</span>
+        </summary>
+        {recent.length ? (
+          <div className="mt-4 divide-y divide-[#EEF2F6] border-t border-[#EEF2F6]">
+            {recent.slice(0, 5).map(row => (
+              <div key={row.analysis_id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[12px] font-semibold capitalize text-[#314763]">{row.analysis_type.replaceAll('_', ' ')}</div>
+                  <div className="mt-1 truncate text-[11px] text-[#78899F]">{row.summary}</div>
+                  <time className="mt-1 block text-[10px] text-[#A1AEC0]" dateTime={row.created_at}>{new Date(row.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</time>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-6 text-[13px] text-[#667085]">
-              {intelligence ? 'No new analysis runs were recorded in this period.' : 'Recent analysis is unavailable until centre intelligence responds.'}
-            </div>
-          )}
-        </section>
-
-        <aside className="space-y-4">
-          <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
-            <h2 className="text-[16px] font-semibold text-[var(--kw-text)]">Recommended next</h2>
-            {actions.length ? (
-              <div className="mt-3 divide-y divide-[#EEF2F6]">
-                {actions.map((action, index) => (
-                  <Link href={action.href} key={action.title} className="kw-focus flex items-start gap-3 rounded-md py-3.5">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-[11px] font-semibold text-[var(--kw-accent-strong)]">{index + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-[var(--kw-text)]">{action.title}</div>
-                      <div className="mt-1 text-[11px] leading-5 text-[var(--kw-muted)]">{action.reason}</div>
-                    </div>
-                    <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
-                  </Link>
-                ))}
+                <StatusPill state={analysisState(row.outcome)} />
               </div>
-            ) : (
-              <p className="mt-3 text-[12px] leading-5 text-[#667085]">
-                {intelligence ? 'No immediate officer action is recommended.' : 'Recommendations are unavailable until centre intelligence responds.'}
-              </p>
-            )}
-          </section>
-
-          <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
-            <h2 className="text-[16px] font-semibold text-[var(--kw-text)]">Centre contact</h2>
-            <div className="mt-3 text-[13px] font-medium text-[#475467]">{intelligence?.contact.role || 'Centre Head'}</div>
-            <p className="mt-1 text-[12px] leading-5 text-[#98A2B3]">{intelligence?.contact.note || 'Contact details are not connected in this prototype.'}</p>
-            <button type="button" disabled className="mt-4 h-9 cursor-not-allowed rounded-lg border border-[#E4E7EC] px-3 text-[12px] font-medium text-[#98A2B3]">
-              Contact unavailable
-            </button>
-          </section>
-        </aside>
-      </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 border-t border-[#EEF2F6] pt-4 text-[12px] text-[#8291A6]">{intelligence ? 'No analysis recorded in this period.' : 'Analysis history unavailable.'}</p>
+        )}
+      </details>
 
       <AnalysisModal open={analysisOpen} onOpenChange={setAnalysisOpen} centre={current} onComplete={updated => { setCentre(updated); void load(); }} />
     </div>
