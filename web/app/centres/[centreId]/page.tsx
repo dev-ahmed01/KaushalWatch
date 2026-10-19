@@ -124,6 +124,12 @@ export default function CentreOverview() {
           Live centre intelligence is unavailable. Centre identity metadata is simulated fallback data; verification states, recommendations and recent analysis are not being inferred.
         </div>
       )}
+      {!loading && !intelligence && (
+        <div className="mb-5 flex flex-col gap-1 rounded-xl border border-[#E4EAF2] bg-[#F9FBFE] px-4 py-3 text-[11px] text-[#667085]">
+          <span>Recommendations are unavailable until centre intelligence responds.</span>
+          <span>Recent analysis is unavailable until centre intelligence responds.</span>
+        </div>
+      )}
 
       <section className="kw-os-hero relative overflow-hidden rounded-[22px] border border-[var(--kw-border)] px-7 py-7 shadow-[var(--kw-shadow)]">
         <div className="relative z-10 max-w-[760px]">
