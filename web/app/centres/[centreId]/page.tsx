@@ -22,7 +22,8 @@ import CentreTabs from '../../components/CentreTabs';
 import CentreVerificationCockpit from '../../components/CentreVerificationCockpit';
 import { StatusPill } from '../../components/CalmUi';
 import { Button } from '../../components/ui/button';
-import { getCentre, getCentreIntelligence } from '../../lib/api';
+import { getCentre, getCentreIntelligence, SECURE_PROXY } from '../../lib/api';
+import { DataRetry } from '../../components/NetworkStatus';
 import { useBriefPeriod } from '../../lib/period';
 import { FALLBACK_CENTRES } from '../../lib/presentation';
 import type { Centre, CentreEngine, CentreIntelligence } from '../../lib/types';
@@ -46,32 +47,53 @@ export default function CentreOverview() {
   const [intelligence, setIntelligence] = useState<CentreIntelligence | null>(null);
   const [loading, setLoading] = useState(true);
   const [degraded, setDegraded] = useState(false);
+  const [identityFallback,setIdentityFallback] = useState(false);
+  const [retryKey,setRetryKey] = useState(0);
   const [analysisOpen, setAnalysisOpen] = useState(false);
 
-  async function load() {
-    setLoading(true);
-    setDegraded(false);
-    try {
-      const [current, currentIntelligence] = await Promise.all([
-        getCentre(id),
-        getCentreIntelligence(id, period),
-      ]);
-      setCentre(current);
-      setIntelligence(currentIntelligence);
-    } catch {
-      setCentre(FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK);
+  useEffect(() => {
+    let active=true;
+    async function load(){
+      setLoading(true);
+      setDegraded(false);
+      setIdentityFallback(false);
       setIntelligence(null);
-      setDegraded(true);
-    } finally {
+      setCentre(null);
+      // Centre identity must not be substituted just because *intelligence* failed.
+      const [centreResult,intelligenceResult] = await Promise.allSettled([
+        getCentre(id),getCentreIntelligence(id,period)
+      ]);
+      if(!active)return;
+      if(centreResult.status==='fulfilled'){
+        setCentre(centreResult.value);
+      }else{
+        setIdentityFallback(true);
+        setCentre(SECURE_PROXY?null:FALLBACK_CENTRES.find(item=>item.centre_id===id)||null);
+      }
+      if(intelligenceResult.status==='fulfilled'){
+        setIntelligence(intelligenceResult.value);
+      }else{
+        setDegraded(true);
+      }
       setLoading(false);
     }
+    void load();
+    return ()=>{active=false;};
+  },[id,period,retryKey]);
+
+  const current=centre;
+  const identityUnavailable=!current;
+  // A protected centre with unavailable identity must never inherit the
+  // Bengaluru synthetic fixture, or leak a centre the officer cannot access.
+  if(identityUnavailable){
+    return <div className="space-y-4">
+      <Link href="/centres" className="kw-focus text-[12px] font-medium text-[#667085]">← Centres</Link>
+      <h1 className="text-[26px] font-semibold text-[#233952]">Centre record unavailable</h1>
+      <p role="status" className="text-[12px] text-[#718198]">No verified centre identity or measurements have been substituted.</p>
+      <DataRetry onRetry={()=>setRetryKey(key=>key+1)} disabled={loading}/>
+    </div>;
   }
 
-  useEffect(() => {
-    void load();
-  }, [id, period]);
-
-  const current = centre || FALLBACK_CENTRES.find(item => item.centre_id === id) || FALLBACK;
   const meta = intelligence?.centre;
   const engines = intelligence?.engines || [];
   const actions = intelligence?.actions || [];
@@ -92,9 +114,9 @@ export default function CentreOverview() {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[32px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">{meta?.name || current.name}</h1>
-            {(intelligence?.simulated || degraded) && (
+            {(intelligence?.simulated || identityFallback) && (
               <span className="rounded-full bg-[#F2F4F7] px-2 py-1 text-[10px] font-medium text-[#667085]">
-                {degraded ? 'Simulated centre metadata' : 'Simulated demo data'}
+                {identityFallback ? 'Simulated centre metadata' : 'Simulated demo data'}
               </span>
             )}
           </div>
@@ -113,6 +135,11 @@ export default function CentreOverview() {
       </header>
 
       <CentreTabs centreId={id} />
+      <section aria-label="Source and connectivity" className="mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border border-[#E6ECF4] bg-white px-4 py-3 text-[11px] text-[#61738C]">
+        <span className="font-semibold text-[#405876]">{current.connectivity_mode==='low_bandwidth'?'Low-bandwidth centre':'Standard connectivity'}</span>
+        <span>{current.last_analysis?'Last analysis: '+new Date(current.last_analysis).toLocaleString():'No analysis recorded'}</span>
+        <span className="text-[#8796A9]">Recorded summaries · not a live video or sync indicator</span>
+      </section>
 
       <div className="mt-5 mb-7">
         <CentreVerificationCockpit centreId={id} verification={intelligence?.verification||null}
@@ -120,8 +147,9 @@ export default function CentreOverview() {
       </div>
 
       {degraded && (
-        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
-          Live centre intelligence is unavailable. Centre identity metadata is simulated fallback data; verification states, recommendations and recent analysis are not being inferred.
+        <div role="alert" className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
+          <span>Live centre intelligence is unavailable. Verification states, recommendations and recent analysis are not being inferred.</span>
+          <DataRetry onRetry={()=>setRetryKey(key=>key+1)} disabled={loading}/>
         </div>
       )}
       {!loading && !intelligence && (
