@@ -29,7 +29,7 @@ from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.edge_ingest import normalize_event
-from app.services.edge_access import resolve_edge_actor
+from app.services.edge_access import resolve_edge_actor, edge_centre_scope
 from app.services.edge_event_ledger import EdgeEventLedger
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
@@ -1482,6 +1482,7 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
     skipped_existing_case_ids: list[str] = []
     existing = {row.get("event_id"): row for row in rows}
     already_accepted: list[str] = []
+    authorised_centres = edge_centre_scope(edge_actor)
 
     for incoming in request.events:
         event, rejection = normalize_event(incoming)
@@ -1492,6 +1493,9 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
             })
             continue
         event_id = event["event_id"]
+        if authorised_centres is not None and event["payload"]["centre_id"] not in authorised_centres:
+            rejected.append({"event_id": event_id, "reason": "device_centre_scope_denied"})
+            continue
         if event_id in existing:
             # A lost HTTP acknowledgement must not strand the durable queue.
             # Re-ACK only an *identical* previously accepted event belonging
