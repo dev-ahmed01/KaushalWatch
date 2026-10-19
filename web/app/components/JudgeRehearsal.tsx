@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState} from 'react';
+import {useState} from 'react';
 import {ArrowRight,RotateCcw} from 'lucide-react';
 import type {SceneId} from '../lib/demoMission';
 import {chapters,chapterClock,type DemoMode} from '../lib/judgeRoute';
@@ -11,10 +11,7 @@ export default function JudgeRehearsal({sceneId,onScene}:
  const [chapter,setChapter]=useState(0);
  const itinerary=chapters(mode);
  const active=itinerary[Math.min(chapter,itinerary.length-1)];
- useEffect(()=>{
-  // Keep manual scene selection from moving the judge cursor unexpectedly:
-  // the presenter's Next action is the only chapter transition.
- },[sceneId]);
+ const directScene=sceneId===active.scene;
 
  function switchMode(next:DemoMode){
   setMode(next);setChapter(0);onScene(chapters(next)[0].scene);
@@ -52,7 +49,7 @@ export default function JudgeRehearsal({sceneId,onScene}:
   </div>
   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
    <p role="status" className="max-w-[620px] text-[11px] leading-5 text-[#5D728B]">
-    <strong className="text-[#315879]">{chapterClock(active.from)}–{chapterClock(active.to)}</strong> · {active.cue}
+    <strong className="text-[#315879]">{chapterClock(active.from)}–{chapterClock(active.to)}</strong> · {directScene?active.cue:'You manually changed scenarios. Use a chapter to resume the presenter route.'}
    </p>
    <div className="flex shrink-0 gap-2">
     <button type="button" onClick={()=>go(0)} aria-label="Restart judge route"
