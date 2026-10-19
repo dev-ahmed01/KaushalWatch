@@ -77,8 +77,12 @@ export default function CentreVerificationCockpit({centreId,verification,action,
     {(suspended||action)&&<div className="flex flex-col gap-3 rounded-2xl border border-[#DEE7F2] bg-[#F6F9FD] px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 gap-2.5">
         <FileCheck2 size={18} className="mt-0.5 shrink-0 text-[#4779B5]"/>
-        <div><h3 className="text-[12px] font-semibold text-[#273E5B]">{suspended?'Camera review required':action?.title||'Next action'}</h3>
-          <p className="mt-1 line-clamp-2 text-[11px] text-[#71849D]">{suspended?'Attendance and equipment conclusions paused until camera trust is verified.':action?.reason||'Review the retained evidence.'}</p></div>
+        <div>
+          {suspended ? <h3 className="text-[12px] font-semibold text-[#273E5B]">Camera review required</h3> :
+            action ? <Link href={action.href} className="kw-focus text-[12px] font-semibold text-[#273E5B] hover:text-[#2563EB]">{action.title}</Link> :
+            <h3 className="text-[12px] font-semibold text-[#273E5B]">Next action</h3>}
+          <p className="mt-1 line-clamp-2 text-[11px] text-[#71849D]">{suspended?'Attendance and equipment conclusions paused until camera trust is verified.':action?.reason||'Review the retained evidence.'}</p>
+        </div>
       </div>
       <Link href={suspended?base+'/evidence':action?.href||base+'/evidence'}
         className="kw-focus inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 py-2.5 text-[12px] font-semibold text-white">
