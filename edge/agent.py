@@ -15,6 +15,7 @@ BACKEND = ROOT / "backend"
 sys.path.insert(0, str(BACKEND))
 
 from app.services.offline_queue import EdgeEventQueue, json_payload_bytes
+from app.services.edge_transport import prepare_upload, record_sync_attempt, read_sync_state
 from app.services.edge_ingest import _safe_details
 from app.services.video_pipeline import VideoCompliancePipeline
 
@@ -157,55 +158,70 @@ def sync(args) -> int:
     queue = EdgeEventQueue(Path(args.queue))
     events = queue.pending()
     if not events:
-        print(json.dumps({"synced": 0, "remaining": 0, "message": "queue empty"}, indent=2))
+        print(json.dumps({"synced": 0, "remaining": 0, "message": "queue empty",
+                          "transport": read_sync_state(queue.path)}, indent=2))
         return 0
 
-    body = json.dumps({"events": events}, separators=(",", ":")).encode("utf-8")
-    # Keep device credentials out of CLI arguments and stdout; use an
-    # environment-provided opaque secret for externally exposed endpoints.
+    # Canonicalize locally before even opening a network connection.
+    # The server will independently validate/normalize the request again.
+    try:
+        body, centre_id = prepare_upload(events[:200])
+    except (ValueError, TypeError) as exc:
+        state = record_sync_attempt(queue.path, error_code="rejected_locally")
+        print(json.dumps({"synced": 0, "remaining": len(events), "offline": False,
+            "error": str(exc), "privacy": "blocked_before_transport",
+            "observed_request_body_bytes": 0, "raw_video_uploaded": False,
+            "last_sync_utc": state["last_success_utc"]}, indent=2))
+        return 2
     token = os.getenv("KAUSHALWATCH_EDGE_SYNC_TOKEN", "").strip()
-    headers = {
-        "Content-Type": "application/json",
-        "User-Agent": "KaushalWatch-Edge/1.0",
-    }
+    headers = {"Content-Type": "application/json",
+               "User-Agent": "KaushalWatch-Edge/1.0"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    request = Request(
-        args.url.rstrip("/") + "/api/edge/sync",
-        data=body,
-        headers=headers,
-        method="POST",
-    )
+    request = Request(args.url.rstrip("/") + "/api/edge/sync",
+                      data=body, headers=headers, method="POST")
     try:
         with urlopen(request, timeout=args.timeout) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-    except (URLError, HTTPError, TimeoutError) as exc:
+            response_body = response.read()
+            payload = json.loads(response_body.decode("utf-8"))
+    except (URLError, HTTPError, TimeoutError, OSError) as exc:
+        state = record_sync_attempt(queue.path,
+            error_code="http_error" if isinstance(exc, HTTPError) else "offline")
         print(json.dumps({
-            "synced": 0,
-            "remaining": len(events),
-            "offline": True,
-            "error": str(exc),
-            "raw_video_uploaded": False,
+            "synced": 0, "remaining": len(events), "offline": True,
+            "error": type(exc).__name__, "raw_video_uploaded": False,
+            "attempted_request_body_bytes": len(body),
+            "observed_request_body_bytes": 0,
+            "last_sync_utc": state["last_success_utc"],
         }, indent=2))
         return 2
 
     accepted = payload.get("accepted_event_ids", []) if isinstance(payload, dict) else None
-    sent = {event.get("event_id") for event in events}
-    if (not isinstance(accepted, list) or any(
-            not isinstance(item, str) or item not in sent for item in accepted)):
+    duplicates = payload.get("already_accepted_event_ids", []) if isinstance(payload, dict) else None
+    sent = {event["event_id"] for event in events[:200]}
+    if (not isinstance(accepted, list) or len(set(accepted)) != len(accepted)
+        or any(not isinstance(item, str) or item not in sent for item in accepted)
+        or not isinstance(duplicates, list)
+        or any(item not in accepted for item in duplicates)):
+        state = record_sync_attempt(queue.path, error_code="invalid_ack")
         print(json.dumps({"synced": 0, "remaining": len(events),
-                          "error": "Invalid server event acknowledgement"}, indent=2))
+            "error": "Invalid server event acknowledgement", "raw_video_uploaded": False,
+            "delivery_state": "unknown_no_local_ack",
+            "last_sync_utc": state["last_success_utc"]}, indent=2))
         return 2
-    # The server may reject unsafe/corrupt events. Rejected items remain on
-    # disk for explicit operator repair; never silently discard them.
-    # A malicious/incorrect response also cannot acknowledge unrelated events
-    # appended by a second local producer after this request started.
     removed = queue.acknowledge(accepted)
+    state = record_sync_attempt(queue.path, acknowledged=removed,
+        duplicates=len(duplicates), request_bytes=len(body), response_bytes=len(response_body))
     print(json.dumps({
-        "synced": removed,
-        "remaining": len(queue.pending()),
-        "server": payload,
-        "raw_video_uploaded": False,
+        "synced": removed, "remaining": len(queue.pending()),
+        "received_centre_id": centre_id,
+        "already_accepted": len(duplicates),
+        "server": payload, "raw_video_uploaded": False,
+        "observed_request_body_bytes": len(body),
+        "observed_response_body_bytes": len(response_body),
+        "total_observed_application_body_bytes": len(body)+len(response_body),
+        "last_sync_utc": state["last_success_utc"],
+        "measurement_boundary": "Observed serialized HTTP bodies only; excludes headers and TLS/TCP overhead.",
     }, indent=2))
     return 0
 
@@ -216,6 +232,7 @@ def status(args) -> int:
     print(json.dumps({
         "queue_depth": len(events),
         "queued_payload_bytes": json_payload_bytes(events),
+        "transport": read_sync_state(queue.path),
         "raw_video_queued": False,
         "events": [
             {
