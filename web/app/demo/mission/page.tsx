@@ -1,11 +1,12 @@
 'use client';
 import Link from 'next/link';
 import {useEffect,useState} from 'react';
-import {ArrowLeft,ArrowRight,Camera,FileSearch,ShieldCheck,WifiOff} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,FileSearch,ShieldCheck} from 'lucide-react';
 import {DEMO_SCENES,STAGES,stageDescription,type SceneId} from '../../lib/demoMission';
 import {SECURE_PROXY,getCases,getCentreIntelligence} from '../../lib/api';
 import SourceLockedReplay from '../../components/SourceLockedReplay';
 import TradeProofPanel from '../../components/TradeProofPanel';
+import OfflineTransportPanel from '../../components/OfflineTransportPanel';
 import type {CaseRecord,CentreIntelligence} from '../../lib/types';
 
 const surface='rounded-[22px] border border-[#E0E9F4] bg-white shadow-[0_3px_20px_rgba(20,44,77,0.04)]';
@@ -140,9 +141,7 @@ export default function MissionPage(){
       </article>
     </div>
     <section className="grid gap-3 md:grid-cols-2" aria-label="Further proof">
-      <div className={surface+' p-4'}><WifiOff size={17} className="text-[#5C7DA4]"/>
-        <h3 className="mt-2 text-[13px] font-bold text-[#2A4666]">Offline by design</h3>
-        <p className="mt-1 text-[11px] text-[#70849C]">The edge agent already queues privacy-safe data. A measured disconnect/reconnect presentation is planned for Phase 4.</p></div>
+      <OfflineTransportPanel/>
       <div className={surface+' p-4'}><ShieldCheck size={17} className="text-[#5C7DA4]"/>
         <h3 className="mt-2 text-[13px] font-bold text-[#2A4666]">Officers remain accountable</h3>
         <p className="mt-1 text-[11px] text-[#70849C]">This walkthrough never modifies a case, issues a legal notice or touches a real grant.</p></div>
