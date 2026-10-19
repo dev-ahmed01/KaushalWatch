@@ -133,3 +133,24 @@ clip-level numerical candidate statistics, **not** physical camera accuracy,
 and always blocks autonomous field enforcement. Real external adjudication,
 deployment credentials and physically verified pilot evidence remain outside
 CI's synthetic tests.
+
+## Phase 2 reliability: generation-fenced worker leases
+
+The Camera Trust shadow worker's 45-minute PostgreSQL lease is now fenced by
+the **incremented claim attempt number**, not merely a reused process worker
+ID. Claim returns the persisted attempt generation. Heartbeat, completion and
+failure paths all require the same camera/job/worker/generation and a still
+active lease. Any expired lease, cancellation, or reclaimed generation returns
+a non-authorizing result without extending the old lease, inserting a
+Camera Trust observation, or replacing a newer worker's status.
+
+A delayed worker may finish decoding after its lease expires; the database
+refuses to persist that result, and another claim may retry the bounded job
+(at most three attempts). This prevents a restarted process that reuses a
+worker ID from causing stale observations. The isolated PostgreSQL CI tests
+explicitly simulate expiration and reclaim with the **same** worker ID,
+including duplicate completion and stale failure attempts.
+
+These are software-only concurrency/expiry checks with synthetic jobs. They
+do not claim a live Drive worker, source-custody validation, physical camera
+accuracy, an approved pilot or autonomous enforcement.

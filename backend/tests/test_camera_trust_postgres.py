@@ -67,6 +67,7 @@ def test_camera_registry_custody_jobs_reviews_are_isolated_and_audited():
     assert different_samples.value.status_code==409
     claimed=store.claim("CI-SYNTHETIC-WORKER")
     assert claimed and claimed["job_id"]==job["job_id"]
+    assert claimed["attempts"] == 1
     assert store.claim("CI-SECOND-WORKER") is None
     report={"schema":"CAMERA_TRUST_SHADOW_SAMPLE_V1","physical_camera_health":"UNKNOWN",
             "production_qualified":False,"approved_reference_id":rid,
@@ -192,4 +193,93 @@ def test_full_private_worker_route_on_synthetic_original_video(tmp_path,monkeypa
     assert score["source_case_count"]==1
     assert score["qualified_for_autonomous_enforcement"] is False
     assert score["false_alarms_per_camera_hour_established"] is False
+
+
+def test_expired_lease_fences_heartbeat_finish_and_failure_even_when_worker_id_reused():
+    """A crashed/late worker cannot mutate newer attempts or leave stale results."""
+    from scripts.run_camera_trust_worker import heartbeat
+    from app.services.postgres_store import connection
+
+    camera = store.register_camera(
+        C, "Lease-reclaim synthetic camera", "fenced-ci.avi", "ci-officer"
+    )
+    cid = camera["camera_id"]
+    queued = store.queue_job(
+        C, cid, "fenced-ci.avi", SHA, "fenced-ci-idempotency", 12, "ci-officer"
+    )
+    old = store.claim("CI-REUSED-WORKER-ID")
+    assert old is not None and old["job_id"] == queued["job_id"]
+    assert old["attempts"] == 1
+    assert heartbeat(old, "CI-REUSED-WORKER-ID") is True
+
+    # The worker is now overdue without an active lease, but the job has not
+    # yet been picked up by the next generation.
+    with connection() as db:
+        db.execute(
+            "UPDATE kw_camera_jobs SET leased_until=NOW()-INTERVAL '1 second' "
+            "WHERE job_id=%s", (old["job_id"],)
+        )
+    assert heartbeat(old, "CI-REUSED-WORKER-ID") is False
+    report = {
+        "schema": "CAMERA_TRUST_SHADOW_SAMPLE_V1",
+        "physical_camera_health": "UNKNOWN",
+        "production_qualified": False,
+        "auto_incident_mutations": 0,
+        "approved_reference_id": None,
+    }
+    assert store.finish(old, report, "CI-REUSED-WORKER-ID") is False
+    store.fail(old, "CI-REUSED-WORKER-ID", "OldWorkerTimeout")
+    with connection() as db:
+        before = db.execute(
+            "SELECT status,attempts,last_error FROM kw_camera_jobs WHERE job_id=%s",
+            (old["job_id"],)
+        ).fetchone()
+    assert before["status"] == "running" and before["attempts"] == 1
+    assert before["last_error"] is None
+    assert store.observations(C, cid) == []
+
+    # Simulate a worker restart reusing the same logical identifier. Reclaim
+    # must increase its fencing generation and invalidate old job dictionaries.
+    new = store.claim("CI-REUSED-WORKER-ID")
+    assert new is not None and new["job_id"] == old["job_id"]
+    assert new["attempts"] == 2
+    assert heartbeat(old, "CI-REUSED-WORKER-ID") is False
+    assert store.finish(old, report, "CI-REUSED-WORKER-ID") is False
+    store.fail(old, "CI-REUSED-WORKER-ID", "StaleAttemptFailure")
+    with connection() as db:
+        held = db.execute(
+            "SELECT status,attempts,last_error FROM kw_camera_jobs WHERE job_id=%s",
+            (old["job_id"],)
+        ).fetchone()
+    assert held["status"] == "running" and held["attempts"] == 2
+    assert held["last_error"] is None
+    assert store.observations(C, cid) == []
+
+    assert heartbeat(new, "CI-REUSED-WORKER-ID") is True
+    assert store.finish(new, report, "CI-REUSED-WORKER-ID") is True
+    assert store.finish(old, report, "CI-REUSED-WORKER-ID") is False
+    assert len(store.observations(C, cid)) == 1
+    assert [e["event"] for e in store.audit_events(C, cid)].count(
+        "analysis_completed"
+    ) == 1
+
+
+def test_failed_lease_cannot_overwrite_cancelled_job_even_with_valid_attempt():
+    from scripts.run_camera_trust_worker import heartbeat
+
+    camera = store.register_camera(
+        C, "Cancellation generation camera", "cancel-ci.avi", "ci-officer"
+    )
+    job = store.queue_job(
+        C, camera["camera_id"], "cancel-ci.avi", SHA, "cancel-ci-key", 12, "ci-officer"
+    )
+    held = store.claim("CI-CANCEL-WORKER")
+    assert held["attempts"] == 1
+    store.cancel_job(C, camera["camera_id"], job["job_id"], "ci-officer")
+    assert heartbeat(held, "CI-CANCEL-WORKER") is False
+    assert store.finish(held, {"approved_reference_id": None},
+                        "CI-CANCEL-WORKER") is False
+    store.fail(held, "CI-CANCEL-WORKER", "CancelledOldWorker")
+    assert store.list_jobs(C, camera["camera_id"])[0]["status"] == "cancelled"
+    assert store.observations(C, camera["camera_id"]) == []
 

@@ -246,11 +246,16 @@ def claim(worker_id: str) -> dict | None:
                  AND j.attempts < 3
           ORDER BY j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1""").fetchone()
         if not row:return None
-        db.execute("""UPDATE kw_camera_jobs SET status='running',attempts=attempts+1,
+        updated=db.execute("""UPDATE kw_camera_jobs SET status='running',attempts=attempts+1,
           worker_id=%s,leased_until=NOW()+INTERVAL '45 minutes',updated_at=NOW()
-          WHERE job_id=%s""",(worker_id,row["job_id"]))
+          WHERE job_id=%s RETURNING attempts""",(worker_id,row["job_id"])).fetchone()
+        # The incremented attempt acts as a fencing generation. A renewed
+        # lease or restarted process may reuse worker_id, but stale generations
+        # can neither extend a lease nor write an observation/failure.
+        if updated is None:raise RuntimeError("Claimed Camera Trust job disappeared")
         row=dict(row)
         row["job_id"]=str(row["job_id"]);row["camera_id"]=str(row["camera_id"])
+        row["attempts"]=updated["attempts"]
         return row
 
 def finish(job: dict, payload: dict, worker_id: str) -> bool:
@@ -258,9 +263,15 @@ def finish(job: dict, payload: dict, worker_id: str) -> bool:
         cam=db.execute("SELECT camera_id FROM kw_camera_registry WHERE camera_id=%s FOR UPDATE",
                        (job["camera_id"],)).fetchone()
         if not cam:raise RuntimeError("Missing camera")
-        held=db.execute("""SELECT status,worker_id FROM kw_camera_jobs
-          WHERE job_id=%s FOR UPDATE""",(job["job_id"],)).fetchone()
-        if held["status"]!="running" or held["worker_id"]!=worker_id:return False
+        held=db.execute("""SELECT status,worker_id,attempts,
+          leased_until>NOW() AS lease_active FROM kw_camera_jobs
+          WHERE job_id=%s AND camera_id=%s FOR UPDATE""",
+          (job["job_id"],job["camera_id"])).fetchone()
+        if (not held or held["status"]!="running"
+                or held["worker_id"]!=worker_id
+                or held["attempts"]!=job.get("attempts")
+                or held["lease_active"] is not True):
+            return False
         used=payload.get("approved_reference_id")
         ref=db.execute("""SELECT reference_id FROM kw_camera_references
           WHERE camera_id=%s AND reference_id=%s AND status='approved'""",
@@ -285,9 +296,15 @@ def fail(job: dict, worker_id: str, category: str) -> None:
         cam=db.execute("SELECT camera_id FROM kw_camera_registry WHERE camera_id=%s FOR UPDATE",
                        (job["camera_id"],)).fetchone()
         if not cam:return
-        row=db.execute("""SELECT status,worker_id,attempts FROM kw_camera_jobs
-          WHERE job_id=%s FOR UPDATE""",(job["job_id"],)).fetchone()
-        if row["status"]!="running" or row["worker_id"]!=worker_id:return
+        row=db.execute("""SELECT status,worker_id,attempts,
+          leased_until>NOW() AS lease_active FROM kw_camera_jobs
+          WHERE job_id=%s AND camera_id=%s FOR UPDATE""",
+          (job["job_id"],job["camera_id"])).fetchone()
+        if (not row or row["status"]!="running"
+                or row["worker_id"]!=worker_id
+                or row["attempts"]!=job.get("attempts")
+                or row["lease_active"] is not True):
+            return
         status="queued" if row["attempts"]<3 else "failed"
         db.execute("""UPDATE kw_camera_jobs SET status=%s,worker_id=NULL,
           leased_until=NULL,last_error=%s,updated_at=NOW() WHERE job_id=%s""",

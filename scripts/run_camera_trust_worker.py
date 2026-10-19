@@ -87,8 +87,10 @@ def heartbeat(job: dict, worker_id: str) -> bool:
     from app.services.postgres_store import connection
     with connection() as db:
         row=db.execute("""UPDATE kw_camera_jobs SET leased_until=NOW()+INTERVAL '45 minutes',
-          updated_at=NOW() WHERE job_id=%s AND worker_id=%s AND status='running'
-          RETURNING job_id""",(job["job_id"],worker_id)).fetchone()
+          updated_at=NOW() WHERE job_id=%s AND camera_id=%s AND worker_id=%s
+          AND attempts=%s AND status='running' AND leased_until>NOW()
+          RETURNING job_id""",
+          (job["job_id"],job["camera_id"],worker_id,job.get("attempts"))).fetchone()
     return row is not None
 
 def fetch_approved_file(item: dict, dest: Path, token: Path | None,
