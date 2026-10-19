@@ -57,7 +57,7 @@ def _manifest() -> list[dict]:
     if not path or not Path(path).is_file():
         raise HTTPException(503,"Private approved source manifest is not configured")
     try:
-        from camera_trust_workstation.kwtrust.drive_sync import load_manifest
+        from app.services.camera_source_manifest import load_manifest
         return load_manifest(Path(path))
     except (ValueError,OSError,KeyError,json.JSONDecodeError):
         raise HTTPException(503,"Approved source manifest is invalid") from None
