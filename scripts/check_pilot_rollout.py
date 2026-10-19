@@ -55,7 +55,13 @@ def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
                 else "BLOCKED")
         except (FieldReviewError,ValueError,TypeError,KeyError):
             checks["signed_independent_field_dossier"]="BLOCKED"
-    passing=all(x=="PASS" for x in checks.values())
+    # The component checker correctly leaves physical source custody
+    # NOT_VERIFIED: that must still require an external operator sign-off,
+    # but cannot make an otherwise passing *software* gate unreachable.
+    # A real signed dossier is separately required below.
+    technical={k:v for k,v in checks.items()
+               if k!="external_custody_and_field_accuracy"}
+    passing=all(x=="PASS" for x in technical.values())
     return {
         "schema":SCHEMA,
         "software_preflight":"CHECKS_PASS" if passing else "BLOCKED",
@@ -68,7 +74,11 @@ def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
         "pilot_activation":"BLOCKED_PENDING_EXTERNAL_AUTHORIZATION",
         "physical_camera_health":"UNKNOWN",
         "checks":checks,
-        "blocking_check_names":sorted(k for k,v in checks.items() if v!="PASS"),
+        "blocking_check_names":sorted(k for k,v in technical.items() if v!="PASS"),
+        "external_evidence_not_independently_verified":[
+            "external_custody_and_field_accuracy",
+            "site_authority_signoff",
+        ],
         "operator_actions_remaining":[
             "Real IdP MFA and subject-revocation verification",
             "Independent private S3 IAM/KMS and source custody audit",
