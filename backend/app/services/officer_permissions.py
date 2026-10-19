@@ -51,8 +51,8 @@ def configured_principals() -> dict[str, OfficerPrincipal]:
     if not isinstance(raw, dict) or set(raw) != set(tokens):
         raise _configuration_error()
 
-    from app.services.demo_network import DEMO_CENTRES
-    valid_centres = {c["centre_id"] for c in DEMO_CENTRES}
+    from app.services.demo_network import provisioned_centre_ids
+    valid_centres = provisioned_centre_ids()
     result: dict[str, OfficerPrincipal] = {}
     for actor, spec in raw.items():
         if not isinstance(spec, dict) or set(spec) != {"role", "centres"}:
@@ -136,8 +136,8 @@ def oidc_grants() -> dict[str, OfficerPrincipal]:
         raise _configuration_error() from None
     if not isinstance(raw, dict) or not raw or len(raw) > 500:
         raise _configuration_error()
-    from app.services.demo_network import DEMO_CENTRES
-    valid_centres = {c["centre_id"] for c in DEMO_CENTRES}
+    from app.services.demo_network import provisioned_centre_ids
+    valid_centres = provisioned_centre_ids()
     output: dict[str, OfficerPrincipal] = {}
     actors: set[str] = set()
     for subject, value in raw.items():

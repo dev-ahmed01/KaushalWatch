@@ -82,6 +82,58 @@ DEMO_CENTRES = [
     },
 ]
 
+# DEMO_CENTRES is a fixture, never a fallback for protected real sites.
+def provisioned_centres() -> list[dict]:
+    """Read a privileged versioned real-site registry; reject unsafe defaults."""
+    import json
+    import os
+    import re
+    from fastapi import HTTPException
+    env=os.getenv("KAUSHALWATCH_ENV","development").strip().lower()
+    protected=env in {"pilot","production","prod"}
+    raw=os.getenv("KAUSHALWATCH_CENTRES_JSON","")
+    if not raw:
+        if protected:
+            raise HTTPException(503,"Protected centre registry is not provisioned")
+        return [dict(x) for x in DEMO_CENTRES]
+    try:
+        configured=json.loads(raw)
+    except (ValueError,TypeError):
+        raise HTTPException(503,"Protected centre registry is invalid") from None
+    if (not isinstance(configured,dict) or set(configured)!={"version","centres"}
+        or configured["version"]!="KW_CENTRE_REGISTRY_V1"
+        or not isinstance(configured["centres"],list)
+        or not 1<=len(configured["centres"])<=500):
+        raise HTTPException(503,"Protected centre registry is invalid")
+    valid=set(DEMO_CENTRES[0])
+    safe_text=re.compile(r"^[^\\x00-\\x1f\\x7f]{2,160}$")
+    safe_id=re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$")
+    seen=set()
+    rows=[]
+    for entry in configured["centres"]:
+        if not isinstance(entry,dict) or set(entry)!=valid:
+            raise HTTPException(503,"Protected centre registry contains invalid fields")
+        cid=entry["centre_id"]
+        if (not isinstance(cid,str) or not safe_id.fullmatch(cid)
+            or cid in seen or (protected and cid.startswith("DEMO-"))):
+            raise HTTPException(503,"Protected centre registry contains invalid IDs")
+        seen.add(cid)
+        if any(not isinstance(entry[k],str) or
+               not safe_text.fullmatch(entry[k]) for k in
+               ("name","location","district","state","job_role")):
+            raise HTTPException(503,"Protected centre registry contains invalid metadata")
+        if any(not isinstance(entry[k],str) or
+               not safe_id.fullmatch(entry[k]) for k in ("batch_id","camera_id")):
+            raise HTTPException(503,"Protected centre registry contains invalid camera/batch IDs")
+        if (type(entry["trainees"]) is not int or not 0<=entry["trainees"]<=10000
+            or entry["connectivity_mode"] not in {"normal","low_bandwidth"}):
+            raise HTTPException(503,"Protected centre registry contains invalid configuration")
+        rows.append(dict(entry))
+    return rows
+
+def provisioned_centre_ids() -> set[str]:
+    return {x["centre_id"] for x in provisioned_centres()}
+
 
 def _case_pillar(case_type: str) -> str:
     if case_type == "attendance_discrepancy":
@@ -239,7 +291,7 @@ def centre_rows(
     history_by_centre = history_by_centre or {}
     rows = []
 
-    for centre in DEMO_CENTRES:
+    for centre in provisioned_centres():
         centre_id = centre["centre_id"]
         centre_cases = [case for case in cases if case.centre_id == centre_id]
         pending = [

@@ -20,6 +20,15 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
         checks[name]="PASS" if okay else "BLOCKED"
     protected=env.get("KAUSHALWATCH_ENV","").strip().lower() in {"pilot","production","prod"}
     check("protected_environment",protected)
+    if component in ("api","worker","full"):
+        try:
+            from app.services.demo_network import provisioned_centres
+            configured=provisioned_centres()
+            centre_ok=bool(configured) and all(not c["centre_id"].startswith("DEMO-")
+                                               for c in configured) if protected else bool(configured)
+        except Exception:
+            centre_ok=False
+        check("real_centre_registry_provisioned",centre_ok)
     check("postgres_selected",env.get("KAUSHALWATCH_STORAGE_BACKEND","")=="postgres")
     if component in ("api","full"):
         check("private_evidence_selected",env.get("KAUSHALWATCH_EVIDENCE_BACKEND","")=="s3")
@@ -56,10 +65,10 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
         if manifest:
             # No actual source ID or name is ever returned to caller.
             try:
-                from app.services.demo_network import DEMO_CENTRES
+                from app.services.demo_network import provisioned_centres
                 active=sum(len(permitted_aliases(c["centre_id"],manifest,
                             env.get("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")))
-                           for c in DEMO_CENTRES)
+                           for c in provisioned_centres())
                 grants_ok=active>0
             except Exception:grants_ok=False
         else:grants_ok=False

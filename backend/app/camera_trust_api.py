@@ -15,14 +15,13 @@ from pydantic import BaseModel, Field
 
 from app.services.officer_permissions import require_centre, require_write
 from app.services.review_access import resolve_review_actor
-from app.services.demo_network import DEMO_CENTRES
+from app.services.demo_network import provisioned_centre_ids
 from app.services import camera_trust_store as db
 from app.services.camera_sources import permitted_aliases, require_source
 
 router=APIRouter(prefix="/api/centres/{centre_id}/camera-trust",tags=["Camera Trust shadow"])
 ALIAS=re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,130}$")
 SHA=re.compile(r"^[0-9a-f]{64}$")
-CENTRES={c["centre_id"] for c in DEMO_CENTRES}
 
 class CameraIn(BaseModel):
     label: str=Field(min_length=3,max_length=80)
@@ -45,7 +44,7 @@ class ReviewIn(BaseModel):
     note: str=Field(min_length=12,max_length=2000)
 
 def _centre(request:Request,centre_id:str,write:bool=False) -> None:
-    if centre_id not in CENTRES:raise HTTPException(404,"Centre not found")
+    if centre_id not in provisioned_centre_ids():raise HTTPException(404,"Centre not found")
     require_centre(request,centre_id,write=write)
     if os.getenv("KAUSHALWATCH_STORAGE_BACKEND","json")!="postgres":
         raise HTTPException(503,"Camera Trust requires migrated PostgreSQL storage")
