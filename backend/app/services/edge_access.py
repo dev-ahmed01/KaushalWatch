@@ -57,3 +57,29 @@ def resolve_edge_actor(request: Request) -> str:
         if hmac.compare_digest(secret, supplied):
             return actor
     raise HTTPException(401, "Valid edge sync token required.", headers={"WWW-Authenticate": "Bearer"})
+
+
+def edge_centre_scope(actor: str) -> set[str] | None:
+    """Optional explicit edge-device -> centre allowlist.
+
+    None means unconfigured (legacy demo / blocked institutional acceptance);
+    an empty set means that actor has NO access. Never accept wildcards.
+    """
+    raw = os.getenv("KAUSHALWATCH_EDGE_SYNC_CENTRES_JSON", "").strip()
+    if not raw:
+        return None
+    try:
+        mapping = json.loads(raw)
+    except (TypeError, ValueError):
+        raise HTTPException(503, "Invalid edge centre allowlist.") from None
+    if not isinstance(mapping, dict):
+        raise HTTPException(503, "Invalid edge centre allowlist.")
+    for name, centres in mapping.items():
+        if (not isinstance(name, str) or not AGENT_ID.fullmatch(name)
+            or not isinstance(centres, list) or not centres
+            or len(centres) > 500 or len(set(str(c) for c in centres)) != len(centres)
+            or any(not isinstance(c, str) or not c or len(c) > 128
+                   or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}", c)
+                   for c in centres)):
+            raise HTTPException(503, "Invalid edge centre allowlist.")
+    return set(mapping.get(actor, []))
