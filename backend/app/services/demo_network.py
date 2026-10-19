@@ -106,7 +106,7 @@ def provisioned_centres() -> list[dict]:
         or not 1<=len(configured["centres"])<=500):
         raise HTTPException(503,"Protected centre registry is invalid")
     valid=set(DEMO_CENTRES[0])
-    safe_text=re.compile(r"^[^\\x00-\\x1f\\x7f]{2,160}$")
+    safe_text=re.compile(r"^[^\x00-\x1f\x7f]{2,160}$")
     safe_id=re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{2,63}$")
     seen=set()
     rows=[]
