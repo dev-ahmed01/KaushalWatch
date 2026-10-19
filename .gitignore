@@ -69,3 +69,6 @@ Thumbs.db
 playwright-report/
 test-results/
 coverage/
+
+# Locally supplied source-locked replay receipts; never commit observation files.
+web/.controlled-replay/

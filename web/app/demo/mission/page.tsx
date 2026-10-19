@@ -4,6 +4,7 @@ import {useEffect,useState} from 'react';
 import {ArrowLeft,ArrowRight,Camera,FileSearch,ShieldCheck,WifiOff} from 'lucide-react';
 import {DEMO_SCENES,STAGES,stageDescription,type SceneId} from '../../lib/demoMission';
 import {SECURE_PROXY,getCases,getCentreIntelligence} from '../../lib/api';
+import SourceLockedReplay from '../../components/SourceLockedReplay';
 import type {CaseRecord,CentreIntelligence} from '../../lib/types';
 
 const surface='rounded-[22px] border border-[#E0E9F4] bg-white shadow-[0_3px_20px_rgba(20,44,77,0.04)]';
@@ -103,6 +104,7 @@ export default function MissionPage(){
           <ShieldCheck size={13}/>{apiFacts?(info?.simulated||metric?.simulated?'Simulated API record':'Saved analysis/case record'):'Authored controlled example'}
           {error&&<button type="button" className="kw-focus font-semibold text-[#255C9D] underline" onClick={()=>setRetry(v=>v+1)}>Retry source</button>}
         </div>
+        <SourceLockedReplay sceneId={scene.id}/>
         <div className="mt-7">
           <div className="flex items-center justify-between"><h3 className="text-[14px] font-bold text-[#2B415C]">The evidence trail</h3><span className="text-[11px] text-[#7E90A7]">{step+1}/4</span></div>
           <div className="mt-3 grid grid-cols-4 gap-2">{STAGES.map((label,i)=><button key={label} type="button" aria-pressed={step===i}
