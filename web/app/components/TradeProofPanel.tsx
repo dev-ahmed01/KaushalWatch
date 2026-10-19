@@ -9,15 +9,15 @@ const badge=(active:boolean)=>active
  : 'border-[#E2E9F1] bg-white text-[#70829A]';
 
 function stateLabel(item:TradeItem,unusable:boolean):string{
- if(unusable)return 'Observation withheld';
  if(item.example_state==='manual_officer_check')return 'Officer verification';
+ if(unusable)return 'Observation withheld';
  if(item.example_state==='no_samples')return 'No example available';
  if(item.example_state==='illustrative_gap')return 'Example visibility gap';
  return 'Example counts align';
 }
 function detail(item:TradeItem,unusable:boolean):string{
- if(unusable)return 'Camera quality is marked unusable for this demonstration. Equipment count is unknown, never zero.';
  if(item.verification_tier==='officer_verification_required')return 'Small or occluded items need direct authorised inspection. The example does not infer that a multimeter is absent.';
+ if(unusable)return 'Camera quality is marked unusable for this demonstration. Equipment count is unknown, never zero.';
  if(item.example_state==='illustrative_gap')return 'The example shows fewer visible items than the simulated requirement. This is a review question, not evidence that physical stock is missing.';
  if(item.id==='drill_machine')return 'Example visibility does not establish electrical safety, functional operability or actual use.';
  return 'The example counts align across the three authored samples. This is not independently measured model accuracy or proof of operational compliance.';
@@ -123,7 +123,7 @@ export default function TradeProofPanel(){
        <div className="rounded-xl border border-[#DFE9F4] bg-white p-4">
          <div className="flex items-center gap-2 text-[11px] font-semibold text-[#365A7B]"><ClipboardCheck size={14}/> Evidence gate</div>
          <div className="mt-3 space-y-2 text-[11px]">
-           <p className="flex items-center gap-2 text-[#3C664F]"><CheckCircle2 size={13}/> Curriculum item type recorded</p>
+           <p className="flex items-center gap-2 text-[#3C664F]"><CheckCircle2 size={13}/> Item-type source noted</p>
            <p className="flex items-center gap-2 text-[#92682C]"><ShieldAlert size={13}/> Count authority not established</p>
            <p className="flex items-center gap-2 text-[#92682C]"><CameraOff size={13}/> No matching recorded equipment footage</p>
            <p className="flex items-center gap-2 text-[#92682C]"><ShieldAlert size={13}/> Independent TP/FP/FN not measured</p>
