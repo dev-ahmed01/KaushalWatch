@@ -301,7 +301,7 @@ def test_edge_agent_uses_environment_credential_without_printing_secret(
     from edge import agent
     queue_path = tmp_path / "queue.json"
     queue = EdgeEventQueue(queue_path)
-    queued = queue.enqueue("analysis_summary", {"centre_id": "DEMO-KA-207"})
+    queued = queue.enqueue("analysis_summary", _summary_event("EDGE-SAFE-TOKEN-TEST-1")["payload"])
     token = "SyntheticOnly_DeviceToken_0123456789abcdef_987"
     monkeypatch.setenv("KAUSHALWATCH_EDGE_SYNC_TOKEN", token)
     captured_headers = []
@@ -310,7 +310,7 @@ def test_edge_agent_uses_environment_credential_without_printing_secret(
         def __enter__(self): return self
         def __exit__(self, *_): return False
         def read(self):
-            return json.dumps({"accepted_event_ids": [queued["event_id"]]}).encode()
+            return json.dumps({"accepted_event_ids": [queued["event_id"]], "already_accepted_event_ids": []}).encode()
 
     def fake_urlopen(request, timeout):
         captured_headers.append(request.get_header("Authorization"))

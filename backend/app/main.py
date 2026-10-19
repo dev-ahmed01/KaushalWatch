@@ -29,7 +29,7 @@ from app.services.video_pipeline import VideoCompliancePipeline
 from app.services.practical_activity_pipeline import PracticalActivityPipeline
 from app.services.offline_queue import json_payload_bytes
 from app.services.edge_ingest import normalize_event
-from app.services.edge_access import resolve_edge_actor
+from app.services.edge_access import resolve_edge_actor, edge_centre_scope
 from app.services.edge_event_ledger import EdgeEventLedger
 from app.services.demo_assets import (
     load_demo_manifest_and_cache,
@@ -1480,7 +1480,9 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
     accepted: list[str] = []
     rejected: list[dict[str, str]] = []
     skipped_existing_case_ids: list[str] = []
-    existing = {row.get("event_id") for row in rows}
+    existing = {row.get("event_id"): row for row in rows}
+    already_accepted: list[str] = []
+    authorised_centres = edge_centre_scope(edge_actor)
 
     for incoming in request.events:
         event, rejection = normalize_event(incoming)
@@ -1491,7 +1493,19 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
             })
             continue
         event_id = event["event_id"]
+        if authorised_centres is not None and event["payload"]["centre_id"] not in authorised_centres:
+            rejected.append({"event_id": event_id, "reason": "device_centre_scope_denied"})
+            continue
         if event_id in existing:
+            # A lost HTTP acknowledgement must not strand the durable queue.
+            # Re-ACK only an *identical* previously accepted event belonging
+            # to the same authenticated edge device and centre.
+            previous = dict(existing[event_id])
+            actor = previous.pop("server_resolved_edge_actor", None)
+            if actor == edge_actor and previous == event:
+                already_accepted.append(event_id)
+            else:
+                rejected.append({"event_id": event_id, "reason": "event_id_conflict"})
             continue
         event["server_resolved_edge_actor"] = edge_actor
 
@@ -1538,7 +1552,7 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
                 if STORE.get(incoming_case_id) is not None:
                     skipped_existing_case_ids.append(incoming_case_id)
                     rows.append(event)
-                    existing.add(event_id)
+                    existing[event_id] = event
                     accepted.append(event_id)
                     continue
 
@@ -1576,14 +1590,16 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
                     skipped_existing_case_ids.append(incoming_case_id)
 
         rows.append(event)
-        existing.add(event_id)
+        existing[event_id] = event
         accepted.append(event_id)
 
     if accepted:
         ledger.save(rows)
     return {
-        "accepted_event_ids": accepted,
+        "accepted_event_ids": accepted + already_accepted,
         "accepted_count": len(accepted),
+        "already_accepted_event_ids": already_accepted,
+        "duplicate_count": len(already_accepted),
         "rejected_events": rejected,
         "rejected_count": len(rejected),
         "skipped_existing_case_ids": skipped_existing_case_ids,
