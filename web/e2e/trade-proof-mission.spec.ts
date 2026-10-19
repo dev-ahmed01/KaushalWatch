@@ -23,7 +23,7 @@ test('officer can explore sample times and withhold equipment counts on blocked 
  const matrix=page.getByRole('region',{name:'Trade equipment proof'});
  await expect(matrix.getByRole('heading',{name:'Equipment proof matrix'})).toBeVisible();
  await expect(matrix.getByText('Quantities are simulated')).toBeVisible();
- await expect(matrix.getByText('Electrical Switchboard / Training Panel')).toBeVisible();
+ await expect(matrix.getByRole('button',{name:/Electrical Switchboard \/ Training Panel/})).toBeVisible();
  await expect(matrix.getByText('Example visibility gap')).toBeVisible();
  await expect(matrix.getByText(/Independent TP\/FP\/FN not measured/)).toBeVisible();
  await matrix.getByRole('button',{name:'20s'}).click();
