@@ -36,16 +36,16 @@ export default function JudgeRehearsal({sceneId,onScene}:
    </div>
   </div>
   <div role="list" className="mt-3 grid gap-1.5" style={{gridTemplateColumns:'repeat('+itinerary.length+',minmax(0,1fr))'}}>
-   {itinerary.map((item,i)=><button key={item.id} role="listitem" type="button"
+   {itinerary.map((item,i)=><div key={item.id} role="listitem" className="min-w-0"><button type="button"
     aria-current={chapter===i?'step':undefined}
     aria-label={'Chapter '+(i+1)+' '+item.label+' at '+chapterClock(item.from)}
     onClick={()=>go(i)}
-    className={'kw-focus min-h-10 min-w-0 rounded-lg border px-1 py-2 text-center text-[9px] font-semibold sm:text-[11px] '+
+    className={'kw-focus h-full w-full min-h-10 min-w-0 rounded-lg border px-1 py-2 text-center text-[9px] font-semibold sm:text-[11px] '+
       (chapter===i?'border-[#8EB9E4] bg-[#EAF3FE] text-[#1B558D]':
         'border-[#E4ECF4] bg-[#FAFCFE] text-[#7790A7] hover:border-[#C2D8EA]')}>
     <span className="block truncate">{item.label}</span>
     <span className="block font-mono text-[9px] opacity-75">{chapterClock(item.from)}</span>
-   </button>)}
+   </button></div>)}
   </div>
   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
    <p role="status" className="max-w-[620px] text-[11px] leading-5 text-[#5D728B]">
