@@ -3,21 +3,22 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '../lib/cn';
+import { LayoutDashboard, Users, Activity, HardHat, FileCheck2, Camera } from 'lucide-react';
 
 const tabs = [
-  { suffix: '', label: 'Overview' },
-  { suffix: '/attendance', label: 'Attendance' },
-  { suffix: '/practical', label: 'Activity' },
-  { suffix: '/infrastructure', label: 'Infrastructure' },
-  { suffix: '/evidence', label: 'Evidence' },
-  { suffix: '/camera-trust', label: 'Camera Trust' },
+  { suffix: '', label: 'Overview', icon: LayoutDashboard },
+  { suffix: '/attendance', label: 'Attendance', icon: Users },
+  { suffix: '/practical', label: 'Activity', icon: Activity },
+  { suffix: '/infrastructure', label: 'Infrastructure', icon: HardHat },
+  { suffix: '/evidence', label: 'Evidence', icon: FileCheck2 },
+  { suffix: '/camera-trust', label: 'Camera Trust', icon: Camera },
 ];
 
 export default function CentreTabs({ centreId }: { centreId: string }) {
   const pathname = usePathname();
   return (
     <nav
-      className="kw-scrollbar mb-7 w-full max-w-full min-w-0 overflow-x-auto border-b border-[#E6EAF0]"
+      className="kw-os-subnav mb-6 w-full max-w-full min-w-0 overflow-x-auto rounded-2xl border border-[#E7EDF4] bg-white p-1.5 shadow-[var(--kw-shadow)]"
       aria-label="Centre sections"
     >
       <div className="flex min-w-max gap-1">
@@ -30,12 +31,11 @@ export default function CentreTabs({ centreId }: { centreId: string }) {
               href={href}
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'kw-focus relative shrink-0 whitespace-nowrap px-4 py-3 text-[14px] font-medium transition-colors',
-                active ? 'text-[#1D4ED8]' : 'text-[#667085] hover:text-[#344054]',
+                'kw-focus flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-[12px] font-medium transition-colors',
+                active ? 'bg-[#EFF5FF] text-[#1D4ED8]' : 'text-[#708198] hover:bg-[#F8FAFD] hover:text-[#344054]',
               )}
             >
-              {tab.label}
-              {active && <span className="absolute inset-x-3 bottom-[-1px] h-0.5 rounded-full bg-[#2563EB]" />}
+              <tab.icon size={15} strokeWidth={1.8} aria-hidden="true"/>{tab.label}
             </Link>
           );
         })}
