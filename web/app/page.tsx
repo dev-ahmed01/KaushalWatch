@@ -102,13 +102,14 @@ export default function KaushalAIHome() {
 
   const topAction = recommendations[0] || null;
   // Never substitute shared demo centre identities after a protected read fails.
-  if (SECURE_PROXY && error && !loading && !brief) {
+  if (SECURE_PROXY && !brief) {
     return <div className="space-y-4">
       <h1 className="text-[32px] font-semibold text-[#233952]">KaushalAI</h1>
+      {loading?<div role="status" className="h-44 rounded-2xl kw-skeleton" aria-label="Loading authorised centre intelligence"/>:
       <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-4 text-[12px] text-[#77541E]">
         <span>Centre intelligence is unavailable. No operational data or simulated centre records are shown.</span>
         <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
-      </div>
+      </div>}
     </div>;
   }
 

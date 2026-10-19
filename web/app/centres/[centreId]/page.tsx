@@ -86,9 +86,9 @@ export default function CentreOverview() {
   if(identityUnavailable){
     return <div className="space-y-4">
       <Link href="/centres" className="kw-focus text-[12px] font-medium text-[#667085]">← Centres</Link>
-      <h1 className="text-[26px] font-semibold text-[#233952]">Centre record unavailable</h1>
-      <p role="status" className="text-[12px] text-[#718198]">No verified centre identity or measurements have been substituted.</p>
-      <DataRetry onRetry={()=>setRetryKey(key=>key+1)} disabled={loading}/>
+      <h1 className="text-[26px] font-semibold text-[#233952]">{loading?'Loading centre…':'Centre record unavailable'}</h1>
+      <p role="status" className="text-[12px] text-[#718198]">{loading?'Opening the permitted centre record.':'No verified centre identity or measurements have been substituted.'}</p>
+      {!loading&&<DataRetry onRetry={()=>setRetryKey(key=>key+1)} disabled={loading}/>}
     </div>;
   }
 
