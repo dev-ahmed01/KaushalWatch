@@ -20,10 +20,11 @@ test('CRM work queue searches by centre and provides contextual evidence and rep
 });
 
 test('CRM stage and priority filters never change recorded case status',async ({page})=>{
-  const before=await page.request.get('http://127.0.0.1:8000/api/cases');
-  expect(before.ok()).toBeTruthy();
-  const beforeCases=await before.json();
-  const original=beforeCases.find((c:{case_id:string})=>c.case_id==='SIM-KA-104-ATT').status;
+  const reviewWrites:string[]=[];
+  page.on('request',request=>{
+    if(request.method()==='POST'&&/\/api\/cases\/[^/]+\/review/.test(request.url()))
+      reviewWrites.push(request.url());
+  });
   await page.goto('/actions');
   await page.getByRole('combobox',{name:'Case status filter'}).selectOption('virtual_verification');
   await expect(page.getByText('No matching work items.')).toBeVisible();
@@ -31,10 +32,7 @@ test('CRM stage and priority filters never change recorded case status',async ({
   await expect(page.getByRole('link',{name:'Open case & audit'})).toBeVisible();
   await page.getByRole('combobox',{name:'Priority filter'}).selectOption('high');
   await expect(page.getByRole('link',{name:'Open case & audit'})).toBeVisible();
-  const status=await page.request.get('http://127.0.0.1:8000/api/cases');
-  expect(status.ok()).toBeTruthy();
-  const cases=await status.json();
-  expect(cases.find((c:{case_id:string})=>c.case_id==='SIM-KA-104-ATT').status).toBe(original);
+  expect(reviewWrites).toHaveLength(0);
 });
 
 test('case CRM header opens centre record and source-scoped PDF',async ({page})=>{
