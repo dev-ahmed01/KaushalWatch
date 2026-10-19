@@ -48,7 +48,7 @@ function validatedDocument(raw:unknown):{
  for(const v of raw.items){
    if(!object(v)||typeof v.id!=='string'||!IDS.includes(v.id as typeof IDS[number])
      ||known.has(v.id)||typeof v.label!=='string'||v.label.length>110
-     ||!Number.isSafeInteger(v.required)||v.required<1||v.required>500
+     ||typeof v.required!=='number'||!Number.isSafeInteger(v.required)||v.required<1||v.required>500
      ||typeof v.verification_tier!=='string'||!TIERS.includes(v.verification_tier)
      ||typeof v.source_basis!=='string'||v.source_basis.length>650
      ||typeof v.operability_method!=='string')throw new Error('Invalid trade item');
@@ -80,7 +80,7 @@ export function buildTradeProof(manifest:unknown,cache:unknown,
      if(!object(det)||typeof det.label!=='string'
        ||!IDS.includes(det.label as typeof IDS[number])
        ||det.label==='multimeter'||seen.has(det.label)
-       ||!Number.isSafeInteger(det.count)||det.count<0||det.count>500
+       ||typeof det.count!=='number'||!Number.isSafeInteger(det.count)||det.count<0||det.count>500
        ||!num(det.confidence)||det.confidence<0||det.confidence>1)
         throw new Error('Unverified equipment fixture value');
      seen.add(det.label);

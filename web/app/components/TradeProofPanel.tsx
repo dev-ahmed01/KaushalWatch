@@ -49,7 +49,6 @@ export default function TradeProofPanel(){
    return()=>{active=false;};
  },[retry]);
  const item=proof?.items.find(x=>x.id===selection)||proof?.items[0];
- const inspected=blocked?null:item?.sample_counts.find(x=>x.second===sample);
  return <section className="mt-6 min-w-0 rounded-[20px] border border-[#C9DDED] bg-[#F8FBFE] p-4 sm:p-5"
    aria-label="Trade equipment proof">
    <div className="flex flex-wrap items-start justify-between gap-3">
