@@ -46,9 +46,63 @@ On a secured operator workstation with real infrastructure configured:
 ```bash
 python scripts/migrate_postgres.py --check
 python scripts/check_protected_staging.py --api https://api.example.org --web https://console.example.org
-python scripts/check_pilot_rollout.py --api https://api.example.org --web https://console.example.org --probe-database --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
+python scripts/check_pilot_rollout.py --api https://api.example.org --web https://console.example.org --probe-database --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
 ```
 
 This does not create a pilot. The external owner must verify hosted OIDC MFA/revocation, cloud IAM/KMS and disaster recovery, private source custody, blind physical-camera labels, false-alert burden and real operator approval. The signed-field gate can mark a package ready **to request** sign-off; `pilot_activation` and autonomous enforcement remain blocked.
 
 No existing app service/account was modified or charged by this code release.
+
+## Immutable release lock, OCI revision labels and CI evidence
+
+Container CI now records the actual checked-out Git commit in each API/web
+image's OCI org.opencontainers.image.revision label, and attaches a short-lived
+kw-local-image-evidence.json artifact. For pull requests, GitHub Actions may
+check out a synthetic merge commit, rather than the PR branch head. This CI
+artifact contains only local Docker image IDs and explicitly states it does
+NOT prove registry publication, deployability, or a real site deployment.
+
+The operator must independently publish the audited API and web images in an
+approved private registry, inspect their immutable pullable manifest digests
+and revision labels, then create a private release lock matching this schema.
+Replace the placeholder SHA values with full real lowercase hex strings:
+
+~~~json
+{
+  "schema": "KW_PILOT_RELEASE_LOCK_V1",
+  "source_commit": "FULL_40_CHARACTER_HEX_SHA",
+  "images": {
+    "api": "registry.example.org/project/api@sha256:FULL_64_CHARACTER_HEX_DIGEST",
+    "web": "registry.example.org/project/web@sha256:FULL_64_CHARACTER_HEX_DIGEST"
+  },
+  "database": {
+    "required_migrations": [1, 2, 3],
+    "apply": "separate_approved_migration_only_role",
+    "verify": "scripts/migrate_postgres.py --check"
+  },
+  "rollback": {
+    "on_failed_readiness": "halt_traffic_and_request_operator_review",
+    "database_rollback": "manual_restore_from_verified_isolated_backup_only"
+  }
+}
+~~~
+
+The manifest format gate refuses floating image tags, wrong source revisions,
+omitted v3 schema migration requirements, or destructive automatic rollback
+instructions. It is a *format-only* check; no registry is contacted and no
+credentials are read. Do not mistake a format PASS for a verified registry
+signature, live running digest, production backup/restore, OIDC/IAM inspection
+or real camera assessment.
+
+The roll-forward order remains: inspect and freeze immutable images; verify
+an isolated backup/restore; apply database migrations using a distinct approved
+migration-only identity; run the read-only --check; stage candidate app versions
+without routing protected officer traffic; verify both API and browser
+dependencies plus real HTTPS/OIDC; only then request manual operator acceptance.
+On any failure stop routing pilot traffic. Revert API/web only after checking
+compatibility with the current database. Never automatically reverse the schema
+or restore over active records.
+
+The private pilot gate now also requires the lock and expected source commit.
+No automatic provisioning, publication, migration, DNS mutation or activation
+is performed by this workflow.

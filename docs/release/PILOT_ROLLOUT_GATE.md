@@ -11,7 +11,7 @@ This milestone follows the four completed officer OS/CRM sprints. The new gate c
 
     python scripts/migrate_postgres.py --check
 
-    python scripts/check_pilot_rollout.py --api https://api.example.org --web https://officers.example.org --probe-database --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
+    python scripts/check_pilot_rollout.py --api https://api.example.org --web https://officers.example.org --probe-database --release-lock /secure/releases/release-lock.json --expected-release-commit FULL_40_CHARACTER_HEX_SHA --field-bundle /secure/field/review.json --trusted-public-keys /secure/field/trusted-keys.json --output /secure/receipts/pilot.json
 
 5. A signed field dossier must use KW_CAMERA_FIELD_REVIEW_V1 and three distinct, separately trusted Ed25519 public keys. The frozen measurement and policy validator is the existing evaluation/camera_trust_field_review.py. Raw videos are never read by this gate.
 6. The output is created with exclusive-create mode and private user permissions (0600); it refuses a path anywhere inside the repository. It contains checks and blockers only. No camera source names, Drive IDs, URLs, access tokens, DB credentials, field images or individual trainee data are included.
@@ -27,3 +27,25 @@ External authorization must be recorded and verified outside this script, includ
 The CI suite exercises unsafe transport, missing signed evidence, fake signatures, withheld grants, non-secret receipts, and versioned source-registry isolation. Passing synthetic CI cannot claim real pilot readiness. The prior private worker and dashboard still run in shadow/officer-review mode, with no automatic sanction or compliance incident mutation.
 
 No additional UI modules were added. Officer navigation remains KaushalAI, Centres, Insights, Actions. Real centre pilot setup is a controlled deployment operation, not a demo-video re-upload workflow. Research drafts remain unmerged.
+
+## Immutable image provenance prerequisite
+
+The private pilot gate now requires --release-lock and
+--expected-release-commit together, in addition to live HTTPS, database and
+independent field-dossier checks. Missing or mutable image references, source
+revision mismatch, incomplete schema v3 migrations, or unsafe automatic database
+rollback instructions block eligibility to request operator sign-off.
+
+Run the read-only format check before any real operator-led migration or rollout:
+
+~~~bash
+python scripts/pilot_release_lock.py check \
+  --manifest /secure/releases/release-lock.json \
+  --expected-commit FULL_40_CHARACTER_HEX_SHA
+~~~
+
+The exact JSON contract is in PILOT_PHASE2_CONTAINERS.md. This syntax check does
+NOT verify that registry digests exist, that either image is running, that
+image signatures are trusted, that the rollback image works with migrated
+data, or that field-camera results are valid. The external operator remains
+responsible for independently checking those facts and authorizing the pilot.

@@ -16,6 +16,7 @@ sys.path.insert(0,str(ROOT))
 sys.path.insert(0,str(ROOT/"backend"))
 from scripts.check_camera_trust_deployment import check_environment
 from scripts.check_protected_staging import run_check
+from scripts.pilot_release_lock import load_lock, valid_lock
 from evaluation.camera_trust_field_review import FieldReviewError,signed_dossier
 
 SCHEMA="KW_PILOT_ACCEPTANCE_V1"
@@ -31,9 +32,15 @@ def load_private(path:Path)->dict:
 
 def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
              probe_db:bool=False,field_bundle:dict|None=None,
-             trusted_public_keys:dict|None=None)->dict[str,Any]:
+             trusted_public_keys:dict|None=None,
+             release_lock:dict|None=None,expected_release_commit:str|None=None)->dict[str,Any]:
     config=check_environment("full",env,probe_db=probe_db)
     checks=dict(config["checks"])
+    if release_lock is None and expected_release_commit is None:
+        checks["immutable_release_lock_format"]="NOT_SUBMITTED"
+    else:
+        checks["immutable_release_lock_format"]=("PASS" if
+            valid_lock(release_lock,expected_release_commit) else "BLOCKED")
     if api is None or web is None:
         checks["real_https_readiness"]="NOT_PROBED"
     else:
@@ -82,6 +89,8 @@ def evaluate(env:dict[str,str],*,api:str|None=None,web:str|None=None,
         "operator_actions_remaining":[
             "Real IdP MFA and subject-revocation verification",
             "Independent private S3 IAM/KMS and source custody audit",
+            "Verify actual registry and running image digests against source revision",
+            "Verify rollback image compatibility with current PostgreSQL v3 schema",
             "Real infrastructure backup and disaster-recovery drill",
             "Independent physical camera evidence and operator sign-off",
         ],
@@ -106,10 +115,12 @@ def main()->int:
     p.add_argument("--probe-database",action="store_true")
     p.add_argument("--field-bundle",type=Path)
     p.add_argument("--trusted-public-keys",type=Path)
+    p.add_argument("--release-lock",type=Path)
+    p.add_argument("--expected-release-commit")
     p.add_argument("--output",type=Path)
     args=p.parse_args()
     if args.status:
-        if any((args.api,args.web,args.probe_database,args.field_bundle,args.trusted_public_keys,args.output)):
+        if any((args.api,args.web,args.probe_database,args.field_bundle,args.trusted_public_keys,args.release_lock,args.expected_release_commit,args.output)):
             p.error("--status cannot be combined with other options")
         print(json.dumps(evaluate({}),indent=2))
         return 0
@@ -117,12 +128,16 @@ def main()->int:
         p.error("Supply both HTTPS API and web origins")
     if (args.field_bundle is None)!=(args.trusted_public_keys is None):
         p.error("Independent dossier requires separately trusted public keys")
+    if (args.release_lock is None)!=(args.expected_release_commit is None):
+        p.error("Supply both release lock and expected commit")
     try:
         receipt=evaluate(
             dict(os.environ),api=args.api,web=args.web,
             probe_db=args.probe_database,
             field_bundle=load_private(args.field_bundle) if args.field_bundle else None,
-            trusted_public_keys=load_private(args.trusted_public_keys) if args.trusted_public_keys else None)
+            trusted_public_keys=load_private(args.trusted_public_keys) if args.trusted_public_keys else None,
+            release_lock=load_lock(args.release_lock) if args.release_lock else None,
+            expected_release_commit=args.expected_release_commit)
         if args.output:write_receipt(args.output,receipt)
         else:print(json.dumps(receipt,indent=2))
     except (OSError,ValueError,json.JSONDecodeError):

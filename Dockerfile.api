@@ -2,6 +2,9 @@
 # an operator workstation containing real videos, .env files or cloud secrets.
 FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
+ARG KW_SOURCE_REVISION=untracked
+LABEL org.opencontainers.image.revision=$KW_SOURCE_REVISION \
+      org.opencontainers.image.title="KaushalWatch protected API"
 WORKDIR /srv/kaushalwatch
 RUN apt-get update && apt-get install -y --no-install-recommends \
       libglib2.0-0 libstdc++6 libgomp1 \
