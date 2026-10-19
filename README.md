@@ -61,26 +61,28 @@ A separate opt-in Next.js build now supports short-lived, HttpOnly officer sessi
 
 Protected mode now supports an **encrypted shared Redis REST session store** with server-side expiry and revocation across Next.js instances. CI verifies multi-instance behavior against a loopback-only synthetic Redis emulator; it does **not** validate a live Redis provider or an institutional deployment. A single-process memory registry remains available only through explicit local/test/staging opt-in and is forbidden for production/pilot. This does **not** provide real officer identity provisioning, centre-scoped RBAC, government SSO/MFA, independent compliance accuracy or production certification. See [distributed-session-store.md](docs/release/distributed-session-store.md). Local SIH/demo mode is isolated and separately tested.
 
-## Judge-day start
+## Judge-day start — current controlled four-module release
 
-From the repository root, prepare and verify the deterministic demo state before starting services:
+Start with the **safe Windows PowerShell launcher**, not a direct destructive demo reset. From the repository root after installing Python requirements and web dependencies:
 
-```bash
-python scripts/prepare_demo_state.py --yes
-python scripts/validate_vision_profile.py
-python scripts/check_release_readiness.py
-python scripts/start_demo_backend.py
-```
+~~~powershell
+# Read-only checks: bundled procedural media SHA-256 and deterministic seed, no data writes
+.\scripts\Start-KaushalWatch-Judge.ps1 -PreflightOnly
 
-Then, in a second terminal:
+# Use ONLY on a workspace with demo-only mutable state; refuses actual/unknown case data
+.\scripts\Start-KaushalWatch-Judge.ps1 -ResetSimulatedState
 
-```bash
-cd web
-npm install
-npm run dev
-```
+# Subsequent launch without clearing the saved officer audit state
+.\scripts\Start-KaushalWatch-Judge.ps1
+~~~
 
-The release-readiness check is non-destructive and validates the five-centre product story and frozen configuration. It does not validate the exact stage footage. For strict real-video readiness, use `python scripts/check_demo_readiness.py --video <exact-video> --final` after the authoritative OpenVINO runtime and reviewed clip are present.
+It starts the actual API and Next.js UI on localhost and displays the path to **/demo/mission**. Select the native, keyboard-accessible **60-second** or **3m20s** guided judge route. The final illustrated story moves from attendance gap to camera abstention, item-specific equipment visibility, real saved demo case/audit/PDF, normal negative control, and measured offline metadata (only if a private measured receipt has been loaded). It retains the four primary modules: KaushalAI, Centres, Insights and Actions.
+
+**Important boundaries:** bundled MP4s are procedural recordings, seeded case data are simulated and independently approved institutional attendance/equipment accuracy is NOT QUALIFIED. The default controlled API startup **does not claim authoritative model inference**. To require the existing OpenVINO calibrated profile, explicitly use `-CalibratedModel` after installation; it fails closed if the detector is unavailable. Never run a reset on real institution data. Local UI rendering, drivers, actual speaking duration and institutional footage rights require operator verification.
+
+For Linux or other non-Windows workstations, prepare a dedicated disposable synthetic data workspace and follow [Phase 6 submission runbook](docs/release/PHASE6_SUBMISSION_JUDGE_RUNBOOK.md); do not silently run the unguarded seed command on existing records. The automated preflight/source verifier is `python scripts/verify_judge_sources.py` followed by `python scripts/check_release_readiness.py`. Real footage still has its separate `scripts/check_demo_readiness.py --video <exact-video> --final` gate.
+
+The [60-second guide](docs/demo/command-centre-60s.md) is synchronized with the current mission; the [Phase 6 release runbook](docs/release/PHASE6_SUBMISSION_JUDGE_RUNBOOK.md) is the authoritative judge-day workflow. Source integrity hashes are not human annotations or field certification.
 
 ## Verified attendance benchmark
 
