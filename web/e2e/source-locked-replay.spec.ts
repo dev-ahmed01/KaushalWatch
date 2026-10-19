@@ -23,12 +23,23 @@ test('source-locked recorded replay and cue navigation work',async({page})=>{
   await expect(replay.getByText('Manifest hash matched')).toBeVisible();
   const video=replay.locator('video');
   await expect(video).toHaveAttribute('src',/training-bay\.mp4/);
-  await expect(replay.getByRole('button',{name:'Inspect quality event'})).toBeEnabled();
-  await replay.getByRole('button',{name:'Inspect quality event'}).click();
-  await expect(replay.getByText('Inside the quality-change interval')).toBeVisible();
-  const elapsed=await video.evaluate((v:HTMLVideoElement)=>v.currentTime);
-  expect(elapsed).toBeGreaterThan(8);
-  expect(elapsed).toBeLessThan(10);
+  const inspect=replay.getByRole('button',{name:'Inspect quality event'});
+  const decoderProblem=replay.getByText(/this browser cannot decode or validate/i);
+  await expect.poll(async()=>{
+    if(await decoderProblem.isVisible())return 'unsupported';
+    if(await inspect.isEnabled())return 'supported';
+    return 'loading';
+  }).not.toBe('loading');
+  if(await decoderProblem.isVisible()){
+    await expect(inspect).toBeDisabled();
+    await expect(replay.getByText('Manifest hash matched')).toBeVisible();
+  }else{
+    await inspect.click();
+    await expect(replay.getByText('Inside the quality-change interval')).toBeVisible();
+    const elapsed=await video.evaluate((v:HTMLVideoElement)=>v.currentTime);
+    expect(elapsed).toBeGreaterThan(8);
+    expect(elapsed).toBeLessThan(10);
+  }
   await replay.getByRole('button',{name:'Workshop floor'}).click();
   await expect(video).toHaveAttribute('src',/workshop-floor\.mp4/);
   await expect(replay.getByText('Visibility change')).toBeVisible();

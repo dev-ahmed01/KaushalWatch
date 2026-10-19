@@ -17,18 +17,19 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
   const [selected,setSelected]=useState(CLIP_BY_SCENE[sceneId]);
   const [loading,setLoading]=useState(true);
   const [failed,setFailed]=useState(false);
+  const [decoderFailed,setDecoderFailed]=useState(false);
   const [mediaReady,setMediaReady]=useState(false);
   const [playing,setPlaying]=useState(false);
   const [elapsed,setElapsed]=useState(0);
   const [refresh,setRefresh]=useState(0);
 
   useEffect(()=>{
-    setSelected(CLIP_BY_SCENE[sceneId]);setMediaReady(false);setPlaying(false);setElapsed(0);setFailed(false);
+    setSelected(CLIP_BY_SCENE[sceneId]);setMediaReady(false);setPlaying(false);setElapsed(0);setFailed(false);setDecoderFailed(false);
   },[sceneId]);
 
   useEffect(()=>{
     let active=true;
-    setLoading(true);setFailed(false);setCatalog(null);
+    setLoading(true);setFailed(false);setDecoderFailed(false);setCatalog(null);
     fetch('/api/demo/replay',{cache:'no-store'})
       .then(async response=>{
         const payload=await response.json().catch(()=>null) as ReplayCatalog|null;
@@ -50,7 +51,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
   const blocked=failed||!loading&&!verified;
 
   function selectClip(id:string){
-    setSelected(id);setElapsed(0);setMediaReady(false);setPlaying(false);
+    setSelected(id);setElapsed(0);setMediaReady(false);setPlaying(false);setDecoderFailed(false);
   }
   function seek(second:number){
     if(!player.current||!mediaReady||!clip)return;
@@ -70,7 +71,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
     const okay=Number.isFinite(element.duration)
       && Math.abs(element.duration-clip.duration)<=0.6
       && element.videoWidth===576&&element.videoHeight===324;
-    setMediaReady(okay);setFailed(!okay);
+    setMediaReady(okay);setDecoderFailed(!okay);
   }
 
   return <section aria-label="Source-locked replay" className="mt-6 min-w-0 rounded-[20px] border border-[#DCE7F3] bg-[#F7FAFD] p-4 sm:p-5">
@@ -108,7 +109,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
               className="h-full w-full object-contain"
               src={clip.source_url||undefined} preload="metadata" muted playsInline
               aria-label="Source-verified procedural recorded footage"
-              onLoadedMetadata={verifyMetadata} onError={()=>{setFailed(true);setMediaReady(false);}}
+              onLoadedMetadata={verifyMetadata} onError={()=>{setDecoderFailed(true);setMediaReady(false);}}
               onTimeUpdate={event=>setElapsed(event.currentTarget.currentTime)}
               onSeeked={event=>setElapsed(event.currentTarget.currentTime)}
               onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}/>
@@ -127,6 +128,9 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
               Preparing verified recording…
             </div>}
           </div>
+          {decoderFailed&&<div role="alert" className="mt-3 rounded-lg border border-[#EFD7B4] bg-[#FFF9EF] p-3 text-[11px] text-[#8D5B1B]">
+            Source checksum matched, but this browser cannot decode or validate the recording format. Playback and detections are disabled. Try a browser with H.264 support or prepare a verified alternate encoding.
+          </div>}
           <div className="mt-3">
             <label className="block text-[11px] font-semibold text-[#526A86]" htmlFor="kw-replay-seek">
               Playback position · {time(elapsed)} / {time(clip.duration)}
