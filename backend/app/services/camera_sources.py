@@ -21,8 +21,8 @@ def permitted_aliases(centre_id: str, manifest: list[dict], raw_grants: str | No
         grants=json.loads(raw)
     except (TypeError,ValueError):
         raise HTTPException(503,"Camera source grants are not configured") from None
-    from app.services.demo_network import DEMO_CENTRES
-    valid={r["centre_id"] for r in DEMO_CENTRES}
+    from app.services.demo_network import provisioned_centre_ids
+    valid=provisioned_centre_ids()
     if not isinstance(grants,dict) or not grants or not set(grants).issubset(valid):
         raise HTTPException(503,"Camera source grants are invalid")
     manifest_names={row["name"] for row in manifest

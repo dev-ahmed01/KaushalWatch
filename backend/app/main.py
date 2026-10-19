@@ -37,7 +37,7 @@ from app.services.demo_assets import (
     require_equipment_profile_source,
     build_compliant_demo_cache,
 )
-from app.services.demo_network import DEMO_CENTRES, centre_rows, get_centre
+from app.services.demo_network import DEMO_CENTRES, provisioned_centres, centre_rows, get_centre
 from app.services.analysis_history import AnalysisHistoryStore
 from app.services.compliance_assistant import answer_question
 from app.services.centre_settings import CentreSettingsStore
@@ -125,7 +125,7 @@ ASSISTANT_AUDIO_TYPES = {
 def _network_settings() -> dict[str, dict]:
     return {
         centre["centre_id"]: CENTRE_SETTINGS.get(centre["centre_id"])
-        for centre in DEMO_CENTRES
+        for centre in provisioned_centres()
     }
 
 
@@ -863,7 +863,7 @@ def dashboard(
         "banner": "Prototype — Simulated Operational Data",
         "centres_monitored": (
             4 if principal is None else
-            len(DEMO_CENTRES) if principal.is_admin else len(principal.centres)
+            len(provisioned_centres()) if principal.is_admin else len(principal.centres)
         ),
         "scope": {
             "centre_id": centre_id,

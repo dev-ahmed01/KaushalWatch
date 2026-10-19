@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     environment:
       KAUSHALWATCH_ENV: pilot
+      KAUSHALWATCH_CENTRES_JSON: ${KAUSHALWATCH_CENTRES_JSON:?approved real centre registry is required}
       KAUSHALWATCH_STORAGE_BACKEND: postgres
       KAUSHALWATCH_DATABASE_URL: ${KAUSHALWATCH_DATABASE_URL:?private PostgreSQL DSN required}
       KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON: ${KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON:?private centre source grants required}

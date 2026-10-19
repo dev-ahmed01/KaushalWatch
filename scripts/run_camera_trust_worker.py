@@ -160,8 +160,8 @@ def main():
     try:
         file_rows=load_manifest(manifest)
         from app.services.camera_sources import permitted_aliases
-        from app.services.demo_network import DEMO_CENTRES
-        for centre in DEMO_CENTRES:
+        from app.services.demo_network import provisioned_centres
+        for centre in provisioned_centres():
             permitted_aliases(centre["centre_id"],file_rows)
         from app.services.postgres_store import connection
         with connection() as db:
