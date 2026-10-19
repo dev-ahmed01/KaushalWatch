@@ -47,6 +47,7 @@ def configure_protected(monkeypatch, database):
     monkeypatch.setenv("KAUSHALWATCH_STORAGE_BACKEND","postgres")
     monkeypatch.setenv("KAUSHALWATCH_EVIDENCE_BACKEND","s3")
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE","oidc")
+    monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL","postgresql://fixture.invalid/fixture")
     from app.services import officer_permissions,object_evidence,review_access,postgres_store
     monkeypatch.setattr(officer_permissions,"configured_principals",lambda:{"reviewer":"allowed"})
     monkeypatch.setattr(object_evidence,"configuration",lambda:{"validated":"configuration-only"})
