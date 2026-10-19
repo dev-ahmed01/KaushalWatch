@@ -1,0 +1,65 @@
+# Default-deny: only explicitly reviewed application source and three tiny,
+# SHA-pinned synthetic public preview clips may enter the build context.
+**
+!Dockerfile.api
+!Dockerfile.web
+!backend/
+!backend/requirements.txt
+!backend/app/
+!backend/app/**
+!backend/sql/
+!backend/sql/**
+!configs/
+!configs/**
+!demo/
+!demo/release-assets.example.json
+!demo/cached_detections/
+!demo/cached_detections/construction_electrician.example.json
+!demo/cached_detections/dod_110930728.reviewed.json
+!demo/cached_detections/dod_110930728.reviewed.json.meta.json
+!demo/scenarios/
+!demo/scenarios/final-demo.example.json
+!scripts/
+!scripts/*.py
+!evaluation/
+!evaluation/*.py
+!web/
+!web/app/
+!web/app/**
+!web/public/
+!web/public/camera-trust/
+!web/public/camera-trust/manifest.json
+!web/public/camera-trust/training-bay.mp4
+!web/public/camera-trust/workshop-floor.mp4
+!web/public/camera-trust/east-corridor.mp4
+!web/package.json
+!web/package-lock.json
+!web/postcss.config.mjs
+!web/tsconfig.json
+!web/next-env.d.ts
+# Hard reject local runtime credentials and private outputs, even under
+# previously allowed subtrees.
+**/.env
+**/.env.*
+**/*credential*
+**/*secret*
+**/*token*
+**/*private*
+**/*drive-sources*
+**/*.avi
+**/*.mov
+**/*.mkv
+**/*.webm
+**/*.onnx
+**/*.pt
+**/*.pth
+**/*.db
+**/*.sqlite
+**/*.log
+**/__pycache__/
+**/*.pyc
+# The only MP4 exception is the three immutable, synthetic public clips.
+**/*.mp4
+!web/public/camera-trust/training-bay.mp4
+!web/public/camera-trust/workshop-floor.mp4
+!web/public/camera-trust/east-corridor.mp4
