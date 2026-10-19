@@ -46,3 +46,19 @@ test('presenter shortcuts remain keyboard and mobile accessible without side scr
  await expect(page.getByRole('heading',{name:'Camera is obstructed'})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)).toBe(false);
 });
+
+
+test('switching chapters does not refetch the entire case ledger repeatedly',async({page})=>{
+ let caseLists=0;
+ await page.route('**/api/cases',async route=>{
+   caseLists++;
+   await route.continue();
+ });
+ await page.goto('/demo/mission');
+ await expect(page.getByRole('region',{name:'Officer evidence chain'}).getByText('Controlled case')).toBeVisible();
+ await page.getByRole('button',{name:/Camera is obstructed/}).click();
+ await page.getByRole('button',{name:/Equipment visibility/}).click();
+ await page.getByRole('button',{name:/No exception needed/}).click();
+ await expect(page.getByRole('region',{name:'Officer evidence chain'})).toContainText('no exception case is required');
+ expect(caseLists).toBe(1);
+});
