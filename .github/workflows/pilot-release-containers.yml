@@ -49,17 +49,30 @@ jobs:
           done
           python -c "import json; x=json.load(open('/tmp/kw-container-health.json')); assert x['ok'] is True"
           curl --fail --silent http://127.0.0.1:18080/api/ready | python -c "import sys,json; assert json.load(sys.stdin)=={'ready':True}"
-      - name: Exercise protected browser without an officer session
+      - name: Confirm protected browser rejects missing production session configuration
         run: |
           docker run -d --name kw-web-smoke -p 127.0.0.1:13030:3000 kw-web:ci
+          code=000
+          for i in {1..40}; do
+            code="$(curl -s -o /tmp/kw-web-auth.json -w '%{http_code}' http://127.0.0.1:13030/api/auth/status || true)"
+            if test "$code" = 503; then break; fi
+            sleep 1
+          done
+          if test "$code" != 503; then docker logs kw-web-smoke; exit 1; fi
+          python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['authenticated'] is False and x['detail']=='Officer session storage unavailable.'"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 503
+          docker rm -f kw-web-smoke
+      - name: Confirm anonymous proxy denial with isolated synthetic session configuration
+        run: |
+          docker run -d --name kw-web-smoke -p 127.0.0.1:13030:3000 \
+            -e KAUSHALWATCH_ENV=staging \
+            -e KAUSHALWATCH_ALLOW_EPHEMERAL_SESSIONS=true \
+            -e KAUSHALWATCH_SESSION_STORE=memory kw-web:ci
           for i in {1..40}; do
             if curl --fail --silent http://127.0.0.1:13030/api/auth/status > /tmp/kw-web-auth.json; then break; fi
             sleep 1
           done
-          if ! test -s /tmp/kw-web-auth.json; then
-            docker logs kw-web-smoke 2>&1 | tail -100
-            exit 1
-          fi
+          if ! test -s /tmp/kw-web-auth.json; then docker logs kw-web-smoke; exit 1; fi
           python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['identityMode']=='oidc' and x['authenticated'] is False"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 401
       - name: Cleanup isolated smoke services
