@@ -32,7 +32,7 @@ test('research replay labels supplied annotations without fake AI counts',async(
  const panel=page.getByRole('region',{name:'Private research replay'});
  await expect(panel.getByRole('heading',{name:'Annotated camera-quality study'})).toBeVisible();
  await expect(panel.getByText('covered interval')).toBeVisible();
- await expect(panel.getByText(/not from a skill-training centre/)).toBeVisible();
+ await expect(panel.getByText(/not a skill-training centre/)).toBeVisible();
  await expect(panel.locator('video')).toHaveAttribute('src',/quality-covered\/media/);
  await panel.getByRole('button',{name:'Normal control'}).click();
  await expect(panel.getByText('No incident annotated')).toBeVisible();
