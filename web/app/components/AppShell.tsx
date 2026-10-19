@@ -89,16 +89,16 @@ function AppShellContent({ children }: { children: ReactNode }) {
       <a href="#main-content" className="kw-skip-link">Skip to content</a>
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-[var(--kw-border)] bg-white transition-[width] duration-200 md:flex',
-          collapsed ? 'w-[72px]' : 'w-[208px]',
+          'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-[#E7EDF5] bg-[#FCFDFF] transition-[width] duration-200 md:flex',
+          collapsed ? 'w-[72px]' : 'w-[224px]',
         )}
       >
-        <div className={cn('flex h-[68px] items-center border-b border-[#EEF2F6]', collapsed ? 'justify-center px-3' : 'justify-between px-4')}>
+        <div className={cn('flex h-[78px] items-center border-b border-[#EEF2F6]', collapsed ? 'justify-center px-3' : 'justify-between px-4')}>
           <Link href="/" className="kw-focus flex min-w-0 items-center gap-2.5 rounded-xl">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--kw-accent-soft)] text-[var(--kw-accent)]">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#1E4EA3]">
               <ShieldCheck size={19} />
             </span>
-            {!collapsed && <span className="truncate text-[16px] font-semibold tracking-[-0.02em] text-[var(--kw-text)]">KaushalWatch</span>}
+            {!collapsed && <span className="min-w-0"><strong className="kw-brand-title block truncate text-[18px] font-bold leading-[1.2] text-[#142841]">KaushalWatch</strong><small className="mt-1 block text-[9px] font-semibold uppercase tracking-[.17em] text-[#8A9BB1]">OPERATIONS OS</small></span>}
           </Link>
           {!collapsed && (
             <Button variant="ghost" size="icon" onClick={() => setCollapsed(true)} aria-label="Collapse navigation">
@@ -118,10 +118,10 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 aria-current={selected ? 'page' : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  'kw-focus flex h-11 items-center rounded-xl text-[14px] font-medium transition-colors',
+                  'kw-focus kw-os-navlink flex h-11 items-center rounded-xl text-[13px] font-medium transition-colors',
                   collapsed ? 'justify-center' : 'gap-3 px-3',
                   selected
-                    ? 'bg-[var(--kw-accent-soft)] text-[var(--kw-accent-strong)]'
+                    ? 'bg-[#ECF3FF] text-[#1B56B7]'
                     : 'text-[#5D6B82] hover:bg-[#F7F9FC] hover:text-[#344054]',
                 )}
               >
@@ -139,18 +139,18 @@ function AppShellContent({ children }: { children: ReactNode }) {
             </Button>
           ) : (
             <div className="px-2 py-1.5">
-              <div className="text-[11px] font-medium text-[#667085]">Evidence-assistance mode</div>
-              <div className="mt-1 text-[11px] text-[#98A2B3]">AI surfaces evidence. Officers decide.</div>
+              <div className="flex items-center gap-2 text-[11px] font-medium text-[#50627B]"><span className="h-2 w-2 rounded-full bg-[#0B996A]"/> Officer workspace</div>
+              <div className="mt-1 text-[10px] text-[#98A2B3]">Human-reviewed decisions</div>
             </div>
           )}
         </div>
       </aside>
 
-      <div className={cn('min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[208px]')}>
-        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-[#EEF2F6] bg-[#F7F9FC]/95 px-4 backdrop-blur-sm md:h-[68px] md:px-8">
+      <div className={cn('kw-os-page min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[224px]')}>
+        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-[#E5EAF2] bg-[#FFFFFF]/92 px-4 backdrop-blur-xl md:h-[78px] md:px-8">
           <div>
-            <div className="hidden text-[12px] text-[#98A2B3] sm:block">PMKVY Compliance Intelligence</div>
-            <div className="text-[13px] font-medium text-[#475467] sm:mt-0.5">{activeLabel}</div>
+            <div className="hidden text-[10px] font-semibold uppercase tracking-[.14em] text-[#95A2B6] sm:block">Training centre operations</div>
+            <div className="kw-brand-title text-[16px] font-semibold text-[#253F61] sm:mt-0.5">{activeLabel}</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1200px] px-4 py-6 pb-24 sm:px-6 md:px-8 md:py-9 md:pb-9">{children}</main>
+        <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1280px] px-4 py-6 pb-24 sm:px-6 md:px-9 md:py-8 md:pb-10">{children}</main>
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E6EAF0] bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden" aria-label="Mobile primary navigation">
