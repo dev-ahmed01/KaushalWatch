@@ -128,3 +128,27 @@ def test_symlinked_evidence_directory_is_rejected(tmp_path):
  (aliased/"evidence").symlink_to(target,target_is_directory=True)
  with pytest.raises(ValueError,match="Unsafe evidence"):
   guard.validate(aliased)
+
+
+def test_stale_edge_queue_and_scheduler_block_clean_judge_reseed(tmp_path):
+ path=tmp_path/"data"
+ prepare_demo_state(path)
+ (path/"edge").mkdir(exist_ok=True)
+ write_json(path/"edge"/"queue.json",[{"event_id":"EDGE-OLD-EVENT","payload":{"centre_id":"DEMO-KA-104"}}])
+ with pytest.raises(ValueError,match="Pending local edge"):
+  guard.validate(path)
+ write_json(path/"edge"/"queue.json",[])
+ write_json(path/"edge"/"schedule-state.json",{"last_run":"yesterday"})
+ with pytest.raises(ValueError,match="Pending local edge"):
+  guard.validate(path)
+ write_json(path/"edge"/"schedule-state.json",{})
+ assert guard.validate(path)["safe_to_reset_simulated_state"] is True
+
+
+def test_symlinked_data_root_cannot_retarget_safe_demo_reset(tmp_path):
+ data=tmp_path/"real-data"
+ prepare_demo_state(data)
+ alias=tmp_path/"fake-demo"
+ alias.symlink_to(data,target_is_directory=True)
+ with pytest.raises(ValueError,match="root cannot be symlinked"):
+  guard.validate(alias)
