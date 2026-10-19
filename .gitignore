@@ -72,3 +72,6 @@ coverage/
 
 # Locally supplied source-locked replay receipts; never commit observation files.
 web/.controlled-replay/
+
+# Never commit operator-local research manifests or original selection clips
+kw-research-replay.local.json

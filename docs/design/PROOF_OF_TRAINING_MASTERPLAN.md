@@ -32,6 +32,8 @@ Controlled fixture scenes with attendance shortfall, obstructed camera, missing 
 Phase 2A implements a SHA-pinned procedural clip replay with timestamped authored quality cues and optional strictly source-matched, operator-imported inference receipts. This does not assert that the procedural clip proves attendance counts; actual approved private-CCTV admission remains an external integration (see `docs/demo/SOURCE_LOCKED_REPLAY.md`).
 Use already-authorised local/private footage, with no upload loop. Exact source SHA-256, frozen OpenVINO model/profile, replay with timestamps, evidence overlays derived from actual inference, camera quality events. Clear label: recorded playback, never disguised as a live stream. Fail closed on missing source, unsupported permission or mismatched hash. Pass: replay reproducible and coverage bounded.
 
+Phase 2B adds an opt-in, loopback-only, SHA-locked replay of four existing MEVA/UHCTD research clips from the user's private local cache. Day-3 annotated covered, defocused, moved and normal-control intervals are labelled as research interventions, never live physical camera diagnoses. No Drive video or identifiers are committed, and no runtime uploads are made. See docs/demo/CONTROLLED_DRIVE_RESEARCH_REPLAY.md.
+
 ### Phase 3 — Manifest and practical proof
 Connect trade manifest to visible item types and numbers, verify ROI, frames and equipment temporally. Distinguish not-visible from absent; apparent motion from mechanical health. Add work-zone activity with independently verified authorization. Pass: source-locked item recall/precision and difficult negative clips.
 
