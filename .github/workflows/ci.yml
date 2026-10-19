@@ -135,7 +135,9 @@ jobs:
         run: |
           pg_dump --version
           pg_restore --version
-          python scripts/drill_postgres_restore.py
+          python scripts/drill_postgres_restore.py > /tmp/kw-isolated-restore.json
+          python -c 'import json; x=json.load(open("/tmp/kw-isolated-restore.json")); assert x["status"]=="passed_isolated_ci_restore"; assert x["tables_verified"]==11; assert x["officer_review_history_restored"] is True; assert x["camera_shadow_review_restored"] is True; assert x["camera_audit_hash_chain_restored"] is True; assert all(x[k]>=1 for k in ("camera_registry_rows","camera_jobs_rows","camera_observations_rows","camera_audit_events"))'
+          cat /tmp/kw-isolated-restore.json
 
 
   frontend:

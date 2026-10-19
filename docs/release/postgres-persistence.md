@@ -99,3 +99,20 @@ database.
 
 **Claims:** The new system is a validated structured-data persistence layer
 with synthetic PostgreSQL CI, not a government-certified compliance datastore.
+
+
+## v3 Camera Trust restore coverage (isolated CI)
+
+The release CI PostgreSQL dump/restore test now compares all ten v3 protected
+tables plus \`kw_schema_migrations\` (11 total), not only the original six.
+It plants **synthetic-only** Camera Trust registry, approved reference,
+completed job, reviewed observation and chained audit records; then verifies
+their structure, digest chain and the immutable audit trigger after restoration.
+The original reviewed officer case sentinel is also checked.
+
+Results are nonsecret row counts and booleans only. This still does **not**
+validate real hosted backups, S3 evidence bytes, KMS keys, deployment downtime,
+physical camera performance or actual disaster-recovery RPO/RTO. The tool
+only accepts a local, disposable \`kaushalwatch_ci\` database with an explicit
+CI marker and rejects alternate libpq destination overrides. Real recovery
+work requires a separately approved and isolated operator procedure.
