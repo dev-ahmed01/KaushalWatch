@@ -5,6 +5,8 @@ validation footage. Must never be used as evidence of detector accuracy.
 """
 from pathlib import Path
 import math
+import hashlib
+import json
 import subprocess
 import tempfile
 import cv2
@@ -99,6 +101,14 @@ def make(out:Path):
                 "-pix_fmt","yuv420p","-movflags","+faststart",str(dst)],check=True)
             assert dst.stat().st_size>10000
             print(name, dst.stat().st_size)
+    receipt={
+      "schema":"KW_SUBMISSION_SAMPLE_MEDIA_V1",
+      "provenance":"PROCEDURALLY_GENERATED_RECORDING_NOT_REAL_CCTV",
+      "clips":{stem:{"sha256":hashlib.sha256((out/(stem+".mp4")).read_bytes()).hexdigest()}
+               for stem,_,_,_,_ in SCENES}
+    }
+    (out/"manifest.json").write_text(json.dumps(receipt,indent=2,sort_keys=True)+"\n",
+                                      encoding="utf-8")
 
 if __name__=="__main__":
     make(Path("web/public/camera-trust"))
