@@ -37,6 +37,8 @@ Phase 2B adds an opt-in, loopback-only, SHA-locked replay of four existing MEVA/
 ### Phase 3 — Manifest and practical proof
 Connect trade manifest to visible item types and numbers, verify ROI, frames and equipment temporally. Distinguish not-visible from absent; apparent motion from mechanical health. Add work-zone activity with independently verified authorization. Pass: source-locked item recall/precision and difficult negative clips.
 
+Phase 3A adds the existing Construction Electrician–LV trade manifest with explicitly simulated numeric quantities, three authored cached sample windows, per-item camera/manual visibility tiers, equipment-specific explanation and blocked-camera abstention (docs/demo/TRADE_PROOF_MATRIX.md). It deliberately does not claim detector execution, independent per-class TP/FP/FN or source-locked tool detection. Actual training-equipment video, held-out labels and practical-work authorization remain Phase 3B gates tracked in issue #103.
+
 ### Phase 4 — Offline transport proof
 Disconnect edge network, actually queue sanitized events, reconnect, measure transmitted bytes, duplicate acknowledgements, retry idempotence. No guaranteed 5KB claim without measurement. Pass: interruption/recovery integration and real byte metrics.
 
