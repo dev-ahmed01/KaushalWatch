@@ -408,6 +408,9 @@ jobs:
           done
           echo "Synthetic SSO browser did not start" >&2
           exit 1
+      - name: Verify durable Redis session readiness using synthetic CI store
+        run: |
+          curl -fsS http://127.0.0.1:3003/api/auth/readiness | python -c 'import json,sys;assert json.load(sys.stdin)=={"ready":True,"mode":"protected"}'
       - name: Run credential-free synthetic deployment preflight
         run: |
           python scripts/check_protected_staging.py \

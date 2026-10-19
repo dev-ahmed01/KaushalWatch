@@ -61,6 +61,7 @@ jobs:
           if test "$code" != 503; then docker logs kw-web-smoke; exit 1; fi
           python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['authenticated'] is False and x['detail']=='Officer session storage unavailable.'"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 503
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/auth/readiness)" = 503
           docker rm -f kw-web-smoke
       - name: Confirm anonymous proxy denial with isolated synthetic session configuration
         run: |
@@ -75,6 +76,26 @@ jobs:
           if ! test -s /tmp/kw-web-auth.json; then docker logs kw-web-smoke; exit 1; fi
           python -c "import json; x=json.load(open('/tmp/kw-web-auth.json')); assert x['mode']=='protected' and x['identityMode']=='oidc' and x['authenticated'] is False"
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/proxy/api/cases)" = 401
+          # Deliberate synthetic memory sessions must never qualify as durable.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/auth/readiness)" = 503
+          docker rm -f kw-web-smoke
+      - name: Reject unreachable Redis even while anonymous auth status is 200
+        run: |
+          docker run -d --name kw-web-smoke -p 127.0.0.1:13030:3000 \
+            -e KAUSHALWATCH_ENV=pilot \
+            -e KAUSHALWATCH_SESSION_STORE=redis-rest \
+            -e KAUSHALWATCH_SESSION_REDIS_REST_URL=http://127.0.0.1:6399 \
+            -e KAUSHALWATCH_SESSION_REDIS_REST_TOKEN=CI_Synthetic_UnreachableRedisToken_0123456789abcdef \
+            -e KAUSHALWATCH_SESSION_ENCRYPTION_KEY=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA= \
+            kw-web:ci
+          for i in {1..40}; do
+            if test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/auth/status)" = 200; then break; fi
+            sleep 1
+          done
+          # Regression: missing cookie does not require Redis, but readiness does.
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:13030/api/auth/status)" = 200
+          test "$(curl -s -o /tmp/kw-web-session-unready.json -w '%{http_code}' http://127.0.0.1:13030/api/auth/readiness)" = 503
+          python -c "import json; x=json.load(open('/tmp/kw-web-session-unready.json')); assert x=={'ready':False,'mode':'protected'}"
       - name: Cleanup isolated smoke services
         if: always()
         run: docker rm -f kw-api-smoke kw-web-smoke 2>/dev/null || true

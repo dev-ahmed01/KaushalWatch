@@ -54,6 +54,15 @@ def run_check(api: str, web: str, *, synthetic: bool) -> dict:
             and status.get("identityMode") == "oidc"
             and status.get("authenticated") is False
             and "no-store" in headers.headers.get("cache-control", ""))
+        # Anonymous auth/status returns without a Redis GET when no cookie is
+        # present. A reachable, authenticated durable session backend needs its
+        # own read-only check or a broken Redis service can appear ready.
+        session = fetch(web, "/api/auth/readiness")
+        checks["browser_durable_session_store_reachable"] = (
+            session.status_code == 200
+            and session.json() == {"ready": True, "mode": "protected"}
+            and "no-store" in session.headers.get("cache-control", "")
+        )
         browser = fetch(web, "/api/proxy/api/cases")
         checks["browser_anonymous_proxy_denied"] = browser.status_code == 401
         sso = fetch(web, "/api/auth/oidc/start")
