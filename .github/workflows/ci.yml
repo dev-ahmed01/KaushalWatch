@@ -40,6 +40,10 @@ jobs:
         run: |
           python scripts/rehearse_offline_transport.py --out /tmp/kw-phase4-offline.json
           python -c 'import json; x=json.load(open("/tmp/kw-phase4-offline.json")); assert x["status"]=="measured_loopback_fixture_not_field_qualified" and x["network_cut_verified"] and x["lost_ack_idempotent_reack"] and x["delivered"]==2 and x["remaining"]==0 and x["observed_request_body_bytes_final"]>0 and x["raw_video_uploaded"] is False'
+      - name: Produce fail-closed six-pillar qualification scorecard
+        run: |
+          python evaluation/proof_of_training_scorecard.py --out /tmp/kw-phase5-scorecard.json
+          python -c 'import json; x=json.load(open("/tmp/kw-phase5-scorecard.json")); assert x["qualified"] is False and len(x["pillars"])==6 and all(y["state"]=="not_qualified" and y["metric"] is None for y in x["pillars"].values())'
       - name: Verify held-out accuracy gate fails closed without real footage
         run: |
           set +e
@@ -173,6 +177,8 @@ jobs:
         run: node --experimental-strip-types --test app/lib/server/equipment-replay.test.mjs
       - name: Verify measured transport private presentation and protection
         run: node --experimental-strip-types --test app/lib/server/offline-report.test.mjs
+      - name: Enforce scorecard private receipt and anti-fabrication policy
+        run: node --experimental-strip-types --test app/lib/server/scorecard-report.test.mjs
       - run: npm run build
 
   e2e:

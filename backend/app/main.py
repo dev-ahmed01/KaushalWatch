@@ -1127,10 +1127,13 @@ def list_cases(request: Request):
 
 
 @app.get("/api/cases/{case_id}/evidence-pack")
-def get_evidence_pack(case_id: str):
+def get_evidence_pack(case_id: str, request: Request):
     case = STORE.get(case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+    # Match list/report/evidence access boundaries: the case ID must not
+    # reveal another centre's saved images, decision notes or audit history.
+    require_centre(request, case.centre_id)
     return redact_local_evidence_paths(build_evidence_review_pack(
         case=case,
         history=HISTORY.list(centre_id=case.centre_id, limit=500),
