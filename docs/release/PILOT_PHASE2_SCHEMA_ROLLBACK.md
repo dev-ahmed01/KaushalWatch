@@ -55,3 +55,29 @@ alone does not prove a trustworthy certificate; the real PostgreSQL connection
 must succeed. Local demos and non-strict synthetic CI staging preserve existing
 disposable connectivity. Do not relax this guard to accommodate an unapproved
 cloud database. Keep migrations in a separate authorized operation.
+
+
+## Complete v3 isolated backup/restore verification (follow-up)
+
+The isolated PostgreSQL CI restore drill now verifies **all 11** expected
+tables: the ten protected runtime tables (including Camera Trust registry,
+references, jobs, observations and immutable audit) plus the version ledger.
+It inserts synthetic-only, explicitly nonqualified Camera Trust state with an
+independent reviewer decision and two chained audit entries into disposable
+\`kaushalwatch_ci\`, alongside the existing synthetic officer-review sentinel.
+
+After dumping and restoring into a separate temporary CI database, it checks
+canonical row counts and SHA-256 summaries for every table, restores reviewed
+Camera Trust state, recomputes the linked audit event hashes and checks the
+audit's no-update trigger still exists and is enabled. CI asserts these fields
+from the machine-readable report. It neither reads real camera files nor
+certifies real PostgreSQL media/object-store recovery.
+
+**Guard:** the drill refuses all non-local/non-\`kaushalwatch_ci\` targets,
+protected pilot/production environments, libpq hostaddr/service overrides and
+ambient PGHOSTADDR/PGSERVICE/PGSERVICEFILE overrides before making connections,
+creating databases, invoking pg_dump, or calling pg_restore. The generated
+restore DB is forcibly removed only in the explicitly disposable CI namespace.
+Never run the isolated CI restore drill on a real deployment. A real-site
+recovery exercise remains an independent operator-owned operation, including
+actual PostgreSQL backup history, S3/KMS retention and verified RPO/RTO.
