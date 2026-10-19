@@ -8,10 +8,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
-from scripts.reset_demo_state import MUTABLE_FILES, MUTABLE_DIRS
-
 ROOT=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(ROOT))
+from scripts.reset_demo_state import MUTABLE_FILES
+
 DEMO_IDS=frozenset(("DEMO-KA-104","DEMO-KA-112","DEMO-KA-207",
                     "DEMO-KA-303","DEMO-KA-509","DEMO-KA-601"))
 
