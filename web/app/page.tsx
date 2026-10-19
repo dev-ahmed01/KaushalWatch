@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Building2, CheckCircle2, CircleAlert, CircleHelp, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { StatusPill } from './components/CalmUi';
 import { buttonVariants } from './components/ui/button';
@@ -97,155 +97,100 @@ export default function KaushalAIHome() {
         counts.uncertain + ' centre has an uncertain conclusion because camera trust dropped.',
       ];
 
+  const topAction = recommendations[0] || null;
+
   return (
-    <div>
-      <header className="mb-7">
-        <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
-          <Sparkles size={14} />
-          Grounded daily intelligence
+    <div className="space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[.15em] text-[#8B9AB2]">Operational overview</p>
+          <h1 className="mt-1 text-[34px] font-bold tracking-[-.04em] text-[var(--kw-text)]">KaushalAI</h1>
         </div>
-        <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">KaushalAI</h1>
-        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">What changed, what needs attention, and what to do next.</p>
+        <Link href="/actions" className="kw-focus inline-flex items-center gap-2 rounded-xl border border-[#D8E4F3] bg-white px-4 py-2 text-[12px] font-semibold text-[#365578] hover:bg-[#F5F9FF]">
+          Review queue <ArrowRight size={15}/>
+        </Link>
       </header>
 
-      {error && !loading && (
-        <div role="alert" className="mb-5 rounded-xl border border-[#F2D3A2] bg-[#FFFBF5] px-5 py-4 text-[13px] leading-5 text-[#8A4B12]">
-          {error}
-        </div>
-      )}
+      {error && !loading && <div role="alert" className="rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-3 text-[12px] text-[#88591D]">{error}</div>}
 
-      <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-8 py-8 shadow-[var(--kw-shadow)]">
-        <div className="relative z-10 max-w-[720px]">
-          <div className="flex items-center gap-2">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#7C8AA5]">{periodLabel}</div>
-            {(brief?.simulated || usingFallback) && (
-              <span className="rounded-full bg-[#F2F4F7] px-2 py-0.5 text-[10px] font-medium text-[#667085]">
-                {usingFallback ? 'Simulated fallback' : 'Simulated demo data'}
-              </span>
-            )}
+      <section className="kw-os-hero rounded-[22px] border border-[#DFE8F5] px-6 py-7 shadow-[var(--kw-shadow)] sm:px-8 sm:py-9">
+        <div className="relative z-10 max-w-[760px]">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#647E9F]">{periodLabel}</span>
+            {(brief?.simulated || usingFallback) && <span className="rounded-full bg-white/75 px-2 py-1 text-[10px] font-medium text-[#6B7890]">{usingFallback ? 'Simulated fallback' : 'Simulated demo data'}</span>}
           </div>
-
-          <h2 className="mt-3 text-[30px] font-semibold leading-[1.18] tracking-[-0.035em] text-[var(--kw-text)]">
+          <h2 className="mt-4 max-w-[610px] text-[clamp(25px,3.3vw,38px)] font-bold leading-[1.18] text-[#1F3958]">
             {brief?.headline || counts.verified + ' of ' + counts.total + ' centres are verified.'}
           </h2>
-
-          <div className="mt-6 space-y-3">
-            {bullets.map((text, index) => (
-              <BriefLine
-                key={text}
-                icon={index === 0 ? CheckCircle2 : index === 1 ? CircleAlert : CircleHelp}
-                tone={index === 0 ? 'verified' : index === 1 ? 'review' : 'uncertain'}
-                text={text}
-              />
-            ))}
-          </div>
-
-          {priority && (
-            <div className="mt-7 flex items-center gap-4">
-              <Link href={priority.href} className={buttonVariants({ variant: 'primary' })}>
-                {priority.label}
-                <ArrowRight size={15} />
-              </Link>
-              <span className="text-[12px] text-[#98A2B3]">{priority.centre_name} · recommended first</span>
-            </div>
-          )}
-
-          <div className="mt-6 border-t border-[#EEF2F6] pt-4 text-[11px] text-[#98A2B3]">
-            {loading ? (
-              <span>Refreshing grounded evidence…</span>
-            ) : brief ? (
-              <span>
-                Grounded in {brief.source_counts.analysis_rows_in_period} analysis runs in this period · {brief.source_counts.unresolved_or_confirmed_cases} active or confirmed cases
-              </span>
-            ) : (
-              <span>{error}</span>
-            )}
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute -right-14 -top-16 h-72 w-72 rounded-full bg-[#F1F6FD]" />
-        <div className="pointer-events-none absolute right-12 top-1/2 flex h-24 w-24 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F8FBFF] text-[#94AED2]">
-          <Building2 size={38} strokeWidth={1.2} />
+          <p className="mt-3 max-w-[630px] text-[13px] leading-6 text-[#526B87]">
+            {bullets[1] || 'Evidence-backed discrepancies appear here for officer follow-up.'}
+          </p>
+          {priority&&<div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link href={priority.href} className={buttonVariants({variant:'primary'})}>
+              {priority.label} <ArrowRight size={14}/>
+            </Link>
+            <span className="text-[12px] font-medium text-[#647B96]">{priority.centre_name}</span>
+          </div>}
         </div>
       </section>
 
-      <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_300px]">
-        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
-          <div className="mb-2 flex items-start justify-between">
-            <div>
-              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Centres at a glance</h2>
-              <p className="mt-0.5 text-[12px] text-[#98A2B3]">Current state · selected-period context</p>
-            </div>
-            <Link href="/centres" className="kw-focus rounded-md text-[12px] font-medium text-[var(--kw-accent-strong)]">View all</Link>
-          </div>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Network verification statistics">
+        {[
+          ['Centres',counts.total,'/centres'],
+          ['Need review',counts.review,'/actions'],
+          ['Uncertain',counts.uncertain,'/centres'],
+          ['Verified',counts.verified,'/insights'],
+        ].map(([label,value,href])=><Link href={String(href)} key={String(label)}
+          className="kw-focus kw-os-card px-4 py-4 transition-colors hover:bg-[#FBFDFF] sm:px-5">
+          <div className="text-[11px] font-medium text-[#76879D]">{label}</div>
+          <div className="kw-os-stat mt-2 text-[32px] font-semibold tabular-nums text-[#243B55]">{value}</div>
+        </Link>)}
+      </section>
 
-          <div className="divide-y divide-[#EEF2F6]">
-            {centres.map(centre => (
-              <Link
-                href={centre.href}
-                key={centre.centre_id}
-                className="kw-focus grid gap-2 rounded-md py-4 transition-colors hover:bg-[#FBFCFE] md:grid-cols-[170px_1fr_auto] md:items-center"
-              >
-                <div>
-                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{centre.name}</div>
-                  <div className="mt-0.5 text-[11px] text-[#98A2B3]">{centre.district}</div>
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-[12px] text-[var(--kw-muted)]">{centre.reason}</div>
-                  {centre.period_analysis_count > 0 && (
-                    <div className="mt-0.5 text-[10px] text-[#98A2B3]">{centre.period_analysis_count} analysis runs in {periodLabel.toLowerCase()}</div>
-                  )}
-                </div>
-                <StatusPill state={centre.state} />
-              </Link>
-            ))}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(270px,.75fr)]">
+        <section className="kw-os-card min-w-0 p-5 sm:p-6">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div><h2 className="text-[18px] font-semibold">Centres at a glance</h2>
+              <p className="mt-0.5 text-[11px] text-[#8190A4]">{counts.total} monitored centres</p></div>
+            <Link href="/centres" className="kw-focus text-[12px] font-semibold text-[#1E61C9]">View all</Link>
+          </div>
+          <div className="divide-y divide-[#EDF1F6]">
+            {centres.map(item=><Link href={item.href} key={item.centre_id}
+              className="kw-focus flex min-w-0 items-center justify-between gap-3 rounded-lg py-3.5 transition hover:bg-[#FAFCFF]">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold text-[#233950]">{item.name}</p>
+                <p className="mt-0.5 truncate text-[11px] text-[#7A8BA2]">{item.reason}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <StatusPill state={item.state}/>
+                <ArrowRight size={14} className="hidden text-[#9BAFC3] sm:block"/>
+              </div>
+            </Link>)}
+            {!centres.length&&!loading&&<p className="py-5 text-[13px] text-[#7C8BA0]">No centre records available.</p>}
           </div>
         </section>
-
-        <aside className="rounded-[18px] border border-[var(--kw-border)] bg-white px-5 py-5 shadow-[var(--kw-shadow)]">
-          <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Recommended next</h2>
-          <p className="mt-1 text-[12px] text-[#98A2B3]">Ranked from current evidence and escalation state.</p>
-
-          <div className="mt-3 divide-y divide-[#EEF2F6]">
-            {recommendations.map((item, index) => (
-              <Link href={item.href} key={item.centre_id} className="kw-focus flex items-start gap-3 rounded-md py-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FFF4E5] text-[12px] font-semibold text-[#B54708]">{index + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-semibold text-[var(--kw-text)]">{item.centre_name}</div>
-                  <div className="mt-1 text-[12px] leading-5 text-[var(--kw-muted)]">{item.reason}</div>
-                  <div className="mt-1.5 text-[11px] font-medium text-[var(--kw-accent-strong)]">{item.label}</div>
-                </div>
-                <ArrowRight size={14} className="mt-1 text-[#98A2B3]" />
-              </Link>
-            ))}
+        <aside className="kw-os-card min-w-0 p-5 sm:p-6">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-[18px] font-semibold">Needs attention</h2>
+            <span className="text-[11px] font-medium text-[#8190A4]">{recommendations.length}</span>
           </div>
+          <div className="divide-y divide-[#EEF2F6]">
+            {recommendations.slice(0,4).map((item,index)=><Link href={item.href} key={item.centre_id}
+              className="kw-focus flex gap-3 py-3.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#EFF5FF] text-[11px] font-semibold text-[#3164A1]">{index+1}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12px] font-semibold text-[#243B55]">{item.centre_name}</div>
+                <div className="mt-1 line-clamp-2 text-[11px] leading-5 text-[#718199]">{item.reason}</div>
+              </div>
+              <ArrowRight size={14} className="mt-1 shrink-0 text-[#8EA3B8]"/>
+            </Link>)}
+            {!recommendations.length&&<p className="py-5 text-[12px] text-[#718199]">No follow-ups queued.</p>}
+          </div>
+          {topAction&&<Link href="/actions" className="kw-focus mt-3 inline-flex items-center gap-2 text-[12px] font-semibold text-[#2563EB]">Open actions <ArrowRight size={14}/></Link>}
         </aside>
       </div>
     </div>
   );
+
 }
 
-function BriefLine({
-  icon: Icon,
-  tone,
-  text,
-}: {
-  icon: typeof CheckCircle2;
-  tone: 'verified' | 'review' | 'uncertain';
-  text: string;
-}) {
-  const tones = {
-    verified: 'bg-[var(--kw-verified-bg)] text-[var(--kw-verified)]',
-    review: 'bg-[var(--kw-review-bg)] text-[var(--kw-review)]',
-    uncertain: 'bg-[var(--kw-neutral-bg)] text-[var(--kw-neutral)]',
-  };
-
-  return (
-    <div className="flex items-center gap-3">
-      <span className={'flex h-8 w-8 shrink-0 items-center justify-center rounded-full ' + tones[tone]}>
-        <Icon size={16} />
-      </span>
-      <span className="text-[14px] text-[#475467]">{text}</span>
-    </div>
-  );
-}

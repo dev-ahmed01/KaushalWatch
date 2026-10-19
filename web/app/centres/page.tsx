@@ -13,6 +13,8 @@ export default function CentresPage() {
   const [centres, setCentres] = useState<Centre[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all'|'review'|'uncertain'|'verified'>('all');
 
   useEffect(() => {
     let active = true;
@@ -41,6 +43,10 @@ export default function CentresPage() {
     uncertain: centres.filter(item => centreUiState(item) === 'uncertain').length,
   }), [centres]);
 
+  const visible = useMemo(() => centres.filter(item=>{
+    const text=(item.name+' '+item.location+' '+item.district+' '+item.job_role).toLowerCase();
+    return (filter==='all'||centreUiState(item)===filter)&&text.includes(query.trim().toLowerCase());
+  }),[centres,query,filter]);
   const attention = centres.filter(item => centreUiState(item) !== 'verified').slice(0, 3);
 
   return (
@@ -50,7 +56,7 @@ export default function CentresPage() {
           <h1 className="text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Centres</h1>
           {error && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated fallback</span>}
         </div>
-        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">Five monitored centres, summarised by KaushalAI.</p>
+        <p className="mt-1 text-[13px] text-[var(--kw-muted)]">{centres.length} monitored centres</p>
       </header>
 
       {error && (
@@ -66,16 +72,32 @@ export default function CentresPage() {
           <div className="h-20 rounded-[18px] kw-skeleton" />
         </div>
       ) : (
-      <section className="mb-6 grid divide-y divide-[#EEF2F6] rounded-[18px] border border-[var(--kw-border)] bg-white shadow-[var(--kw-shadow)] md:grid-cols-3 md:divide-x md:divide-y-0">
+      <section className="mb-6 grid divide-y divide-[#EEF2F6] rounded-[20px] border border-[var(--kw-border)] bg-white shadow-[var(--kw-shadow)] md:grid-cols-3 md:divide-x md:divide-y-0">
         <Summary value={counts.verified} label="Verified" note="No officer action" tone="green" />
         <Summary value={counts.review} label="Need review" note="Evidence requires attention" tone="amber" />
         <Summary value={counts.uncertain} label="Uncertain" note="Trust gate applied" tone="blue" />
       </section>
       )}
 
-      <div className="grid gap-7 lg:grid-cols-[1fr_300px]">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <label className="relative block w-full max-w-[360px]">
+          <span className="sr-only">Search centres</span>
+          <input value={query} onChange={event=>setQuery(event.target.value)}
+            placeholder="Search centres, districts, trades"
+            className="kw-focus h-11 w-full rounded-xl border border-[#DDE6F1] bg-white px-4 text-[12px] outline-none placeholder:text-[#9AA8BA]"/>
+        </label>
+        <label className="flex items-center gap-2 text-[11px] font-medium text-[#64748B]">
+          <span>Status</span>
+          <select aria-label="Centre status filter" value={filter} onChange={event=>setFilter(event.target.value as typeof filter)}
+            className="kw-focus h-11 rounded-xl border border-[#DDE6F1] bg-white px-3 text-[12px]">
+            <option value="all">All centres</option><option value="review">Needs review</option>
+            <option value="uncertain">Uncertain</option><option value="verified">Verified</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.65fr)_minmax(260px,.65fr)]">
         <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
-          <div className="mb-2 text-[17px] font-semibold text-[var(--kw-text)]">Centres ({centres.length})</div>
+          <div className="mb-2 text-[17px] font-semibold text-[var(--kw-text)]">Centres ({visible.length})</div>
 
           <div className="divide-y divide-[#EEF2F6]">
             {!loading && !error && centres.length === 0 && (
@@ -84,7 +106,8 @@ export default function CentresPage() {
                 <p className="mt-1 text-[12px] text-[#98A2B3]">No demo values have been substituted for an empty live response.</p>
               </div>
             )}
-            {centres.map(centre => (
+            {!loading&&centres.length>0&&visible.length===0&&<div className="py-9 text-center text-[12px] text-[#667085]">No centres match your filters.</div>}
+            {visible.map(centre => (
               <div key={centre.centre_id} className="grid gap-4 py-4 md:grid-cols-[40px_1fr_auto] md:items-center">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F8FD] text-[#6C86B4]">
                   <Building2 size={18} />
