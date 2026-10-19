@@ -3,6 +3,7 @@ import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {ArrowRight,CameraOff,CheckCircle2,ClipboardCheck,Eye,EyeOff,ShieldAlert,ToolCase} from 'lucide-react';
 import type {TradeItem,TradeProof} from '../lib/server/trade-proof';
+import PrivateEquipmentReplay from './PrivateEquipmentReplay';
 
 const badge=(active:boolean)=>active
  ? 'border-[#A6C5E6] bg-[#ECF5FE] text-[#2B6194]'
@@ -67,6 +68,7 @@ export default function TradeProofPanel(){
    </div>}
    {state==='loading'&&<p role="status" className="mt-4 text-[12px] text-[#6D849E]">Verifying role and example samples…</p>}
    {state==='ready'&&proof&&item&&<>
+     <PrivateEquipmentReplay withheld={blocked}/>
      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
        <div className="flex flex-wrap gap-2" aria-label="Example time samples">
          {proof.sampling_seconds.map(second=><button key={second} type="button"
