@@ -8,6 +8,7 @@ import SourceLockedReplay from '../../components/SourceLockedReplay';
 import TradeProofPanel from '../../components/TradeProofPanel';
 import OfflineTransportPanel from '../../components/OfflineTransportPanel';
 import OfficerProofJourney from '../../components/OfficerProofJourney';
+import JudgeRehearsal from '../../components/JudgeRehearsal';
 import type {CaseRecord,CentreIntelligence} from '../../lib/types';
 
 const surface='rounded-[22px] border border-[#E0E9F4] bg-white shadow-[0_3px_20px_rgba(20,44,77,0.04)]';
@@ -71,6 +72,7 @@ export default function MissionPage(){
         </div>
       </div>
     </section>
+    <JudgeRehearsal sceneId={scene.id} onScene={select}/>
     <div className="grid gap-5 xl:grid-cols-[270px_minmax(0,1fr)]">
       <nav className={surface+' h-fit p-3'} aria-label="Controlled scenarios">
         <div className="px-3 pb-3 pt-2 text-[14px] font-bold text-[#283E5A]">Four proof scenarios</div>
