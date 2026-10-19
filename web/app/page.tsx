@@ -127,6 +127,11 @@ export default function KaushalAIHome() {
 
       {error && !loading && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#F0DAB7] bg-[#FFFBF5] px-4 py-3 text-[12px] text-[#88591D]"><span>{error}</span><DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/></div>}
 
+      {!SECURE_PROXY && <Link href="/demo/mission" className="kw-focus flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C3D9F1] bg-[#EDF5FE] px-5 py-4 text-[#23578C]">
+        <span><strong className="block text-[14px] font-bold">Explore the Proof of Training</strong><span className="mt-1 block text-[11px]">Four linked, controlled inspection scenarios</span></span>
+        <span className="inline-flex items-center gap-2 text-[12px] font-semibold">Open guided demo <ArrowRight size={15}/></span>
+      </Link>}
+
       <section className="kw-os-hero rounded-[22px] border border-[#DFE8F5] px-6 py-7 shadow-[var(--kw-shadow)] sm:px-8 sm:py-9">
         <div className="relative z-10 max-w-[760px]">
           <div className="flex flex-wrap items-center gap-2">
