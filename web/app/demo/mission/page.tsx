@@ -8,6 +8,7 @@ import SourceLockedReplay from '../../components/SourceLockedReplay';
 import TradeProofPanel from '../../components/TradeProofPanel';
 import OfflineTransportPanel from '../../components/OfflineTransportPanel';
 import OfficerProofJourney from '../../components/OfficerProofJourney';
+import JudgeRehearsal from '../../components/JudgeRehearsal';
 import type {CaseRecord,CentreIntelligence} from '../../lib/types';
 
 const surface='rounded-[22px] border border-[#E0E9F4] bg-white shadow-[0_3px_20px_rgba(20,44,77,0.04)]';
@@ -17,22 +18,33 @@ export default function MissionPage(){
   const [info,setInfo]=useState<CentreIntelligence|null>(null);
   const [cases,setCases]=useState<CaseRecord[]>([]);
   const [loading,setLoading]=useState(false);
-  const [error,setError]=useState(false);
+  const [caseError,setCaseError]=useState(false);
+  const [infoError,setInfoError]=useState(false);
   const [retry,setRetry]=useState(0);
   const scene=DEMO_SCENES.find(s=>s.id===sceneId)||DEMO_SCENES[0];
+  const error=caseError||infoError;
+
+  // Read the case ledger ONCE per retry, not again for every judge chapter.
+  // Each case still has to match the actively selected centre below.
+  useEffect(()=>{
+    if(SECURE_PROXY)return;
+    let active=true;
+    setCaseError(false);
+    getCases()
+      .then(rows=>{if(active)setCases(rows);})
+      .catch(()=>{if(active){setCases([]);setCaseError(true);}});
+    return()=>{active=false;};
+  },[retry]);
 
   useEffect(()=>{
     if(SECURE_PROXY)return;
     let active=true;
-    setLoading(true);setError(false);setInfo(null);setCases([]);
-    Promise.allSettled([getCentreIntelligence(scene.centreId,'last_7_days'),getCases()])
-      .then(([centreResult,casesResult])=>{
-        if(!active)return;
-        if(centreResult.status==='fulfilled')setInfo(centreResult.value);
-        if(casesResult.status==='fulfilled')setCases(casesResult.value.filter(c=>c.centre_id===scene.centreId));
-        if(centreResult.status==='rejected'||casesResult.status==='rejected')setError(true);
-      }).finally(()=>{if(active)setLoading(false);});
-    return()=>{active=false};
+    setLoading(true);setInfoError(false);setInfo(null);
+    getCentreIntelligence(scene.centreId,'last_7_days')
+      .then(payload=>{if(active)setInfo(payload);})
+      .catch(()=>{if(active)setInfoError(true);})
+      .finally(()=>{if(active)setLoading(false);});
+    return()=>{active=false;};
   },[scene.centreId,retry]);
 
   // Scenario data are explicitly authored; a real saved API source overrides a
@@ -41,9 +53,9 @@ export default function MissionPage(){
   const apiFacts=Boolean(metric&&metric.source!=='unavailable'&&metric.reported!=null&&metric.observed!=null);
   const reported=apiFacts?metric!.reported:scene.reported;
   const observed=scene.id==='camera'?null:apiFacts?metric!.observed:scene.observed;
-  const caseRecord=cases.find(c=>scene.id==='attendance'?c.case_type==='attendance_discrepancy':
+  const caseRecord=cases.find(c=>c.centre_id===scene.centreId&&(scene.id==='attendance'?c.case_type==='attendance_discrepancy':
     scene.id==='camera'?c.case_type==='camera_integrity':
-    scene.id==='equipment'?c.case_type==='infrastructure_compliance':false);
+    scene.id==='equipment'?c.case_type==='infrastructure_compliance':false));
   const decision=scene.id==='camera'?'Evidence insufficient':scene.id==='normal'?'No exception in this scenario':'Officer review needed';
 
   if(SECURE_PROXY)return <div className={surface+' p-8'} role="alert">
@@ -71,6 +83,7 @@ export default function MissionPage(){
         </div>
       </div>
     </section>
+    <JudgeRehearsal sceneId={scene.id} onScene={select}/>
     <div className="grid gap-5 xl:grid-cols-[270px_minmax(0,1fr)]">
       <nav className={surface+' h-fit p-3'} aria-label="Controlled scenarios">
         <div className="px-3 pb-3 pt-2 text-[14px] font-bold text-[#283E5A]">Four proof scenarios</div>

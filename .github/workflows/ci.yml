@@ -33,6 +33,13 @@ jobs:
         run: python scripts/validate_vision_profile.py
       - name: Check release readiness
         run: python scripts/check_release_readiness.py
+      - name: Freeze and verify exact procedural judge sources
+        run: |
+          python scripts/verify_judge_sources.py --out /tmp/kw-phase6-source-lock.json
+          python -c 'import json; x=json.load(open("/tmp/kw-phase6-source-lock.json")); assert x["qualified"] is False and x["status"]=="procedural_sources_verified_not_real_field_evidence" and len(x["clips"])==3 and all(c["bytes"]>500 for c in x["clips"].values())'
+      - name: Windows launcher read-only PowerShell preflight
+        shell: pwsh
+        run: ./scripts/Start-KaushalWatch-Judge.ps1 -PreflightOnly
       - name: Check frontend/backend officer API contracts
         run: python scripts/check_frontend_api_contracts.py
       - run: pytest -q backend/tests
@@ -179,6 +186,8 @@ jobs:
         run: node --experimental-strip-types --test app/lib/server/offline-report.test.mjs
       - name: Enforce scorecard private receipt and anti-fabrication policy
         run: node --experimental-strip-types --test app/lib/server/scorecard-report.test.mjs
+      - name: Check 60-second and 200-second judge route timing
+        run: node --experimental-strip-types --test app/lib/judgeRoute.test.mjs
       - run: npm run build
 
   e2e:
