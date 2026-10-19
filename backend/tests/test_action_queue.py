@@ -112,3 +112,41 @@ def test_action_queue_rejects_unknown_period(tmp_path, monkeypatch):
 
     assert response.status_code == 422
     assert "period must be one of" in response.json()["detail"]
+
+
+def test_provisioned_real_centre_is_included_in_action_queue():
+    from app.services.action_queue import build_action_queue
+    from app.services.demo_network import centre_rows
+    from app.models import ComplianceCase, CaseStatus
+    from datetime import datetime, timezone
+    original=centre_rows([])[0]
+    real={**original,"centre_id":"SITE-KA-001","name":"Approved pilot site"}
+    case=ComplianceCase(
+        case_id="REAL-SITE-CASE-001",centre_id="SITE-KA-001",
+        batch_id=real["batch_id"],case_type="attendance_discrepancy",
+        status=CaseStatus.open,severity="medium",summary="Centre-only attendance review"
+    )
+    result=build_action_queue(
+        centres=[real],cases=[case],history=[],
+        period="last_7_days",now=datetime(2026,10,19,tzinfo=timezone.utc))
+    assert result["counts"]["total"]==1
+    assert result["actions"][0]["case_id"]=="REAL-SITE-CASE-001"
+    assert result["actions"][0]["centre_id"]=="SITE-KA-001"
+
+
+def test_action_queue_does_not_include_ungranted_real_centre():
+    from app.services.action_queue import build_action_queue
+    from app.services.demo_network import centre_rows
+    from app.models import ComplianceCase
+    from datetime import datetime, timezone
+    permitted={**centre_rows([])[0],"centre_id":"SITE-KA-001"}
+    forbidden=ComplianceCase(
+        case_id="OUTSIDE-SITE-CASE",centre_id="SITE-KA-999",
+        batch_id=permitted["batch_id"],case_type="camera_integrity",
+        severity="high",summary="Must not leak"
+    )
+    result=build_action_queue(
+        centres=[permitted],cases=[forbidden],history=[],
+        period="last_7_days",now=datetime(2026,10,19,tzinfo=timezone.utc))
+    assert result["counts"]["total"]==0
+    assert "OUTSIDE-SITE-CASE" not in str(result)
