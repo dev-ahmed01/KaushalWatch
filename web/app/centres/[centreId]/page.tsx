@@ -230,7 +230,7 @@ export default function CentreOverview() {
         )}
       </details>
 
-      <AnalysisModal open={analysisOpen} onOpenChange={setAnalysisOpen} centre={current} onComplete={updated => { setCentre(updated); void load(); }} />
+      <AnalysisModal open={analysisOpen} onOpenChange={setAnalysisOpen} centre={current} onComplete={updated => { setCentre(updated); setRetryKey(key=>key+1); }} />
     </div>
   );
 }
