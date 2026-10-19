@@ -1,7 +1,7 @@
 /** Validate private local cross-pillar qualification receipts before any UI display. */
 import {lstat,readFile,realpath} from 'node:fs/promises';
 import path from 'node:path';
-import {localTransportReportAllowed} from './offline-report';
+import {localTransportReportAllowed} from './offline-report.ts';
 
 const PILLARS=['attendance','camera_trust','equipment_count','equipment_localization','practical_activity','offline_transport'] as const;
 export type PillarId=(typeof PILLARS)[number];
