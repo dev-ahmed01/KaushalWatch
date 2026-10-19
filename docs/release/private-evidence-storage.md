@@ -125,3 +125,25 @@ DB-dependent S3 checks unless the isolated test database is available.
    still a prototype.
 5. Complete independent **real-footage** accuracy qualification. This storage
    phase does not change model metrics or evaluate raw CCTV footage.
+
+## Real read-only AWS bucket/KMS controls
+
+A live operator probe is now required for *technical eligibility* to request
+pilot approval: run `scripts/check_private_storage_cloud.py --probe-cloud`
+from a privately authorized workload (or use
+`scripts/check_pilot_rollout.py --probe-private-storage-cloud` with the other
+normal checks). **Status-only mode uses no AWS credentials or network calls.**
+
+The probe performs only read-only AWS control-plane calls:
+bucket location, public-access block, public policy status, bucket ownership,
+HTTPS-only deny policy, default SSE-KMS and KMS DescribeKey. The latter checks
+that the bucket's default key resolves to the configured enabled customer-managed
+key. It does **not** list or fetch evidence, write an object, decrypt a key,
+change configuration, inspect raw video, or output the bucket/account/key
+identifiers. Incomplete IAM permissions return BLOCKED, never a claimed PASS.
+
+This is a *bounded technical configuration observation*, **not** independent
+proof of IAM least privilege, real encrypt/decrypt permissions, data retention,
+object-lock/legal hold, operational recovery, organization identity policy, or
+physical-camera accuracy. The pilot stays blocked until separate operator
+sign-off and independent field assessment.

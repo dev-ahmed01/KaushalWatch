@@ -199,3 +199,25 @@ def test_status_cli_is_offline_and_nonqualifying():
     assert data["cloud_read_only_preflight"] == "BLOCKED"
     assert data["probe_attempted"] is False
     assert data["autonomous_enforcement_authorized"] is False
+
+def test_pilot_gate_requires_cloud_and_distinguishes_failed_probe(monkeypatch):
+    import scripts.check_pilot_rollout as rollout
+    monkeypatch.setattr(rollout, "check_environment", lambda *a, **kw: {
+        "checks": {"other_local_controls": "PASS",
+                   "external_custody_and_field_accuracy": "NOT_VERIFIED"}
+    })
+    missing = rollout.evaluate(ENV)
+    assert missing["checks"]["private_storage_cloud_controls"] == "NOT_PROBED"
+    assert not missing["eligible_to_request_external_pilot_signoff"]
+    monkeypatch.setattr(rollout, "inspect_private_storage", lambda *a, **kw: {
+        "cloud_read_only_preflight": "BLOCKED", "probe_attempted": True
+    })
+    blocked = rollout.evaluate(ENV, probe_private_storage_cloud=True)
+    assert blocked["checks"]["private_storage_cloud_controls"] == "BLOCKED"
+    assert not blocked["eligible_to_request_external_pilot_signoff"]
+
+
+def test_status_mode_cannot_invoke_cloud_probe():
+    from scripts.check_pilot_rollout import evaluate as pilot
+    receipt = pilot({})
+    assert receipt["checks"]["private_storage_cloud_controls"] == "NOT_PROBED"

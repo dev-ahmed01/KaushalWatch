@@ -136,13 +136,15 @@ def evaluate(env: dict[str, str], *, probe: bool = False,
             check("bucket_region_matches", lambda: (
                 (s3.get_bucket_location(Bucket=bucket)
                  .get("LocationConstraint") or "us-east-1") == region))
-            check("bucket_public_access_block_all", lambda: all(
-                s3.get_public_access_block(Bucket=bucket)
-                ["PublicAccessBlockConfiguration"][flag] is True
-                for flag in (
+            def public_controls() -> bool:
+                flags = s3.get_public_access_block(Bucket=bucket)[
+                    "PublicAccessBlockConfiguration"]
+                return all(flags.get(flag) is True for flag in (
                     "BlockPublicAcls", "IgnorePublicAcls",
                     "BlockPublicPolicy", "RestrictPublicBuckets"
-                )))
+                ))
+
+            check("bucket_public_access_block_all", public_controls)
             check("bucket_policy_not_public", lambda: (
                 s3.get_bucket_policy_status(Bucket=bucket)
                 ["PolicyStatus"]["IsPublic"] is False))
