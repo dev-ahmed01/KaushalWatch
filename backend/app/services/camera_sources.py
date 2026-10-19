@@ -15,14 +15,17 @@ from fastapi import HTTPException
 ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,130}$")
 VIDEO_SUFFIXES = (".avi", ".mp4", ".mov", ".mkv", ".mpeg", ".mpg")
 
-def permitted_aliases(centre_id: str, manifest: list[dict], raw_grants: str | None = None) -> list[str]:
+def permitted_aliases(
+    centre_id: str, manifest: list[dict], raw_grants: str | None = None,
+    allowed_centre_ids: set[str] | None = None,
+) -> list[str]:
     raw=raw_grants if raw_grants is not None else os.getenv("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")
     try:
         grants=json.loads(raw)
     except (TypeError,ValueError):
         raise HTTPException(503,"Camera source grants are not configured") from None
     from app.services.demo_network import provisioned_centre_ids
-    valid=provisioned_centre_ids()
+    valid=provisioned_centre_ids() if allowed_centre_ids is None else allowed_centre_ids
     if not isinstance(grants,dict) or not grants or not set(grants).issubset(valid):
         raise HTTPException(503,"Camera source grants are invalid")
     manifest_names={row["name"] for row in manifest

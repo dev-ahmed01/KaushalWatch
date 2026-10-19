@@ -38,3 +38,28 @@ def test_worker_rejects_nonexistent_private_manifest(tmp_path):
     })
     assert x["checks"]["private_sha_pinned_manifest"]=="BLOCKED"
     assert x["checks"]["centre_source_grants"]=="BLOCKED"
+
+
+def test_preflight_uses_supplied_env_not_host_process(monkeypatch):
+    from app.services.demo_network import DEMO_CENTRES
+    monkeypatch.setenv("KAUSHALWATCH_ENV","development")
+    monkeypatch.delenv("KAUSHALWATCH_CENTRES_JSON",raising=False)
+    real={**DEMO_CENTRES[0],"centre_id":"SITE-KA-001",
+          "name":"Real field site","camera_id":"REAL-CAM-01"}
+    pilot={"KAUSHALWATCH_ENV":"pilot",
+           "KAUSHALWATCH_STORAGE_BACKEND":"postgres",
+           "KAUSHALWATCH_DATABASE_URL":"postgresql://localhost/kw",
+           "KAUSHALWATCH_CENTRES_JSON":json.dumps({
+             "version":"KW_CENTRE_REGISTRY_V1","centres":[real]})}
+    assert check_environment("api",pilot)["checks"]["real_centre_registry_provisioned"]=="PASS"
+    assert check_environment("api",{**pilot,"KAUSHALWATCH_CENTRES_JSON":""})["checks"]["real_centre_registry_provisioned"]=="BLOCKED"
+
+def test_source_grants_validate_against_given_centre_ids(tmp_path):
+    from app.services.camera_sources import permitted_aliases
+    import pytest
+    from fastapi import HTTPException
+    grants=json.dumps({"SITE-KA-001":["camera.avi"]})
+    manifest=[{"name":"camera.avi","sha256":"a"*64}]
+    assert permitted_aliases("SITE-KA-001",manifest,grants,{"SITE-KA-001"})==["camera.avi"]
+    with pytest.raises(HTTPException):
+        permitted_aliases("DEMO-KA-104",manifest,grants,{"SITE-KA-001"})
