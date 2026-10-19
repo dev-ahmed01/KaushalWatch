@@ -23,7 +23,7 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
     if component in ("api","worker","full"):
         try:
             from app.services.demo_network import provisioned_centres
-            configured=provisioned_centres()
+            configured=provisioned_centres(env)
             centre_ok=bool(configured) and all(not c["centre_id"].startswith("DEMO-")
                                                for c in configured) if protected else bool(configured)
         except Exception:
@@ -66,9 +66,11 @@ def check_environment(component:str, env:dict[str,str], *, probe_db:bool=False) 
             # No actual source ID or name is ever returned to caller.
             try:
                 from app.services.demo_network import provisioned_centres
+                known={c["centre_id"] for c in provisioned_centres(env)}
                 active=sum(len(permitted_aliases(c["centre_id"],manifest,
-                            env.get("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON","")))
-                           for c in provisioned_centres())
+                            env.get("KAUSHALWATCH_CAMERA_SOURCE_GRANTS_JSON",""),
+                            allowed_centre_ids=known))
+                           for c in provisioned_centres(env))
                 grants_ok=active>0
             except Exception:grants_ok=False
         else:grants_ok=False

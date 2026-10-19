@@ -83,15 +83,16 @@ DEMO_CENTRES = [
 ]
 
 # DEMO_CENTRES is a fixture, never a fallback for protected real sites.
-def provisioned_centres() -> list[dict]:
+def provisioned_centres(config_env: dict[str, str] | None = None) -> list[dict]:
     """Read a privileged versioned real-site registry; reject unsafe defaults."""
     import json
     import os
     import re
     from fastapi import HTTPException
-    env=os.getenv("KAUSHALWATCH_ENV","development").strip().lower()
+    source=os.environ if config_env is None else config_env
+    env=source.get("KAUSHALWATCH_ENV","development").strip().lower()
     protected=env in {"pilot","production","prod"}
-    raw=os.getenv("KAUSHALWATCH_CENTRES_JSON","")
+    raw=source.get("KAUSHALWATCH_CENTRES_JSON","")
     if not raw:
         if protected:
             raise HTTPException(503,"Protected centre registry is not provisioned")
@@ -131,8 +132,8 @@ def provisioned_centres() -> list[dict]:
         rows.append(dict(entry))
     return rows
 
-def provisioned_centre_ids() -> set[str]:
-    return {x["centre_id"] for x in provisioned_centres()}
+def provisioned_centre_ids(config_env: dict[str, str] | None = None) -> set[str]:
+    return {x["centre_id"] for x in provisioned_centres(config_env)}
 
 
 def _case_pillar(case_type: str) -> str:
