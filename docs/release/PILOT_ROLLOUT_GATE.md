@@ -49,3 +49,13 @@ NOT verify that registry digests exist, that either image is running, that
 image signatures are trusted, that the rollback image works with migrated
 data, or that field-camera results are valid. The external operator remains
 responsible for independently checking those facts and authorizing the pilot.
+
+## Verified PostgreSQL TLS transport
+
+Protected pilot API and migration processes reject candidate PostgreSQL
+connection strings without explicit `sslmode=verify-full` and
+`gssencmode=disable` (plus a concrete host). The deployment preflight reports
+only `postgres_tls_hostname_validation: PASS/BLOCKED`; it never prints a DSN.
+Independent cloud CA, host identity, network policy and backup/restore remain
+operator responsibilities. Real certificate failures stop readiness and pilot
+acceptance; synthetic local CI connections are not production qualifications.

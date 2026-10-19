@@ -47,7 +47,8 @@ def configure_protected(monkeypatch, database):
     monkeypatch.setenv("KAUSHALWATCH_STORAGE_BACKEND","postgres")
     monkeypatch.setenv("KAUSHALWATCH_EVIDENCE_BACKEND","s3")
     monkeypatch.setenv("KAUSHALWATCH_REVIEW_AUTH_MODE","oidc")
-    monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL","postgresql://fixture.invalid/fixture")
+    monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL",
+                       "postgresql://fixture.invalid/fixture?sslmode=verify-full&gssencmode=disable")
     from app.services import officer_permissions,object_evidence,review_access,postgres_store
     monkeypatch.setattr(officer_permissions,"configured_principals",lambda:{"reviewer":"allowed"})
     monkeypatch.setattr(object_evidence,"configuration",lambda:{"validated":"configuration-only"})
@@ -84,7 +85,7 @@ def test_local_demo_readiness_remains_compatible(monkeypatch):
 
 def test_preflight_probes_only_explicit_candidate_dsn(monkeypatch):
     import psycopg
-    candidate="postgresql://candidate:FAKE-DO-NOT-ECHO@example.invalid/pilot"
+    candidate="postgresql://candidate:FAKE-DO-NOT-ECHO@example.invalid/pilot?sslmode=verify-full&gssencmode=disable"
     ambient="postgresql://unrelated:NEVER_USE@example.invalid/other"
     monkeypatch.setenv("KAUSHALWATCH_DATABASE_URL",ambient)
     requested=[]
@@ -119,7 +120,7 @@ def test_candidate_database_with_incomplete_migration_stays_blocked(
         yield Database(versions,missing)
     monkeypatch.setattr(psycopg,"connect",fake_connect)
     env={"KAUSHALWATCH_ENV":"pilot","KAUSHALWATCH_STORAGE_BACKEND":"postgres",
-         "KAUSHALWATCH_DATABASE_URL":"postgresql://candidate.invalid/test"}
+         "KAUSHALWATCH_DATABASE_URL":"postgresql://candidate.invalid/test?sslmode=verify-full&gssencmode=disable"}
     result=check_environment("web",env,probe_db=True)
     assert result["checks"]["postgres_camera_schema_v3"]=="BLOCKED"
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 
 from app.services.review_access import LOCAL_ENVS
+from app.services.postgres_transport import require_postgres_transport
 
 # Production readiness must cover the *same* schema contract as the
 # explicit migration checker, including the Camera Trust shadow workflow.
@@ -37,6 +38,10 @@ def dependencies_ready() -> bool:
     if os.getenv("KAUSHALWATCH_EVIDENCE_BACKEND", "local") != "s3":
         return False
     try:
+        # Ensure /api/ready cannot report green with a plaintext PostgreSQL
+        # DSN even if another dependency is stubbed or has a live connection.
+        require_postgres_transport(os.getenv("KAUSHALWATCH_DATABASE_URL", ""),
+                                   dict(os.environ))
         from app.services.officer_permissions import configured_principals
         from app.services.object_evidence import configuration
         from app.services.postgres_store import connection

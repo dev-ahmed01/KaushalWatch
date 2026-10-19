@@ -17,6 +17,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from app.models import CaseStatus, ComplianceCase
+from app.services.postgres_transport import require_postgres_transport
 from app.services.case_store import ALLOWED_CASE_TRANSITIONS
 from app.services.centre_settings import DEFAULT_SETTINGS
 
@@ -30,6 +31,7 @@ def _dsn() -> str:
         raise RuntimeError("PostgreSQL selected but KAUSHALWATCH_DATABASE_URL is missing")
     if not dsn.startswith(("postgresql://", "postgres://")):
         raise RuntimeError("A PostgreSQL DSN is required")
+    require_postgres_transport(dsn, dict(os.environ))
     return dsn
 
 
