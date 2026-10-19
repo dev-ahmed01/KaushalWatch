@@ -17,6 +17,7 @@ def test_absent_inputs_always_block_field_activation():
     assert result["checks"]["real_https_readiness"]=="NOT_PROBED"
     assert result["checks"]["immutable_release_lock_format"]=="NOT_SUBMITTED"
     assert result["checks"]["private_storage_cloud_controls"]=="NOT_PROBED"
+    assert result["checks"]["camera_audit_chain_integrity"]=="NOT_PROBED"
     assert result["checks"]["signed_independent_field_dossier"]=="NOT_SUBMITTED"
     assert result["eligible_to_request_external_pilot_signoff"] is False
     assert result["autonomous_enforcement_authorized"] is False
@@ -69,8 +70,11 @@ def test_all_technical_checks_only_make_external_review_eligible(monkeypatch):
         "manual_review_readiness":module.FIELD_READY})
     monkeypatch.setattr(module,"inspect_private_storage",lambda *args,**kwargs:{
         "cloud_read_only_preflight":"CHECKS_PASS","probe_attempted":True})
+    monkeypatch.setattr(module,"inspect_camera_audit",lambda *args,**kwargs:{
+        "read_only_database_audit":"CHECKS_PASS","database_snapshot_attempted":True})
     result=module.evaluate({},api="https://api.example.org",web="https://web.example.org",
                            probe_db=True,probe_private_storage_cloud=True,
+                           probe_camera_audit=True,
                            field_bundle={"schema":"synthetic"},
                            trusted_public_keys={"mock":"mock"},
                            release_lock={

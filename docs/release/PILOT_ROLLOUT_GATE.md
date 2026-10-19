@@ -81,3 +81,29 @@ proof of IAM least privilege, real encrypt/decrypt permissions, data retention,
 object-lock/legal hold, operational recovery, organization identity policy, or
 physical-camera accuracy. The pilot stays blocked until separate operator
 sign-off and independent field assessment.
+
+
+## PostgreSQL Camera Trust audit-chain acceptance (read-only)
+
+Before requesting technical pilot sign-off, run the strictly read-only
+\`python scripts/check_camera_audit_integrity.py --probe-database\` from
+the authorized private operator process with an approved protected
+\`KAUSHALWATCH_DATABASE_URL\`. The unified gate now also requires
+\`--probe-camera-audit\` alongside the existing HTTPS, v3 schema, immutable
+image, private bucket/KMS and signed independent field checks.
+
+The audit verifier reads the **entire available v3 history**, not merely
+the first 2,000 UI-visible events. It walks the append-only records under
+one repeatable-read MVCC snapshot, checks that every registered camera has
+an audit, all sequences start at one without gaps, each previous/event
+SHA-256 matches the canonical application hash, and the audit update/delete
+trigger remains enabled. A bounded maximum of 250,000 events fails CLOSED
+rather than truncating history and reporting a false PASS; a larger site
+requires a separately reviewed scaling plan.
+
+The receipt contains only generic check names/statuses, never camera IDs,
+source names, observed images, hashes, subjects or PostgreSQL credentials.
+No footage is downloaded; no database mutation, restore or source upload
+occurs. **This is not proof against a privileged database administrator
+rewriting and re-signing the entire chain**, nor independent physical-camera
+custody/accuracy evidence. Pilot activation remains blocked.

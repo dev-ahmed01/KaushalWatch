@@ -154,3 +154,19 @@ including duplicate completion and stale failure attempts.
 These are software-only concurrency/expiry checks with synthetic jobs. They
 do not claim a live Drive worker, source-custody validation, physical camera
 accuracy, an approved pilot or autonomous enforcement.
+
+
+## Read-only audit-chain verification for staging acceptance
+
+\`scripts/check_camera_audit_integrity.py --probe-database\` inspects the
+complete PostgreSQL Camera Trust audit stream across all cameras under
+one repeatable-read read-only snapshot. It verifies contiguous event
+sequences, canonical hash-chain links, registry membership and an active
+immutable update/delete trigger; missing, mismatched, empty or truncated
+histories fail closed. Only operator-readiness check names and booleans are
+returned, never camera IDs, raw media or original-source hashes. The unified
+pilot gate requires this independent read-only probe with
+\`--probe-camera-audit\` before technical eligibility.
+
+This is software integrity evidence, not independently witnessed database
+tamper prevention or field-camera accuracy. Operator sign-off remains separate.
