@@ -224,6 +224,10 @@ function ActionRow({ item, rank }: { item: ActionQueueItem; rank: number }) {
         </div>
         <div className="mt-1 text-[11px] text-[#98A2B3]">{item.centre_name}</div>
         <p className="mt-1.5 text-[12px] leading-5 text-[#667085]">{item.reason}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {item.evidence_basis.filter(basis=>basis==='Regional escalation'||basis==='Blocks dependent visual conclusions')
+            .map(basis=><span key={basis} className="rounded-full bg-[#F3F7FC] px-2 py-1 text-[10px] text-[#62748F]">{basis}</span>)}
+        </div>
         <details className="mt-2 text-[11px] text-[#8291A7]">
           <summary className="kw-focus w-fit cursor-pointer">Evidence basis</summary>
           <div className="mt-2 flex flex-wrap gap-1.5">

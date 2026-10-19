@@ -131,6 +131,9 @@ export default function KaushalAIHome() {
             </Link>
             <span className="text-[12px] font-medium text-[#647B96]">{priority.centre_name}</span>
           </div>}
+          {brief&&<p className="mt-4 text-[10px] font-medium text-[#8B9BB1]">
+            Grounded in {brief.source_counts.analysis_rows_in_period} analysis runs
+          </p>}
         </div>
       </section>
 
