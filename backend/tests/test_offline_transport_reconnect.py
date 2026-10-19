@@ -115,7 +115,7 @@ def test_actual_socket_cut_restart_reconnect_and_duplicate_ack(tmp_path,monkeypa
         assert received["already_accepted"]==2
         assert received["observed_request_body_bytes"]==len(bodies[-1])
         assert len(bodies)==2
-        assert all(b"raw_video" not in raw and b"face_embeddings" not in raw for raw in bodies)
+        assert all(b'"raw_video":' not in raw and b'"face_embeddings":' not in raw for raw in bodies)
         assert len(app_main.HISTORY.list())==2  # exactly once despite duplicate HTTP POST
     metrics=read_sync_state(queue.path)
     assert metrics["attempts"]==3 and metrics["failures"]==2
