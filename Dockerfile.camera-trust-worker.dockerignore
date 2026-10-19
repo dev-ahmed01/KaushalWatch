@@ -1,0 +1,36 @@
+# Worker-specific default-deny build context. Docker automatically selects
+# this file for "docker build -f Dockerfile.camera-trust-worker".
+# Do NOT include private manifest, auth, local camera cache, or media.
+**
+!Dockerfile.camera-trust-worker
+!backend/
+!backend/app/
+!backend/app/**
+!camera_trust_workstation/
+!camera_trust_workstation/requirements-worker.txt
+!camera_trust_workstation/kwtrust/
+!camera_trust_workstation/kwtrust/**
+!scripts/
+!scripts/run_camera_trust_worker.py
+
+# No runtime credentials, private evidence, local models or source recordings.
+**/.env
+**/.env.*
+**/*credential*
+**/*secret*
+**/*token*
+**/*private-key*
+**/*drive-sources*
+**/*.avi
+**/*.mp4
+**/*.mov
+**/*.mkv
+**/*.webm
+**/*.onnx
+**/*.pt
+**/*.pth
+**/*.db
+**/*.sqlite
+**/*.log
+**/__pycache__/
+**/*.pyc
