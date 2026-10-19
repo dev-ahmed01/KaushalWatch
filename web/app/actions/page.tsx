@@ -32,6 +32,7 @@ export default function ActionsPage() {
   const { period, label } = useBriefPeriod();
   const [queue, setQueue] = useState<ActionQueue | null>(null);
   const [loading, setLoading] = useState(true);
+  const [priorityFilter,setPriorityFilter] = useState<'all'|ActionPriority>('all');
 
   useEffect(() => {
     let active = true;
@@ -61,6 +62,8 @@ export default function ActionsPage() {
     return result;
   }, [queue]);
 
+  const visibleActions=(queue?.actions||[]).filter(item=>priorityFilter==='all'||item.priority===priorityFilter);
+
   return (
     <div>
       <header className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -70,7 +73,7 @@ export default function ActionsPage() {
             Officer work queue
           </div>
           <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Actions</h1>
-          <p className="mt-1 text-[14px] text-[var(--kw-muted)]">Evidence-ranked next steps across the five monitored centres.</p>
+          <p className="mt-1 text-[13px] text-[var(--kw-muted)]">Cases and follow-ups for officer review</p>
         </div>
 
         <button
@@ -85,7 +88,7 @@ export default function ActionsPage() {
 
       {queue ? (
         <>
-          <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-7 py-7 shadow-[var(--kw-shadow)]">
+          <section className="kw-os-hero relative overflow-hidden rounded-[22px] border border-[var(--kw-border)] px-6 py-6 shadow-[var(--kw-shadow)]">
             <div className="relative z-10 max-w-[780px]">
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
@@ -100,7 +103,7 @@ export default function ActionsPage() {
               <h2 className="mt-3 text-[27px] font-semibold leading-[1.22] tracking-[-0.03em] text-[var(--kw-text)]">
                 {queue.headline}
               </h2>
-              <p className="mt-2 max-w-2xl text-[13px] leading-6 text-[#667085]">{queue.summary}</p>
+              <p className="mt-2 max-w-2xl text-[12px] leading-6 text-[#667085]">{queue.summary}</p>
 
               {queue.top_action && (
                 <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -108,39 +111,44 @@ export default function ActionsPage() {
                     {queue.top_action.cta}
                     <ArrowRight size={14} />
                   </Link>
-                  <span className="text-[11px] text-[#98A2B3]">
-                    Ranked from {queue.top_action.evidence_basis.join(' · ')}
-                  </span>
+                  <span className="text-[11px] text-[#8291A7]">{queue.top_action.centre_name}</span>
                 </div>
               )}
 
-              <div className="mt-5 border-t border-[#EEF2F6] pt-4 text-[11px] text-[#98A2B3]">
-                {queue.scope_note}
-              </div>
+              <div className="mt-5 border-t border-[#EEF2F6] pt-3 text-[11px] text-[#98A2B3]">{queue.scope_note}</div>
             </div>
 
             <div className="pointer-events-none absolute -right-10 -top-14 h-56 w-56 rounded-full bg-[#F1F6FD]" />
           </section>
 
-          <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_300px]">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
             <section className="rounded-[18px] border border-[var(--kw-border)] bg-white px-6 py-5 shadow-[var(--kw-shadow)]">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Action queue</h2>
-                  <p className="mt-1 text-[12px] text-[#98A2B3]">Current unresolved cases plus {label.toLowerCase()} activity follow-ups.</p>
+                  <p className="mt-1 text-[11px] text-[#98A2B3]">Unresolved cases · {label.toLowerCase()}</p>
                 </div>
-                <span className="text-[12px] font-medium text-[#667085]">{queue.counts.total} actions</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium text-[#667085]">{queue.counts.total} actions</span>
+                  <label className="sr-only" htmlFor="kw-action-priority">Priority filter</label>
+                  <select id="kw-action-priority" value={priorityFilter} onChange={event=>setPriorityFilter(event.target.value as typeof priorityFilter)}
+                    aria-label="Priority filter"
+                    className="kw-focus h-9 rounded-lg border border-[#DCE5F0] bg-white px-2 text-[11px] text-[#667085]">
+                    <option value="all">All priorities</option><option value="high">High</option>
+                    <option value="medium">Medium</option><option value="low">Low</option>
+                  </select>
+                </div>
               </div>
 
-              {queue.actions.length ? (
+              {visibleActions.length ? (
                 <div className="mt-3 divide-y divide-[#EEF2F6]">
-                  {queue.actions.map((item, index) => (
+                  {visibleActions.map((item, index) => (
                     <ActionRow key={item.action_id} item={item} rank={index + 1} />
                   ))}
                 </div>
               ) : (
                 <div className="mt-5 rounded-xl bg-[#F8FAFC] px-5 py-8 text-center">
-                  <div className="text-[13px] font-medium text-[#475467]">No officer action is queued.</div>
+                  <div className="text-[13px] font-medium text-[#475467]">No actions match this priority.</div>
                   <p className="mt-1 text-[12px] text-[#98A2B3]">Latest trusted evidence does not require follow-up.</p>
                 </div>
               )}
@@ -166,11 +174,11 @@ export default function ActionsPage() {
               </section>
 
               {grouped.high.length > 0 && (
-                <section className="rounded-[18px] border border-[#F4D7AF] bg-[#FFFBF5] p-5">
-                  <div className="flex items-center gap-2 text-[12px] font-semibold text-[#B54708]">
+                <details className="rounded-[18px] border border-[#E6EAF0] bg-[#FCFDFE] p-5">
+                  <summary className="kw-focus flex cursor-pointer items-center gap-2 text-[12px] font-semibold text-[#475467]">
                     <Clock3 size={14} />
-                    Why these are first
-                  </div>
+                    Priority evidence
+                  </summary>
                   <div className="mt-3 space-y-3">
                     {grouped.high.slice(0, 2).map(item => (
                       <div key={item.action_id}>
@@ -179,7 +187,7 @@ export default function ActionsPage() {
                       </div>
                     ))}
                   </div>
-                </section>
+                </details>
               )}
             </aside>
           </div>
@@ -217,10 +225,15 @@ function ActionRow({ item, rank }: { item: ActionQueueItem; rank: number }) {
         <div className="mt-1 text-[11px] text-[#98A2B3]">{item.centre_name}</div>
         <p className="mt-1.5 text-[12px] leading-5 text-[#667085]">{item.reason}</p>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {item.evidence_basis.slice(0, 4).map(basis => (
-            <span key={basis} className="rounded-full bg-[#F8FAFC] px-2 py-1 text-[10px] text-[#667085]">{basis}</span>
-          ))}
+          {item.evidence_basis.filter(basis=>basis==='Regional escalation'||basis==='Blocks dependent visual conclusions')
+            .map(basis=><span key={basis} className="rounded-full bg-[#F3F7FC] px-2 py-1 text-[10px] text-[#62748F]">{basis}</span>)}
         </div>
+        <details className="mt-2 text-[11px] text-[#8291A7]">
+          <summary className="kw-focus w-fit cursor-pointer">Evidence basis</summary>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {item.evidence_basis.slice(0,4).map(basis=><span key={basis} className="rounded-full bg-[#F5F8FC] px-2 py-1">{basis}</span>)}
+          </div>
+        </details>
       </div>
 
       <Link

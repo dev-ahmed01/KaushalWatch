@@ -47,7 +47,7 @@ export function PageTitle({ title, description, action }: { title: string; descr
   return (
     <header className="mb-12 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
       <div className="max-w-2xl">
-        <h1 className="text-[28px] font-medium leading-[1.25] tracking-[-0.02em] text-[#172033]">{title}</h1>
+        <h1 className="kw-display text-[30px] font-bold leading-[1.25] tracking-[-0.035em] text-[#172033]">{title}</h1>
         {description && <p className="mt-2 text-[15px] leading-6 text-[#667085]">{description}</p>}
       </div>
       {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
@@ -59,7 +59,7 @@ export function QuietFact({ label, value, note }: { label: string; value: string
   return (
     <div className="min-w-0">
       <div className="text-[14px] font-medium text-[#667085]">{label}</div>
-      <div className="mt-2 text-[28px] font-medium leading-none tracking-[-0.03em] text-[#172033]">{value}</div>
+      <div className="kw-os-stat mt-2 text-[28px] font-semibold leading-none text-[#172033]">{value}</div>
       {note && <div className="mt-2 text-[14px] text-[#667085]">{note}</div>}
     </div>
   );

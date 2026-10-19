@@ -69,14 +69,14 @@ export default function InsightsPage() {
     <div>
       <Header periodLabel={data.period_label} simulated={data.simulated} />
 
-      <section className="grid gap-5 xl:grid-cols-[300px_1fr_300px]">
+      <section className="grid gap-5 xl:grid-cols-[minmax(230px,.7fr)_minmax(0,1.5fr)_minmax(230px,.7fr)]">
         <HealthRing data={data} />
 
-        <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+        <section className="kw-os-card min-w-0 p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Reported vs observed attendance</h2>
-              <p className="mt-1 text-[12px] text-[#98A2B3]">Trusted comparisons only.</p>
+              <p className="mt-1 text-[11px] text-[#98A2B3]">Recorded comparisons</p>
             </div>
             <div className="flex items-center gap-4 text-[10px] text-[#667085]">
               <Legend swatch="bg-[#2563EB]" label="Reported" />
@@ -114,7 +114,7 @@ export default function InsightsPage() {
           </div>
         </section>
 
-        <aside className="rounded-[18px] border border-[var(--kw-border)] bg-white p-5 shadow-[var(--kw-shadow)]">
+        <aside className="kw-os-card min-w-0 p-5">
           <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kw-accent-strong)]">
             <Sparkles size={15} />
             KaushalAI insights
@@ -140,7 +140,7 @@ export default function InsightsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Activity across the training day</h2>
-            <p className="mt-1 text-[12px] text-[#98A2B3]">Trusted practical-activity signal · darker cells mean stronger visual activity.</p>
+            <p className="mt-1 text-[11px] text-[#98A2B3]">Activity by recorded interval</p>
           </div>
           <div className="text-[11px] text-[#98A2B3]">{data.counts.analysis_runs} analyses in {data.period_label.toLowerCase()}</div>
         </div>

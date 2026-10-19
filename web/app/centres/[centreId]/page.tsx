@@ -119,7 +119,7 @@ export default function CentreOverview() {
         </div>
       )}
 
-      <section className="relative overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-7 py-7 shadow-[var(--kw-shadow)]">
+      <section className="kw-os-hero relative overflow-hidden rounded-[22px] border border-[var(--kw-border)] px-7 py-7 shadow-[var(--kw-shadow)]">
         <div className="relative z-10 max-w-[760px]">
           <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
             <Bot size={14} />
@@ -130,8 +130,8 @@ export default function CentreOverview() {
               ? 'Refreshing centre intelligence…'
               : intelligence?.brief.headline || 'Live centre intelligence is unavailable.'}
           </h2>
-          <div className="mt-5 space-y-2.5">
-            {(intelligence?.brief.bullets || [loading ? 'Centre intelligence is loading from the latest trusted evidence.' : 'No verification conclusion is shown while the intelligence service is unavailable.']).slice(0, 4).map(line => (
+          <div className="mt-4 space-y-2">
+            {(intelligence?.brief.bullets || [loading ? 'Centre intelligence is loading from the latest trusted evidence.' : 'No verification conclusion is shown while the intelligence service is unavailable.']).slice(0, 2).map(line => (
               <div key={line} className="flex items-start gap-3 text-[13px] leading-5 text-[#475467]">
                 <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-[#6B8AB5]" />
                 <span>{line}</span>
@@ -146,7 +146,7 @@ export default function CentreOverview() {
                 : 'Live centre intelligence is unavailable; showing centre metadata only.'}
           </div>
         </div>
-        <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-[#F1F6FD]" />
+        <div className="pointer-events-none absolute -right-10 -top-10 h-56 w-56 rounded-full bg-[#F1F6FD]/50" />
         <div className="pointer-events-none absolute right-10 top-1/2 flex h-20 w-20 -translate-y-1/2 items-center justify-center rounded-full border border-[#DCE8FA] bg-[#F9FBFF] text-[#9CB5D7]">
           <Building2 size={32} strokeWidth={1.2} />
         </div>
