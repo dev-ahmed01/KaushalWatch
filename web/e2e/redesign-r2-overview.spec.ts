@@ -23,3 +23,11 @@ test('R2 Overview opens the corresponding selected issue', async ({ page }) => {
   await link.click();
   await expect(page).toHaveURL(/\/issues\?issue=/);
 });
+
+test('R2 compact overview stays within narrow viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Mobile primary navigation' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
