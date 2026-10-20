@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import {
   ArrowRight,
-  Bot,
   Camera,
   Clock3,
   Search,
@@ -92,14 +91,6 @@ export default function ActionsPage() {
           <p className="mt-1 text-[13px] text-[var(--kw-muted)]">Cases and follow-ups for officer review</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event('kaushalwatch:assistant'))}
-          className="kw-focus inline-flex h-9 items-center gap-2 self-start rounded-lg border border-[#DCE3EC] bg-white px-3 text-[12px] font-medium text-[#475467] hover:border-[#BFCBDC] hover:text-[var(--kw-accent-strong)]"
-        >
-          <Bot size={15} />
-          Ask KaushalAI
-        </button>
       </header>
 
       {queue ? (
