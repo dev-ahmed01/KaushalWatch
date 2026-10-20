@@ -228,6 +228,13 @@ jobs:
         working-directory: web
         run: node --experimental-strip-types --test app/lib/missionContinuity.test.mjs
       - run: npm run build
+      - name: Verify public synthetic showcase production build
+        env:
+          NEXT_PUBLIC_KAUSHALWATCH_PUBLIC_SHOWCASE: "true"
+          KAUSHALWATCH_PUBLIC_SHOWCASE: "true"
+          NEXT_PUBLIC_KAUSHALWATCH_SECURE_PROXY: "false"
+          NEXT_PUBLIC_KAUSHALWATCH_SHOWCASE_API: "https://example.invalid"
+        run: npm run build
 
   e2e:
     runs-on: ubuntu-latest
