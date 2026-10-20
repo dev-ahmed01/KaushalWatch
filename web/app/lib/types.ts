@@ -492,3 +492,33 @@ export type ActionQueue = {
   scope_note: string;
   decision_policy: string;
 };
+
+
+export type CentreDeskTask = {
+  id: string; centre_id: string; category: 'trainer' | 'equipment' | 'attendance';
+  title: string; status: 'pending' | 'acknowledged' | 'resolved';
+  updated_at_utc: string | null; simulated: boolean;
+};
+export type CentreDeskContact = {
+  id: string; centre_id: string; name: string; role: 'centre_head' | 'trainer' | 'officer'; simulated: boolean;
+};
+export type CentreDeskDay = {
+  centre_id: string; centre_name: string; date_local: string; timezone: 'Asia/Kolkata';
+  simulated: boolean; fixture_origin: string; last_refreshed_at_utc: string;
+  batches: Array<{
+    id: string; centre_id: string; date_local: string;
+    starts_at_ist: string; ends_at_ist: string;
+    trade: string; trainer_id: string; participant_count: number;
+    readiness: string; simulated: boolean;
+  }>;
+  tasks: CentreDeskTask[];
+  contacts: CentreDeskContact[];
+  counts: {
+    batches_today: number; trainers_present: number | null;
+    equipment_alerts: number; attendance_followups: number; messages_pending: number | null;
+  };
+};
+export type CentreDeskResponse = {
+  centres: Array<{centre_id: string;name: string}>;
+  day: CentreDeskDay;
+};
