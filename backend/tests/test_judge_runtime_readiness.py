@@ -127,7 +127,6 @@ def test_malformed_json_is_an_error_not_fallback(replies):
 
 def test_no_remote_port_or_busy_port_reuse(replies):
     with runtime(replies) as (api, web):
-        assert check_ports_free(api, web) if False else True
         with pytest.raises(RuntimeProbeError, match="already occupied"):
             check_ports_free(api, web)
         with pytest.raises(RuntimeProbeError, match="must differ"):
