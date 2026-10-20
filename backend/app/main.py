@@ -53,7 +53,7 @@ from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.centre_desk import centre_day, change_task, fixture_tasks, task_history
-from app.services.local_chat import list_threads as demo_chat_threads, list_messages as demo_chat_messages, send_text as demo_chat_send, member_by_id as demo_chat_actor
+from app.services.local_chat import list_threads as demo_chat_threads, list_messages as demo_chat_messages, send_text as demo_chat_send, member_by_id as demo_chat_actor, save_voice as demo_chat_voice, get_voice as demo_chat_voice_read, VOICE_LIMIT_BYTES
 from app.services.review_access import LOCAL_ENVS
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
@@ -1690,3 +1690,41 @@ def chatbox_send_text(thread_id: str, request: Request, payload: dict = Body(...
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"message":message}
+
+
+@app.post("/api/chatbox/threads/{thread_id}/voice")
+async def chatbox_upload_voice(thread_id: str, request: Request,
+    audio: UploadFile = File(...), duration_ms: int = Form(...), idempotency_key: str = Form(...)):
+    actor=_controlled_chat_actor(request)
+    if audio.content_type is None:
+        raise HTTPException(status_code=415, detail="Audio content type required")
+    # Limit streaming read before loading contents into the private voice store.
+    content=await audio.read(VOICE_LIMIT_BYTES+1)
+    if len(content)>VOICE_LIMIT_BYTES:
+        raise HTTPException(status_code=413, detail="Voice note exceeds 8 MB")
+    try:
+        message=demo_chat_voice(DATA / "chatbox_demo.sqlite3", DATA / "private_chat_voice",
+                                thread_id,actor,content,audio.content_type,duration_ms,idempotency_key)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Conversation not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    return {"message":message}
+
+
+@app.get("/api/chatbox/threads/{thread_id}/voice/{message_id}")
+def chatbox_get_voice(thread_id: str, message_id: str, request: Request):
+    actor=_controlled_chat_actor(request)
+    try:
+        raw, content_type=demo_chat_voice_read(DATA / "chatbox_demo.sqlite3",
+                        DATA / "private_chat_voice",thread_id,actor,message_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Voice note not found") from None
+    except RuntimeError:
+        raise HTTPException(status_code=503, detail="Voice note unavailable or integrity check failed") from None
+    return Response(content=raw,media_type=content_type,headers={
+        "Cache-Control":"private, no-store, max-age=0",
+        "X-Content-Type-Options":"nosniff",
+        "Content-Security-Policy":"default-src 'none'; sandbox",
+        "Content-Disposition":"inline; filename=\"voice-note\"",
+    })
