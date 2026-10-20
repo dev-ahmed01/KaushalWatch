@@ -40,6 +40,16 @@ jobs:
       - name: Windows launcher read-only PowerShell preflight
         shell: pwsh
         run: ./scripts/Start-KaushalWatch-Judge.ps1 -PreflightOnly
+      - name: Reject unbuilt offline production release receipts
+        shell: bash
+        run: |
+          set +e
+          python scripts/verify_offline_demo_build.py --api-port 8000 > /tmp/kw-unbuilt-offline.json
+          status=$?
+          set -e
+          test "$status" -eq 2
+          python -c 'import json; p=json.load(open("/tmp/kw-unbuilt-offline.json")); assert p["ready"] is False and p["field_accuracy_qualified"] is False'
+
       - name: Fail closed if rehearsal and read-only preflight flags are combined
         shell: pwsh
         run: |
@@ -283,6 +293,12 @@ jobs:
           exit 1
       - name: Verify real judge mission readiness before browser suite
         run: python scripts/check_judge_runtime.py --api-port 8000 --web-port 3000 --timeout-seconds 60
+      - name: Phase 16 browser egress isolation and self-hosted font proof
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_API_BASE_URL: http://127.0.0.1:8000
+        run: npx playwright test e2e/phase16-offline-branded.spec.ts --project chromium --workers 1
       - name: Phase 15 judge-release rehearsal against running API and browser
         working-directory: web
         env:
