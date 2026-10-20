@@ -51,7 +51,7 @@ test('R12 camera trust withholds unsupported counts and scenario switch isolates
   await page.getByRole('tab',{name:'Insights'}).click();
   await expect(page.getByRole('tabpanel')).toContainText('Observed: unknown (camera gate)');
   await page.getByRole('button',{name:/01 \/ recorded scenario Attendance gap/}).click();
-  await expect(page.getByRole('region',{name:'KaushalAI scripted copilot'})).toContainText('not reached the scripted analysis checkpoint');
+  await expect(page.getByRole('region',{name:'KaushalAI scripted copilot'})).toContainText('Play the recorded scene');
   await expect(page.getByRole('tabpanel')).toContainText('—');
   await page.getByRole('button',{name:'Reset recorded demo'}).click();
   await expect(page.getByRole('region',{name:'Synthetic analysis timeline'})).toContainText('1 / 5 checkpoints');
