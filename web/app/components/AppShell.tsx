@@ -12,6 +12,7 @@ import {
   PanelLeftOpen,
   ShieldCheck,
   Sparkles,
+  Clapperboard,
 } from 'lucide-react';
 import { MotionConfig } from 'framer-motion';
 import type { ReactNode } from 'react';
@@ -65,9 +66,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
     setTodayIst('Today, ' + new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date()));
   }, []);
   const { period, setPeriod } = useBriefPeriod();
-  const active = primarySection(pathname);
-  const activeLabel = pathname === '/demo/mission'
-    ? 'Proof of Training'
+  const active = pathname.startsWith('/demo/') ? '' : primarySection(pathname);
+  const activeLabel = pathname === '/demo/studio' ? 'Recorded demo studio'
+    : pathname === '/demo/mission' ? 'Proof of Training'
     : NAV.find(item => item.href === active)?.label || 'Overview';
   // The global range control previously caused redundant controls and
   // network refreshes across unrelated modules. Insights owns the period.
@@ -156,6 +157,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             <div className="px-2 py-1.5">
               <div className="flex items-center gap-2 text-[11px] font-medium text-[#50627B]"><span className="h-2 w-2 rounded-full bg-[#0B996A]"/> Officer workspace</div>
               <div className="mt-1 text-[10px] text-[#98A2B3]">Human-reviewed decisions</div>
+              {!SECURE_PROXY && <Link href="/demo/studio" className="kw-focus mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#ECF4FF] px-2.5 py-2 text-[11px] font-semibold text-[#2360AF]"><Clapperboard size={14}/> Recorded demo</Link>}
             </div>
           )}
         </div>
