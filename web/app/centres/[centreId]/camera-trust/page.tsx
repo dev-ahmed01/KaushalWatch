@@ -16,9 +16,12 @@ type Observation = {
   observation_id:string;created_at:string;review_status:string;
   payload:{sampled_frames:number;possible_review_samples:number;failed_positions:number[];
     authorized_reference_file_present:boolean; sampling:string; physical_camera_health:string;
+    evidence_triage_schema?:string;evidence_unusable_samples?:number;
+    evidence_unknown_or_alignment_review_samples?:number;possible_interference_samples?:number;
     samples?:Array<{requested_frame0:number;candidate_for_human_review:boolean;
       illumination:string;geometry:{state:string};focus:{state:string};
-      localized_coverage:{state:string}}>;
+      localized_coverage:{state:string};
+      evidence_triage?:{usability:string;interference_review:string;usability_reason:string}}>;
   };
 };
 type AuditEvent = {sequence:number; actor:string; event:string; created_at:string;
@@ -242,12 +245,29 @@ function ProtectedCameraTrustPage(){
                 <span className="capitalize">{stateLabel(o.review_status)}</span>
               </div>
               <p className="mt-1 text-[11px] text-[#667085]">Physical camera state UNKNOWN · {o.payload.authorized_reference_file_present?'Reference present':'No approved reference image available'}</p>
+              {o.payload.evidence_triage_schema==='KW_CAMERA_EVIDENCE_TRIAGE_V1'?
+                <div className="mt-3 grid gap-2 sm:grid-cols-2" aria-label="Separate camera-quality evidence decisions">
+                  <div className="rounded-xl border border-[#F1E5CF] bg-[#FFFBF5] px-3 py-2">
+                    <span className="block text-[11px] text-[#856A42]">Evidence not usable</span>
+                    <strong className="mt-1 block text-[17px] tabular-nums text-[#51412B]">{o.payload.evidence_unusable_samples ?? 0} / {o.payload.sampled_frames}</strong>
+                  </div>
+                  <div className="rounded-xl border border-[#DFE8F2] bg-[#F7F9FC] px-3 py-2">
+                    <span className="block text-[11px] text-[#596C86]">Possible scene interference</span>
+                    <strong className="mt-1 block text-[17px] tabular-nums text-[#344054]">{o.payload.possible_interference_samples ?? 0} / {o.payload.sampled_frames}</strong>
+                  </div>
+                  <p className="sm:col-span-2 text-[11px] text-[#667085]">
+                    {o.payload.evidence_unknown_or_alignment_review_samples ?? 0} samples require reference or alignment review. No physical tampering is established.
+                  </p>
+                </div>:
+                <p className="mt-2 text-[11px] text-[#667085]">Older analysis: separate evidence-quality and scene-interference status unavailable.</p>}
               <p className="mt-1 text-[11px] text-[#667085]">Failed positions: {o.payload.failed_positions.length} · {o.payload.sampling}</p>
               <details className="mt-3 text-[12px]"><summary className="cursor-pointer font-medium">Numeric cue examples</summary>
                 <div className="mt-2 space-y-2">
                   {(o.payload.samples||[]).filter(s=>s.candidate_for_human_review).slice(0,6).map(s=>
                     <p key={s.requested_frame0} className="rounded-lg bg-[#F8FAFC] p-2 text-[11px]">
-                      Frame {s.requested_frame0}: {s.illumination} · {s.focus.state} · {s.geometry.state} · {s.localized_coverage.state}
+                      Frame {s.requested_frame0}: {s.evidence_triage?
+                        s.evidence_triage.usability.replaceAll('_',' ')+' · '+s.evidence_triage.interference_review.replaceAll('_',' '):
+                        'Unqualified historical cue'} · {s.focus.state} · {s.geometry.state}
                     </p>)}
                 </div>
               </details>
