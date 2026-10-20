@@ -15,7 +15,7 @@ test.describe('Phase 15 controlled release rehearsal',()=>{
   });
   await page.goto('/');
   const shell=page.getByRole('navigation',{name:'Primary navigation'});
-  await expect(shell.getByRole('link',{name:'KaushalAI',exact:true})).toHaveAttribute('aria-current','page');
+  await expect(shell.getByRole('link',{name:'Overview',exact:true})).toHaveAttribute('aria-current','page');
   await page.getByRole('link',{name:/Explore the Proof of Training/}).click();
   await expect(page).toHaveURL(/\/demo\/mission$/);
   await expect(page.getByRole('heading',{name:/A centre reports. Evidence responds. An officer decides./})).toBeVisible();
