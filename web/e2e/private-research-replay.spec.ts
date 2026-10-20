@@ -8,6 +8,22 @@ test('private cache replay is unavailable by default',async({page})=>{
 });
 
 test('research replay labels supplied annotations without fake AI counts',async({page})=>{
+ await page.route('**/api/demo/research-replay/analysis',r=>r.fulfill({
+   status:200,contentType:'application/json',body:JSON.stringify({
+     schema:'KW_PRIVATE_RESEARCH_TRIAGE_TRACE_STATUS_V1',status:'ready',
+     source_kind:'previously_inspected_research_not_field_validation',
+     numeric_heuristic_trace:true,independent_holdout:false,
+     physical_tamper_proven:false,reference_custody_verified:false,
+     clips:['quality-covered','quality-defocused','quality-moved','quality-normal'].map((id,i)=>({
+       id,source_sha256:String.fromCharCode(97+i).repeat(64),
+       counts:{evidence_unusable:i===0?1:0,possible_interference:0,annotation_event_samples:0},
+       samples:[{frame0:0,second:0,annotation_in_event:false,
+         usability:i===0?'NOT_USABLE_FOR_VISUAL_VERIFICATION':'PROVISIONALLY_OBSERVABLE',
+         interference_review:'NOT_ESTABLISHED',
+         reason:i===0?'FOCUS_DEGRADED':'NO_SEVERE_QUALITY_LOSS_OBSERVED'}],
+     })),
+   })
+ }));
  await page.route('**/api/demo/research-replay',r=>r.fulfill({
   status:200,contentType:'application/json',body:JSON.stringify({
    schema:'KW_PRIVATE_RESEARCH_REPLAY_STATUS_V1',status:'ready',
@@ -33,6 +49,10 @@ test('research replay labels supplied annotations without fake AI counts',async(
  await expect(panel.getByRole('heading',{name:'Annotated camera-quality study'})).toBeVisible();
  await expect(panel.getByText('covered interval')).toBeVisible();
  await expect(panel.getByText(/not a skill-training centre/)).toBeVisible();
+ await expect(panel.getByText('Computed frame sample')).toBeVisible();
+ await expect(panel.getByText('Evidence usability')).toBeVisible();
+ await expect(panel.getByText('Possible interference')).toBeVisible();
+ await expect(panel.getByText(/Source-matched numeric heuristic/)).toBeVisible();
  await expect(panel.locator('video')).toHaveAttribute('src',/quality-covered\/media/);
  await panel.getByRole('button',{name:'Normal control'}).click();
  await expect(panel.getByText('No incident annotated')).toBeVisible();

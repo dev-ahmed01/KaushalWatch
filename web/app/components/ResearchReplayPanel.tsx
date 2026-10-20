@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,ShieldCheck,AlertCircle} from 'lucide-react';
 import type {ResearchCatalog,ResearchClip} from '../lib/server/research-replay';
+import type {TraceCatalog} from '../lib/server/research-analysis';
 
 const clock=(n:number)=>'00:'+Math.floor(Math.max(0,n)).toString().padStart(2,'0');
 export default function ResearchReplayPanel(){
@@ -12,6 +13,7 @@ export default function ResearchReplayPanel(){
  const [second,setSecond]=useState(0);
  const [ready,setReady]=useState(false);
  const [decodeError,setDecodeError]=useState(false);
+ const [trace,setTrace]=useState<TraceCatalog|null>(null);
  useEffect(()=>{
    let mounted=true;
    fetch('/api/demo/research-replay',{cache:'no-store'})
@@ -26,10 +28,25 @@ export default function ResearchReplayPanel(){
          ||!data.research_only||data.model_inference_qualified!==false||data.clips.length!==4)
         throw new Error('Invalid research admission');
       setClips(data.clips);setSelected(data.clips[0].id);setState('ready');
+      // The optional local numeric trace is a separately verified source
+      // receipt. Unavailable traces must never be replaced with fake scores.
+      void fetch('/api/demo/research-replay/analysis',{cache:'no-store'})
+       .then(async response=>response.ok?await response.json() as TraceCatalog:null)
+       .then(report=>{
+          if(mounted&&report?.schema==='KW_PRIVATE_RESEARCH_TRIAGE_TRACE_STATUS_V1'
+             &&report.numeric_heuristic_trace===true
+             &&report.independent_holdout===false
+             &&report.reference_custody_verified===false
+             &&report.physical_tamper_proven===false){
+             setTrace(report);
+          }
+       }).catch(()=>{if(mounted)setTrace(null);});
     }).catch(()=>{if(mounted)setState('error');});
    return()=>{mounted=false;};
  },[]);
  const clip=clips.find(c=>c.id===selected);
+ const computed=trace?.clips.find(c=>c.id===clip?.id&&c.source_sha256===clip?.source_sha256);
+ const numeric=computed?.samples[Math.min(computed.samples.length-1,Math.max(0,Math.round(second)))];
  if(state==='off')return null;
  return <section aria-label="Private research replay" className="mt-5 rounded-[20px] border border-[#CBDDED] bg-white p-4 sm:p-5">
    <div className="flex flex-wrap items-start justify-between gap-2">
@@ -99,6 +116,27 @@ export default function ResearchReplayPanel(){
             }} className="kw-focus mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-[#25659A] disabled:opacity-40">
             Jump to annotation <ArrowRight size={13}/>
           </button>}
+        </div>
+        <div className="rounded-xl border border-[#DCE7F1] bg-[#F9FBFD] p-3" aria-label="Computed research-quality observations">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-bold text-[#375E80]">Computed frame sample</p>
+            <span className="text-[10px] font-medium text-[#6C8198]">{numeric?clock(numeric.second):'Not prepared'}</span>
+          </div>
+          {numeric?<>
+            <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+              <span className="text-[11px] text-[#576B85]">Evidence usability</span>
+              <strong className="text-right text-[11px] text-[#344F70]">{numeric.usability.replaceAll('_',' ')}</strong>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+              <span className="text-[11px] text-[#576B85]">Possible interference</span>
+              <strong className="text-right text-[11px] text-[#344F70]">{numeric.interference_review.replaceAll('_',' ')}</strong>
+            </div>
+            <p className="mt-2 text-[10px] leading-4 text-[#7B8A9E]">
+              Source-matched numeric heuristic · 1 FPS · first-frame reference not independently approved.
+            </p>
+          </>:<p className="mt-2 text-[11px] leading-5 text-[#72849A]">
+            Numeric trace unavailable. Only the recorded annotation is shown.
+          </p>}
         </div>
         <div className="rounded-xl border border-[#E0EAF4] p-3">
           <p className="text-[11px] font-bold text-[#375E80]">Original file integrity</p>
