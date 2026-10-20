@@ -17,7 +17,7 @@ from scripts import audit_private_camera_clips as audit
 
 def prepared(tmp_path):
     folder=tmp_path/"isolated-private-footage"
-    folder.mkdir()
+    folder.mkdir(parents=True,exist_ok=True)
     files=[]
     for name in audit.SOURCES:
         source=folder/name
