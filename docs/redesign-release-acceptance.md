@@ -3,6 +3,13 @@
 ## Scope
 Five navigation modules: **Overview, Issues, Insights, Centre Desk, Chatbox**. The redesigned mission remains a supporting guide at `/demo/mission`; legacy centre and case deep links remain accessible.
 
+## Verification recorded from the merged redesign
+
+- Redesign R10 [PR #136](https://github.com/dev-ahmed01/KaushalWatch/pull/136) merged to `main` at `a8e44427fad37782351b2c1e7bf4954203dcec1b`.
+- The **R10 PR head** passed seven application CI jobs ([run 39447509289](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/39447509289)) and the release-container job ([run 39447506489](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/39447506489)).
+- A corresponding, independently observed post-merge-`main` CI run and physical operator acceptance are **not established by those PR runs**.
+- R11 hardening keeps Chatbox message history visible after successful sends, clears old thread content immediately when roles/threads change, and refreshes sidebar previews without resetting the conversation. A browser regression checks consecutive sends and switching conversations. R11 CI/merge results must be recorded separately.
+
 ## Required release gates
 
 1. Confirm the exact release branch HEAD SHA and `main` SHA. Run all seven application CI jobs (frontend, backend, hygiene, postgres-persistence, protected-browser, e2e, oidc-browser-acceptance), plus Pilot Release Containers. Do **not** claim a verified merge from PR checks alone; verify the post-merge SHA.
