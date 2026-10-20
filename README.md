@@ -74,7 +74,13 @@ Start with the **safe Windows PowerShell launcher**, not a direct destructive de
 
 # Subsequent launch without clearing the saved officer audit state
 .\scripts\Start-KaushalWatch-Judge.ps1
+
+# Read-only browser rehearsal, exits after checking the live demo and its own services
+# First install Chromium once from web/: npx playwright install chromium
+.\scripts\Start-KaushalWatch-Judge.ps1 -RunRehearsal
 ~~~
+
+The **-RunRehearsal** variant starts actual localhost services, checks seeded case, evidence pack and PDF, runs the read-only Phase 15 Chromium browser journey, then stops the two processes it launched. It does **not** reset demo cases unless -ResetSimulatedState is explicitly requested. The same tests run in CI, while real Windows/browser hardware requires a local trial. See [Phase 15 release rehearsal](docs/release/PHASE15_CONTROLLED_RELEASE_REHEARSAL.md).
 
 It starts the actual API and Next.js UI on localhost and displays the path to **/demo/mission**. Select the native, keyboard-accessible **60-second** or **3m20s** guided judge route. The final illustrated story moves from attendance gap to camera abstention, item-specific equipment visibility, real saved demo case/audit/PDF, normal negative control, and measured offline metadata (only if a private measured receipt has been loaded). It retains the four primary modules: KaushalAI, Centres, Insights and Actions.
 
