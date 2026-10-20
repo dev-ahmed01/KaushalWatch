@@ -149,7 +149,7 @@ export default function InsightsPage() {
         </aside>
       </section>
 
-      <section className="mt-5 rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+      <section className="mt-5 min-w-0 overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-4 py-6 shadow-[var(--kw-shadow)] sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Activity across the training day</h2>
@@ -158,7 +158,7 @@ export default function InsightsPage() {
           <div className="text-[11px] text-[#98A2B3]">{data.counts.analysis_runs} analyses in {data.period_label.toLowerCase()}</div>
         </div>
 
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6 min-w-0 max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label="Activity heatmap, horizontally scrollable" tabIndex={0}>
           <div className="min-w-[760px]">
             <div className="grid grid-cols-[120px_repeat(7,1fr)] gap-2">
               <div />
