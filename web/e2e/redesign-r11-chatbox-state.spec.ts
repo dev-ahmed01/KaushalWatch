@@ -40,12 +40,18 @@ test('R11 changing conversation clears previous messages before showing the new 
   const count = await threadButtons.count();
   test.skip(count < 2, 'The controlled fixture needs at least two permitted conversations');
 
+  const priorMessage = 'R11 per-thread isolation ' + Date.now();
+  await page.getByRole('textbox', { name: 'Type a text message' }).fill(priorMessage);
+  await page.getByRole('button', { name: 'Send message' }).click();
+  await expect(history.getByText(priorMessage)).toBeVisible();
+
   const selected = page.getByLabel('Permitted threads').getByRole('button', { pressed: true });
   const originalName = await selected.locator('strong').innerText();
   const other = threadButtons.filter({ hasNotText: originalName }).first();
   await other.click();
   await expect(other).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('heading', { name: 'Chatbox', exact: true })).toBeVisible();
-  // A thread change must not preserve the previously selected conversation's message DOM.
   await expect(history).toBeVisible();
+  // A stale response must not expose the previously selected thread's messages.
+  await expect(history.getByText(priorMessage)).toHaveCount(0);
 });
