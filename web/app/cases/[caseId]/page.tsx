@@ -25,6 +25,7 @@ import { API, getEvidencePack, getReviewAccess, reviewCase, reportPdfUrl } from 
 import type { ReviewAccessStatus } from '../../lib/api';
 import { caseUiState, plainCaseType } from '../../lib/presentation';
 import type { EvidenceReviewPack } from '../../lib/types';
+import {returnToMissionFromCase} from '../../lib/missionContinuity';
 
 type DecisionAction = 'confirmed' | 'false_positive' | 'virtual_verification' | 'resolved';
 
@@ -39,17 +40,22 @@ export default function CaseDetailPage() {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [returnHref,setReturnHref] = useState<string|null>(null);
 
   async function load() {
     setError('');
+    setPack(null);
     try {
-      setPack(await getEvidencePack(id));
+      const next=await getEvidencePack(id);
+      if(next?.case?.case_id!==id)throw new Error('Mismatched case evidence');
+      setPack(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Case unavailable');
     }
   }
 
   useEffect(() => {
+    setReturnHref(null);
     void load();
   }, [id]);
 
@@ -64,6 +70,11 @@ export default function CaseDetailPage() {
   }, []);
 
   const record = pack?.case;
+  useEffect(()=>{
+    if(record?.centre_id){
+      setReturnHref(returnToMissionFromCase(window.location.search,record.centre_id));
+    }
+  },[record?.centre_id]);
   const evidence = record?.evidence?.[0];
   const src = evidence?.evidence_id ? API + '/evidence/' + evidence.evidence_id + '.jpg' : undefined;
   const history = pack?.review.history || [];
@@ -124,8 +135,22 @@ export default function CaseDetailPage() {
           <ArrowLeft size={15} />
           Back to actions
         </Link>
-        <div className="mt-8 h-72 rounded-2xl kw-skeleton" />
-        {error && <div role="alert" className="mt-4 rounded-xl bg-[#FEF3F2] px-4 py-3 text-[13px] text-[#B42318]">{error}</div>}
+        {error?<div role="alert" className="mt-8 rounded-2xl border border-[#F0D8D1] bg-white p-5">
+          <h1 className="text-[20px] font-semibold text-[#794333]">Case evidence unavailable</h1>
+          <p className="mt-2 text-[13px] text-[#8D5B4C]">No case status, evidence or officer decision can be confirmed.</p>
+          <p className="mt-2 break-words text-[11px] text-[#9B776E]">{error}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button type="button" onClick={()=>void load()}
+              className="kw-focus rounded-xl bg-[#285A8C] px-4 py-2 text-[12px] font-semibold text-white">
+              Retry saved case
+            </button>
+            <Link href="/demo/mission"
+              className="kw-focus rounded-xl border border-[#D3E0EE] px-4 py-2 text-[12px] font-semibold text-[#315B85]">
+              Open walkthrough
+            </Link>
+          </div>
+        </div>:
+        <div aria-label="Loading saved case" className="mt-8 h-72 rounded-2xl kw-skeleton" />}
       </div>
     );
   }
@@ -136,9 +161,14 @@ export default function CaseDetailPage() {
   return (
     <div>
       <nav aria-label="Case record navigation" className="flex flex-wrap items-center justify-between gap-3">
-        <Link href="/actions" className="kw-focus inline-flex items-center gap-2 rounded-lg text-[12px] font-medium text-[#667085] hover:text-[#344054]">
-          <ArrowLeft size={15}/> Back to actions
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/actions" className="kw-focus inline-flex items-center gap-2 rounded-lg text-[12px] font-medium text-[#667085] hover:text-[#344054]">
+            <ArrowLeft size={15}/> Back to actions
+          </Link>
+          {returnHref&&<Link href={returnHref} className="kw-focus inline-flex items-center gap-2 rounded-xl border border-[#D1DFED] bg-[#F4F8FD] px-3 py-2 text-[12px] font-semibold text-[#285B88]">
+            <ArrowLeft size={15}/> Return to walkthrough
+          </Link>}
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link href={'/centres/'+encodeURIComponent(record.centre_id)}
             className="kw-focus inline-flex items-center gap-1.5 rounded-xl border border-[#DCE5F0] bg-white px-3 py-2 text-[11px] font-semibold text-[#48627F] hover:bg-[#F6F9FD]">

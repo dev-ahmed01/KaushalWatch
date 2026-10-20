@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {useEffect,useState} from 'react';
 import {ArrowLeft,ArrowRight,Camera,FileSearch,ShieldCheck} from 'lucide-react';
 import {DEMO_SCENES,STAGES,stageDescription,type SceneId} from '../../lib/demoMission';
+import {caseHrefWithReturn,missionPositionFromSearch} from '../../lib/missionContinuity';
 import {SECURE_PROXY,getCases,getCentreIntelligence} from '../../lib/api';
 import SourceLockedReplay from '../../components/SourceLockedReplay';
 import TradeProofPanel from '../../components/TradeProofPanel';
@@ -19,6 +20,11 @@ export default function MissionPage(){
   const [cases,setCases]=useState<CaseRecord[]>([]);
   const [loading,setLoading]=useState(false);
   const [caseError,setCaseError]=useState(false);
+  const [caseLoading,setCaseLoading]=useState(true);
+  useEffect(()=>{
+    const saved=missionPositionFromSearch(window.location.search);
+    setSceneId(saved.scene);setStep(saved.step);
+  },[]);
   const [infoError,setInfoError]=useState(false);
   const [retry,setRetry]=useState(0);
   const scene=DEMO_SCENES.find(s=>s.id===sceneId)||DEMO_SCENES[0];
@@ -29,10 +35,11 @@ export default function MissionPage(){
   useEffect(()=>{
     if(SECURE_PROXY)return;
     let active=true;
-    setCaseError(false);
+    setCaseError(false);setCaseLoading(true);
     getCases()
       .then(rows=>{if(active)setCases(rows);})
-      .catch(()=>{if(active){setCases([]);setCaseError(true);}});
+      .catch(()=>{if(active){setCases([]);setCaseError(true);}})
+      .finally(()=>{if(active)setCaseLoading(false);});
     return()=>{active=false;};
   },[retry]);
 
@@ -119,12 +126,16 @@ export default function MissionPage(){
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-[#6D819A]">
           <ShieldCheck size={13}/>{apiFacts?(info?.simulated||metric?.simulated?'Simulated API record':'Saved analysis/case record'):'Authored controlled example'}
+          {error&&<span role="status" className="text-[#92642D]">Live records unavailable · authored scenario remains usable</span>}
           {error&&<button type="button" className="kw-focus font-semibold text-[#255C9D] underline" onClick={()=>setRetry(v=>v+1)}>Retry source</button>}
         </div>
         {scene.id==='equipment'&&<TradeProofPanel/>}
         <SourceLockedReplay sceneId={scene.id}/>
-        <OfficerProofJourney centreId={scene.centreId} caseId={caseRecord?.case_id||null} normalControl={scene.id==='normal'}/>
-        <div className="mt-7">
+        <OfficerProofJourney centreId={scene.centreId} caseId={caseRecord?.case_id||null}
+          normalControl={scene.id==='normal'} sceneId={scene.id} step={step}
+          caseLedgerState={caseLoading?'loading':caseError?'unavailable':'ready'}
+          onRetryCaseLedger={()=>setRetry(v=>v+1)}/>
+        <div id="kw-evidence-trail" className="mt-7 scroll-mt-24">
           <div className="flex items-center justify-between"><h3 className="text-[14px] font-bold text-[#2B415C]">The evidence trail</h3><span className="text-[11px] text-[#7E90A7]">{step+1}/4</span></div>
           <div className="mt-3 grid grid-cols-4 gap-2">{STAGES.map((label,i)=><button key={label} type="button" aria-pressed={step===i}
             onClick={()=>setStep(i)} className={'kw-focus rounded-lg border px-1.5 py-2 text-[10px] font-semibold sm:text-[12px] '+
@@ -151,7 +162,7 @@ export default function MissionPage(){
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#ECF0F5] pt-5">
           <Link href={scene.href} className="kw-focus inline-flex items-center gap-2 rounded-xl bg-[#EAF3FC] px-4 py-2.5 text-[12px] font-semibold text-[#245B96]">
             Open centre evidence <ArrowRight size={14}/></Link>
-          {caseRecord&&<Link href={'/cases/'+encodeURIComponent(caseRecord.case_id)}
+          {caseRecord&&<Link href={caseHrefWithReturn(caseRecord.case_id,{scene:scene.id,step})}
             className="kw-focus text-[12px] font-semibold text-[#355F8A]">Open saved case</Link>}
         </div>
       </article>

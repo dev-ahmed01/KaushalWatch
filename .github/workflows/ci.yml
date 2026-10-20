@@ -203,6 +203,9 @@ jobs:
         run: node --experimental-strip-types --test app/lib/server/scorecard-report.test.mjs
       - name: Check 60-second and 200-second judge route timing
         run: node --experimental-strip-types --test app/lib/judgeRoute.test.mjs
+      - name: Test scoped walkthrough continuation
+        working-directory: web
+        run: node --experimental-strip-types --test app/lib/missionContinuity.test.mjs
       - run: npm run build
 
   e2e:
