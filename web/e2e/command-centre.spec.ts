@@ -13,19 +13,16 @@ test('AI-first restructure exposes the five-item navigation and core routes', as
   expect(governance.datasets.some((item: any) => item.dataset_id === 'epfl-laboratory-camera0')).toBe(true);
 
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'KaushalAI' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link')).toHaveCount(5);
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Centre Desk' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Insights' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Issues' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Chatbox' })).toBeVisible();
-  await expect(page.getByText('Centres at a glance')).toBeVisible();
-  await expect(page.getByText(/Grounded in 0 analysis runs/)).toBeVisible();
-  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Insights' }).click();
-  await page.getByRole('button', { name: '7 days' }).click();
-  await page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Overview' }).click();
-  await expect(page.getByText(/Grounded in 15 analysis runs/)).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Training centre status' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'KaushalAI copilot' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Priority issues' })).toBeVisible();
 
   await page.goto('/centres');
   await expect(page.getByRole('heading', { name: 'Centres' })).toBeVisible();
