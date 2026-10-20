@@ -16,6 +16,7 @@ export function VoiceNoteControls({ threadId, actorId, onSent }: {
   const cancelRef = useRef(false);
   const [recording, setRecording] = useState(false);
   const [clip, setClip] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState('');
   const [duration, setDuration] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -40,6 +41,12 @@ export function VoiceNoteControls({ threadId, actorId, onSent }: {
     tracksRef.current?.getTracks().forEach(track => track.stop());
   }, []);
   useEffect(() => { setClip(null); setDuration(0); setError(''); }, [threadId, actorId]);
+  useEffect(() => {
+    if (!clip) { setPreviewUrl(''); return; }
+    const localUrl = URL.createObjectURL(clip);
+    setPreviewUrl(localUrl);
+    return () => URL.revokeObjectURL(localUrl);
+  }, [clip]);
 
   async function start() {
     if (busy || recording || clip) return;
@@ -98,6 +105,7 @@ export function VoiceNoteControls({ threadId, actorId, onSent }: {
       </>}
       {clip && <>
         <span className="text-[11px] text-[#60738e]">Ready · {(duration/1000).toFixed(1)}s · {(clip.size/1024).toFixed(0)} KB</span>
+        {previewUrl && <audio controls preload="none" src={previewUrl} aria-label="Preview voice note" className="h-9 w-full max-w-[180px]"/>}
         <button type="button" aria-label="Send voice note" disabled={busy} onClick={() => void send()}
           className="kw-focus inline-flex items-center gap-1.5 rounded-lg bg-[#2563eb] px-3 py-2 text-[11px] font-semibold text-white disabled:opacity-40"><Send size={14}/> Send audio</button>
         <button type="button" aria-label="Discard voice note" disabled={busy} onClick={() => {setClip(null);setDuration(0);}}
