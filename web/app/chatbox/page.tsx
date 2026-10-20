@@ -6,6 +6,7 @@ import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { getChatboxThreads, getChatboxMessages, sendChatboxMessage } from '../lib/api';
 import { EmptyState, PageHeader, StatusBadge } from '../components/WorkspaceUi';
 import type { ChatThread, ChatMessage, ChatboxIndex } from '../lib/types';
+import { VoiceNoteControls, VoiceNotePlayer } from '../components/VoiceNoteControls';
 
 const initialCentre = 'DEMO-KA-104';
 const demoActor = (centreId: string) => 'demo-officer-' + centreId;
@@ -143,11 +144,12 @@ export default function ChatboxPage() {
             {!messages.length && <p className="py-16 text-center text-[12px] text-[#8a97a9]">No messages yet. Start an authorised demo conversation.</p>}
             {messages.map(msg=><div key={msg.id} className={'flex '+(msg.sender_id===actorId?'justify-end':'justify-start')}>
               <div className={'max-w-[85%] rounded-xl px-3 py-2.5 text-[12px] leading-5 sm:max-w-[75%] '+(msg.sender_id===actorId?'bg-[#2563eb] text-white':'border border-[#e2e9f2] bg-white text-[#40516a]')}>
-                {msg.kind==='text'?<p className="whitespace-pre-wrap break-words">{msg.body}</p>:<p>Voice note (playback available when enabled)</p>}
+                {msg.kind==='text'?<p className="whitespace-pre-wrap break-words">{msg.body}</p>:<VoiceNotePlayer messageId={msg.id} actorId={actorId} durationMs={msg.duration_ms}/>}
                 <small className={'mt-1 block text-right text-[9px] '+(msg.sender_id===actorId?'text-[#c8ddff]':'text-[#8c9aaa]')}>{timeIst(msg.created_at_utc)} IST</small>
               </div>
             </div>)}
           </div>
+          <VoiceNoteControls key={selected + actorId} threadId={selected} actorId={actorId} onSent={() => { void updateMessages(); setRefresh(x => x + 1); }}/>
           <form onSubmit={send} className="flex min-w-0 items-end gap-2 border-t border-[#e7edf5] bg-white p-3">
             <label htmlFor="chat-draft" className="sr-only">Type a text message</label>
             <textarea id="chat-draft" rows={2} maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)}

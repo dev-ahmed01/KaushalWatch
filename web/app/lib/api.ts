@@ -248,3 +248,25 @@ export async function sendChatboxMessage(threadId: string, actorId: string, body
   if (!response.ok) throw new Error(payload?.detail || 'Message could not be saved');
   return payload as {message: ChatMessage};
 }
+
+export async function sendChatboxVoice(threadId: string, actorId: string, audio: Blob, durationMs: number, idempotencyKey: string) {
+  const form = new FormData();
+  const type = audio.type.split(';')[0];
+  const extension = type === 'audio/mp4' ? 'm4a' : type === 'audio/ogg' ? 'ogg' : 'webm';
+  form.append('audio', audio, 'recording.' + extension);
+  form.append('duration_ms', String(durationMs));
+  form.append('idempotency_key', idempotencyKey);
+  const response = await officerFetch(API + '/api/chatbox/threads/' + encodeURIComponent(threadId) + '/voice', {
+    method: 'POST', headers: { 'X-KW-Demo-Actor': actorId }, body: form,
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Voice note was not saved');
+  return payload as {message: ChatMessage};
+}
+export async function getChatboxVoice(messageId: string, actorId: string) {
+  const response = await officerFetch(API + '/api/chatbox/voice/' + encodeURIComponent(messageId), {
+    cache: 'no-store', headers: { 'X-KW-Demo-Actor': actorId },
+  });
+  if (!response.ok) throw new Error('Voice note could not be verified or retrieved');
+  return response.blob();
+}

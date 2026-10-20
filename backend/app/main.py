@@ -53,7 +53,7 @@ from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.centre_desk import centre_day, change_task, fixture_tasks, task_history
-from app.services.local_chat import list_threads as demo_chat_threads, list_messages as demo_chat_messages, send_text as demo_chat_send, member_by_id as demo_chat_actor
+from app.services.local_chat import list_threads as demo_chat_threads, list_messages as demo_chat_messages, send_text as demo_chat_send, member_by_id as demo_chat_actor, send_voice as demo_chat_voice, read_voice as demo_chat_read_voice, MAX_VOICE_BYTES
 from app.services.review_access import LOCAL_ENVS
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
@@ -1690,3 +1690,38 @@ def chatbox_send_text(thread_id: str, request: Request, payload: dict = Body(...
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"message":message}
+
+
+@app.post("/api/chatbox/threads/{thread_id}/voice")
+async def chatbox_voice_upload(thread_id: str, request: Request,
+    audio: UploadFile = File(...), idempotency_key: str = Form(...),
+    duration_ms: int = Form(...)):
+    actor=_controlled_chat_actor(request)
+    content_type=(audio.content_type or "").split(";",1)[0].lower().strip()
+    blob=await audio.read(MAX_VOICE_BYTES + 1)
+    try:
+        message=demo_chat_voice(DATA / "chatbox_demo.sqlite3",thread_id,actor,blob,
+                                content_type,duration_ms,idempotency_key)
+    except LookupError:
+        raise HTTPException(status_code=404,detail="Conversation not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
+    return {"message":message}
+
+@app.get("/api/chatbox/voice/{message_id}")
+def chatbox_voice_download(message_id: str, request: Request):
+    actor=_controlled_chat_actor(request)
+    # Lookup is centre and participant-scoped on every retrieval.
+    try:
+        media,media_type=demo_chat_read_voice(DATA / "chatbox_demo.sqlite3",
+                                               message_id,actor)
+    except LookupError:
+        raise HTTPException(status_code=404,detail="Voice note not found") from None
+    except (OSError,ValueError) as exc:
+        logger.warning("Chatbox voice integrity unavailable: %s",type(exc).__name__)
+        raise HTTPException(status_code=503,detail="Voice note unavailable") from None
+    return Response(content=media,media_type=media_type,headers={
+        "Cache-Control":"private, no-store",
+        "X-Content-Type-Options":"nosniff",
+        "Content-Security-Policy":"default-src 'none'",
+    })

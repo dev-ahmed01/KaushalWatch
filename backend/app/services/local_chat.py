@@ -126,3 +126,94 @@ def send_text(path: Path, thread_id: str, actor_id: str, text: str, idem: str) -
         return view_message(row)
     finally:
         db.close()
+
+
+# Voice media is stored outside any web-served static directory. A message id
+# identifies a random file; client-controlled names and paths are never used.
+import hashlib
+
+MAX_VOICE_BYTES = 4 * 1024 * 1024
+ALLOWED_VOICE = {"audio/webm": ("webm", b"\x1a\x45\xdf\xa3"),
+                 "audio/ogg": ("ogg", b"OggS"),
+                 "audio/mp4": ("mp4", None)}
+
+def _voice_suffix(media_type: str, data: bytes) -> str:
+    if media_type not in ALLOWED_VOICE:
+        raise ValueError("Unsupported audio format")
+    suffix, signature = ALLOWED_VOICE[media_type]
+    if signature and not data.startswith(signature):
+        raise ValueError("Audio does not match declared format")
+    if media_type == "audio/mp4" and (len(data) < 12 or data[4:8] != b"ftyp"):
+        raise ValueError("Audio does not match declared format")
+    return suffix
+
+def send_voice(path: Path, thread_id: str, actor_id: str, payload: bytes,
+               media_type: str, duration_ms: int, idem: str) -> dict:
+    thread=accessible_thread(thread_id,actor_id)
+    if not thread:
+        raise LookupError("Conversation not found")
+    if not 16 <= len(payload) <= MAX_VOICE_BYTES:
+        raise ValueError("Voice note must be between 16 bytes and 4 MB")
+    if not isinstance(duration_ms,int) or not 100 <= duration_ms <= 60000:
+        raise ValueError("Voice duration must be between 0.1 and 60 seconds")
+    suffix=_voice_suffix(media_type,payload)
+    if not (8 <= len(idem) <= 128) or not all(c.isalnum() or c in "-_" for c in idem):
+        raise ValueError("Invalid message idempotency key")
+    db=connect(path)
+    uid=str(uuid4())
+    folder=path.parent / "chatbox_voice"
+    filename=folder / (uid + "." + suffix)
+    created=False
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        duplicate=db.execute("SELECT * FROM chat_messages WHERE thread_id=? AND sender_id=? AND idempotency_key=?",
+                (thread_id,actor_id,idem)).fetchone()
+        if duplicate:
+            db.commit()
+            return view_message(duplicate)
+        folder.mkdir(parents=True,exist_ok=True)
+        # Exclusive file creation; the UUID cannot be submitted by callers.
+        with filename.open("xb") as f:
+            f.write(payload)
+            f.flush()
+            import os
+            os.fsync(f.fileno())
+        created=True
+        now=datetime.now(timezone.utc).isoformat()
+        digest=hashlib.sha256(payload).hexdigest()
+        db.execute("""INSERT INTO chat_messages
+            (id,thread_id,centre_id,sender_id,kind,body,media_key,
+            content_type,duration_ms,byte_size,sha256,created_at_utc,idempotency_key)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (uid,thread_id,thread["centre_id"],actor_id,"voice",None,
+             filename.name,media_type,duration_ms,len(payload),digest,now,idem))
+        db.commit()
+        row=db.execute("SELECT * FROM chat_messages WHERE id=?",(uid,)).fetchone()
+        return view_message(row)
+    except Exception:
+        db.rollback()
+        if created:
+            filename.unlink(missing_ok=True)
+        raise
+    finally:
+        db.close()
+
+def read_voice(path: Path, message_id: str, actor_id: str) -> tuple[bytes,str]:
+    db=connect(path)
+    try:
+        row=db.execute("SELECT * FROM chat_messages WHERE id=? AND kind='voice'",
+                       (message_id,)).fetchone()
+        if row is None or not accessible_thread(row["thread_id"],actor_id):
+            raise LookupError("Voice note not found")
+        key=row["media_key"]
+        if not isinstance(key,str) or key not in {
+            message_id+".webm", message_id+".ogg", message_id+".mp4"}:
+            raise IOError("Untrusted media key")
+        media=path.parent / "chatbox_voice" / key
+        content=media.read_bytes()
+        if len(content)!=row["byte_size"] or hashlib.sha256(content).hexdigest()!=row["sha256"]:
+            raise IOError("Voice integrity check failed")
+        _voice_suffix(row["content_type"],content)
+        return content,row["content_type"]
+    finally:
+        db.close()
