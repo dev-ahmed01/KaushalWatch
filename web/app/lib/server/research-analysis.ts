@@ -63,24 +63,27 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
  const clips:TraceClip[]=[];
  for(const c of approved){
    const sourceClip=byId.get(c.visible.id);
+   if(!plain(sourceClip))throw new Error('Unverified research clip');
+   const frameCount=sourceClip.frame_count;
+   const suppliedCounts=sourceClip.counts;
    if(!plain(sourceClip)||sourceClip.source_sha256!==c.visible.source_sha256
      ||!SHA.test(String(sourceClip.source_sha256))
      ||!finite(sourceClip.duration_seconds)
      ||Math.abs(sourceClip.duration_seconds-c.visible.duration_seconds)>.02
-     ||!Number.isSafeInteger(sourceClip.frame_count)
-     ||sourceClip.frame_count<60||sourceClip.frame_count>900
+     ||typeof frameCount!=='number'||!Number.isSafeInteger(frameCount)
+     ||frameCount<60||frameCount>900
      ||!finite(sourceClip.fps)||Math.abs(sourceClip.fps-3)>.02
-     ||Math.abs(sourceClip.frame_count/sourceClip.fps-c.visible.duration_seconds)>1.5
+     ||Math.abs(frameCount/sourceClip.fps-c.visible.duration_seconds)>1.5
      ||!Array.isArray(sourceClip.samples)
      ||sourceClip.samples.length<10||sourceClip.samples.length>300
-     ||!plain(sourceClip.counts))
+     ||!plain(suppliedCounts))
      throw new Error('Trace not aligned to source');
    const samples:TraceSample[]=[];
    let previous=-3;
    for(const item of sourceClip.samples){
      if(!plain(item)||!Number.isSafeInteger(item.frame0)
        ||item.frame0!==previous+3
-       ||item.frame0<0||item.frame0>=sourceClip.frame_count
+       ||item.frame0<0||item.frame0>=frameCount
        ||!finite(item.second)
        ||Math.abs(item.second-item.frame0/sourceClip.fps)>.03
        ||typeof item.annotation_in_event!=='boolean'
@@ -101,7 +104,7 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
        reason:item.reason as string,
      });
    }
-   if(Math.abs(sourceClip.samples.length-Math.ceil(sourceClip.frame_count/3))>1)
+   if(Math.abs(sourceClip.samples.length-Math.ceil(frameCount/3))>1)
       throw new Error('Incomplete sampled trace');
    const counts={
      evidence_unusable:samples.filter(s=>s.usability==='NOT_USABLE_FOR_VISUAL_VERIFICATION').length,
@@ -109,7 +112,7 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
      annotation_event_samples:samples.filter(s=>s.annotation_in_event).length,
    };
    if(Object.keys(sourceClip.counts).length!==3
-     ||Object.entries(counts).some(([k,v])=>sourceClip.counts[k]!==v))
+     ||Object.entries(counts).some(([k,v])=>suppliedCounts[k]!==v))
       throw new Error('Inconsistent trace summary');
    clips.push({id:c.visible.id,source_sha256:c.visible.source_sha256,
                samples,counts});
