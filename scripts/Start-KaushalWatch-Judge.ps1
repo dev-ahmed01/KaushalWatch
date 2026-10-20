@@ -6,6 +6,8 @@
   -ResetSimulatedState is explicit and guarded against real/non-demo data.
   -CalibratedModel requires a separately installed authoritative detector.
   -RunRehearsal runs a read-only Chromium journey and stops just this command's servers.
+  -ProductionWeb starts a source/port-bound, locally built Next production site.
+  -BuildProductionWeb prepares that frozen build first (requires build-time fonts).
 #>
 [CmdletBinding()]
 param(
@@ -13,6 +15,8 @@ param(
   [switch]$ResetSimulatedState,
   [switch]$CalibratedModel,
   [switch]$RunRehearsal,
+  [switch]$ProductionWeb,
+  [switch]$BuildProductionWeb,
   [ValidateRange(1024,65535)][int]$ApiPort=8000,
   [ValidateRange(1024,65535)][int]$WebPort=3000
 )
@@ -22,6 +26,8 @@ $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 if($ApiPort -eq $WebPort){throw 'API and web ports cannot be identical.'}
 if($PreflightOnly -and $RunRehearsal){throw '-PreflightOnly and -RunRehearsal cannot be combined.'}
+if($BuildProductionWeb -and -not $ProductionWeb){throw '-BuildProductionWeb requires -ProductionWeb.'}
+if($BuildProductionWeb -and $PreflightOnly){throw 'Read-only preflight cannot build or alter .next.'}
 if($RunRehearsal -and $CalibratedModel){throw 'Controlled rehearsal is the frozen synthetic path; use -CalibratedModel separately.'}
 $mode="$env:KAUSHALWATCH_ENV".ToLowerInvariant()
 if($mode -and @('development','local','test') -notcontains $mode){
@@ -43,6 +49,10 @@ if($LASTEXITCODE -ne 0){throw 'Procedural replay source checksum mismatch.'}
 & $python (Join-Path $root 'scripts/check_release_readiness.py')
 if($LASTEXITCODE -ne 0){throw 'Deterministic demo release seed is not valid.'}
 if($PreflightOnly){
+  if($ProductionWeb){
+    & $python (Join-Path $root 'scripts/verify_offline_demo_build.py') --root $root --api-port $ApiPort
+    if($LASTEXITCODE -ne 0){throw 'Missing or stale source-bound local production build.'}
+  }
   Write-Host 'Read-only preflight passed. No services started and no demo records reset.'
   exit 0
 }
@@ -50,6 +60,13 @@ if($PreflightOnly){
 # connect the presentation browser to a stale API or Next process.
 & $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --check-ports-free
 if($LASTEXITCODE -ne 0){throw 'Judge ports are occupied; stop old services rather than accepting stale case data.'}
+if($BuildProductionWeb){
+  & (Join-Path $root 'scripts/Prepare-KaushalWatch-OfflineBuild.ps1') -ApiPort $ApiPort
+}
+if($ProductionWeb){
+  & $python (Join-Path $root 'scripts/verify_offline_demo_build.py') --root $root --api-port $ApiPort
+  if($LASTEXITCODE -ne 0){throw 'Offline build missing, stale, or compiled for a different API port.'}
+}
 $data=Join-Path $root 'data'
 if($ResetSimulatedState){
   if(-not (Test-Path $data)){New-Item -ItemType Directory -Path $data | Out-Null}
@@ -97,7 +114,8 @@ try{
   # Start-Process joins ArgumentList into one command line on Windows. Quote
   # an installed Next CLI path that may live under a directory with spaces.
   $quotedNextCli='"' + $nextCli + '"'
-  $web=Start-Process -FilePath $node -ArgumentList @($quotedNextCli,'dev','--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
+  $nextMode=if($ProductionWeb){'start'}else{'dev'}
+  $web=Start-Process -FilePath $node -ArgumentList @($quotedNextCli,$nextMode,'--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
   # A living PID does not establish startup. Verify real API source cases,
   # a saved evidence pack, PDF bytes and the served judge mission HTML.
   & $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --timeout-seconds 75
@@ -110,6 +128,7 @@ try{
   Write-Host "Insights: http://127.0.0.1:$WebPort/insights"
   Write-Host "Logs: $logRoot"
   Write-Host 'Videos are procedural; seeded records synthetic. Institutional accuracy remains unqualified.'
+  if($ProductionWeb){Write-Host 'Optimized local production web build active; browser font assets are served from localhost.'}
   if($RunRehearsal){
     # Browser tests are read-only, never submit officer review changes.
     # CI runs the same test file against a real Next/FastAPI stack.
