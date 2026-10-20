@@ -78,6 +78,69 @@ def tiles(reference: np.ndarray, current: np.ndarray, grid: int=8) -> dict:
             "flattened_changed_tile_fraction":round(local_fraction,4),
             "partial_cover_proven":False}
 
+def split_evidence_decision(*, illumination: str, focus: dict,
+                            geometry: dict, localized_coverage: dict,
+                            freeze: dict, reference_present: bool) -> dict:
+    """Separate visual evidence usability from suspected scene interference.
+
+    Interpret existing conservative visual cues only. No detector training,
+    source authentication, behavioural intent attribution or threshold tuning.
+    Sparse identical samples do not establish a replayed stream.
+    """
+    obscured = localized_coverage.get("state") == "POSSIBLE_LOCAL_OBSTRUCTION"
+    displaced = geometry.get("state") == "POSSIBLE_SCENE_DISPLACEMENT"
+    defocused = focus.get("state") == "POSSIBLE_DEFOCUS"
+    illumination_bad = illumination in {"TOO_DARK_PROXY", "OVEREXPOSED_PROXY"}
+    uncertain_reference = not reference_present
+    unknown_registration = geometry.get("state", "").startswith("UNKNOWN_")
+    if illumination_bad or defocused or obscured:
+        usability = "NOT_USABLE_FOR_VISUAL_VERIFICATION"
+        usable_reason = ("VISIBILITY_DEGRADED" if illumination_bad
+                         else "FOCUS_DEGRADED" if defocused else "LOCAL_VIEW_OBSCURED")
+    elif displaced:
+        usability = "REVIEW_REQUIRED_SCENE_ALIGNMENT"
+        usable_reason = "REFERENCE_SCENE_CHANGED"
+    elif uncertain_reference:
+        usability = "UNKNOWN_NO_REFERENCE"
+        usable_reason = "REFERENCE_REQUIRED"
+    elif unknown_registration:
+        usability = "UNKNOWN_SCENE_REGISTRATION"
+        usable_reason = "NO_RELIABLE_SCENE_MATCH"
+    else:
+        usability = "PROVISIONALLY_OBSERVABLE"
+        usable_reason = "NO_SEVERE_QUALITY_LOSS_OBSERVED"
+    if reference_present and (obscured or displaced):
+        interference = "POSSIBLE_SCENE_INTERFERENCE_REVIEW"
+    elif not reference_present:
+        interference = "UNKNOWN_NO_REFERENCE"
+    else:
+        interference = "NOT_ESTABLISHED"
+    # The present reference is *not* independently authenticated by pixels.
+    # No "true camera state" inference is possible even for clear video.
+    return {
+        "schema": "KW_CAMERA_EVIDENCE_TRIAGE_V1",
+        "usability": usability,
+        "usability_reason": usable_reason,
+        "interference_review": interference,
+        "quality_loss_without_interference_attribution":
+            bool((illumination_bad or defocused) and not (obscured or displaced)),
+        "sparse_identical_frames_observed":
+            freeze.get("state") == "IDENTICAL_SPARSE_SAMPLES",
+        "reference_status":
+            "PRESENT_CUSTODY_NOT_ATTESTED_BY_PIXELS" if reference_present
+            else "ABSENT",
+        "hold_attendance_and_practical_claims":
+            usability != "PROVISIONALLY_OBSERVABLE",
+        "review_required":
+            usability != "PROVISIONALLY_OBSERVABLE" or
+            interference != "NOT_ESTABLISHED",
+        "physical_camera_health": "UNKNOWN",
+        "malicious_tampering_proven": False,
+        "enforcement_authorized": False,
+        "institutional_accuracy_qualified": False,
+    }
+
+
 def sample(frame: np.ndarray, reference: np.ndarray | None=None,
            previous: np.ndarray | None=None) -> dict:
     im=scaled(frame)
@@ -106,10 +169,16 @@ def sample(frame: np.ndarray, reference: np.ndarray | None=None,
                         else "UNKNOWN_LOW_REFERENCE_TEXTURE" if refsharp<20
                         else "NO_SIGNIFICANT_SHARPNESS_DROP_OBSERVED"),
                "sharpness_ratio":round(sharp/max(refsharp,1e-6),4)}
+    triage=split_evidence_decision(
+        illumination=illumination, focus=focus, geometry=geo,
+        localized_coverage=local, freeze=freeze,
+        reference_present=reference is not None,
+    )
     possible=any(v.get("state","").startswith("POSSIBLE") for v in (geo,local,focus))
     possible=possible or illumination in ("TOO_DARK_PROXY","OVEREXPOSED_PROXY")
     return {"illumination":illumination,"brightness":round(lum,2),
             "laplacian_variance":round(sharp,3),"focus":focus,"geometry":geo,
             "localized_coverage":local,"freeze":freeze,
             "candidate_for_human_review":possible,
+            "evidence_triage":triage,
             "physical_camera_health":"UNKNOWN","production_qualified":False}
