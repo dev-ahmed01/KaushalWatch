@@ -1,6 +1,16 @@
 # KaushalWatch — Verified build and release status
 
-**Review date:** 15 October 2026  
+## Current product-release addendum — 20 October 2026
+
+**Redesign R1–R10 has been merged into `main`**, ending at commit [`a8e4442`](https://github.com/dev-ahmed01/KaushalWatch/commit/a8e44427fad37782351b2c1e7bf4954203dcec1b). The primary Next.js workflow now uses **Overview, Issues, Insights, Centre Desk and Chatbox**, plus the secondary `/demo/mission` evidence walkthrough. R10 PR-head CI passed all seven application jobs ([run](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/39447509289)); its release-container job also passed ([run](https://github.com/dev-ahmed01/KaushalWatch/actions/runs/39447506489)). Those PR-head checks alone do not establish a post-merge-`main` run.
+
+**Release acceptance is still open:** full local Windows start/rebuild, visual matching at four viewports, the actual hardware microphone test, server-side Gemini configuration when needed, production Chatbox identity/storage and independent institutional model/field accuracy. Centre Desk and Chatbox are implemented for **local controlled synthetic operations**; they do not constitute live cross-centre deployments. See [redesign release acceptance](docs/redesign-release-acceptance.md).
+
+The remaining research-qualification detail below is a **historical 15 October baseline**, not the current navigation or latest commit inventory. Its privacy, source-licensing and independent-validation cautions still apply.
+
+---
+
+**Historical research review date:** 15 October 2026  
 **Source:** [main](https://github.com/dev-ahmed01/KaushalWatch/tree/main), verified baseline commit `b9c0b60ba9c9ace15013175326913ea31b5b868e` (before this housekeeping merge).
 
 > **Release decision: engineering prototype, NOT independently validated for real training-centre compliance or approved for a production pilot.** A green synthetic integration build must never be represented as a field-accuracy qualification.
