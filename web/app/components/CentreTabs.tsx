@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useEffect, useRef } from 'react';
 import { cn } from '../lib/cn';
 import { LayoutDashboard, Users, Activity, HardHat, FileCheck2, Camera } from 'lucide-react';
 
@@ -16,11 +17,33 @@ const tabs = [
 
 export default function CentreTabs({ centreId }: { centreId: string }) {
   const pathname = usePathname();
+  const scroller = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const nav = scroller.current;
+    const active = nav?.querySelector<HTMLElement>('a[aria-current="page"]');
+    if (!nav || !active) return;
+    // Keep the selected section discoverable on a small viewport without
+    // scrolling the entire document or changing the user's reading position.
+    const activeLeft = active.offsetLeft - nav.offsetLeft;
+    const margin = 12;
+    const visibleLeft = nav.scrollLeft;
+    const visibleRight = visibleLeft + nav.clientWidth;
+    if (activeLeft < visibleLeft + margin) {
+      nav.scrollTo({left: Math.max(0, activeLeft - margin), behavior: 'instant'});
+    } else if (activeLeft + active.offsetWidth > visibleRight - margin) {
+      nav.scrollTo({
+        left: activeLeft + active.offsetWidth - nav.clientWidth + margin,
+        behavior: 'instant',
+      });
+    }
+  }, [pathname]);
   return (
     <nav
-      className="kw-os-subnav mb-6 w-full max-w-full min-w-0 overflow-x-auto rounded-2xl border border-[#E7EDF4] bg-white p-1.5 shadow-[var(--kw-shadow)]"
+      ref={scroller}
+      className="kw-os-subnav mb-6 w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-2xl border border-[#E7EDF4] bg-white p-1.5 shadow-[var(--kw-shadow)]"
       aria-label="Centre sections"
     >
+      <span className="sr-only">Scroll horizontally to discover all centre sections. The active section is brought into view.</span>
       <div className="flex min-w-max gap-1">
         {tabs.map(tab => {
           const href = `/centres/${centreId}${tab.suffix}`;
