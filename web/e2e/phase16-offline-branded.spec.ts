@@ -79,9 +79,21 @@ test('320px Insights heatmap scrolls in its own viewport, not the document',asyn
    width:el.clientWidth,contentWidth:el.scrollWidth,
    docWidth:document.documentElement.scrollWidth,
    viewport:document.documentElement.clientWidth,
+   exposed:[...document.querySelectorAll<HTMLElement>('body *')].filter(el=>{
+     const rect=el.getBoundingClientRect();
+     if(rect.right<=document.documentElement.clientWidth+1)return false;
+     let ancestor=el.parentElement;
+     while(ancestor&&ancestor!==document.body){
+       const x=getComputedStyle(ancestor).overflowX;
+       if(['hidden','clip','scroll','auto'].includes(x))return false;
+       ancestor=ancestor.parentElement;
+     }
+     return true;
+   }).slice(0,8).map(el=>({tag:el.tagName,cl:String(el.className).slice(0,90),
+     text:(el.textContent||'').trim().slice(0,40),right:Math.round(el.getBoundingClientRect().right)})),
  }));
  expect(before.contentWidth).toBeGreaterThan(before.width);
- expect(before.docWidth-before.viewport).toBeLessThanOrEqual(1);
+ expect(before.docWidth-before.viewport,JSON.stringify(before.exposed)).toBeLessThanOrEqual(1);
  await region.evaluate(el=>el.scrollLeft=el.scrollWidth);
  const after=await region.evaluate(el=>({
    left:el.scrollLeft,docWidth:document.documentElement.scrollWidth,
