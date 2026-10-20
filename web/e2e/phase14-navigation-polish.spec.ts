@@ -65,8 +65,19 @@ test('tight mobile header and primary navigation remain within view across all m
  for(const route of ['/','/centres','/insights','/actions','/demo/mission','/cases/SIM-KA-104-ATT']){
    await page.goto(route);
    await expect(page.getByRole('navigation',{name:'Mobile primary navigation'})).toBeVisible();
-   const horizontal=await page.evaluate(()=>
-     document.documentElement.scrollWidth-document.documentElement.clientWidth);
-   expect(horizontal,route+' introduced document overflow').toBeLessThanOrEqual(1);
+   const diagnostics=await page.evaluate(()=>{
+      const width=document.documentElement.clientWidth;
+      return {
+        overflow:document.documentElement.scrollWidth-width,
+        offenders:[...document.querySelectorAll<HTMLElement>('body *')]
+          .map(el=>({tag:el.tagName,cls:String(el.className).slice(0,100),
+                     content:(el.textContent||'').trim().slice(0,70),
+                     right:Math.round(el.getBoundingClientRect().right),
+                     left:Math.round(el.getBoundingClientRect().left)}))
+          .filter(el=>el.right>width+1||el.left< -1).slice(0,12),
+      };
+   });
+   expect(diagnostics.overflow,route+' overflow: '+JSON.stringify(diagnostics.offenders))
+     .toBeLessThanOrEqual(1);
  }
 });
