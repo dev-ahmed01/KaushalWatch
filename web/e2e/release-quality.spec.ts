@@ -70,7 +70,7 @@ test('mobile shell stays usable without document-level horizontal overflow', asy
   for (const route of routes) {
     await page.goto(route);
     await expect(page.getByRole('navigation', { name: 'Mobile primary navigation' })).toBeVisible();
-    if (route.startsWith('/cases/')) {
+    if (route !== '/insights') {
       await expect(page.getByRole('combobox', { name: 'Date range' })).toHaveCount(0);
     } else {
       await expect(page.getByRole('combobox', { name: 'Date range' })).toBeVisible();
@@ -78,8 +78,9 @@ test('mobile shell stays usable without document-level horizontal overflow', asy
     await expectNoDocumentOverflow(page);
   }
 
-  await page.getByRole('navigation', { name: 'Mobile primary navigation' }).getByRole('link', { name: 'Centres' }).click();
-  await expect(page).toHaveURL(/\/centres$/);
+  await page.getByRole('navigation', { name: 'Mobile primary navigation' }).getByRole('link', { name: 'Centre Desk' }).click();
+  await expect(page).toHaveURL(/\/centre-desk$/);
+  await page.getByRole('navigation', { name: 'Mobile primary navigation' }).getByRole('link', { name: 'Insights' }).click();
 
   await page.getByRole('combobox', { name: 'Date range' }).selectOption('last_7_days');
   await expect(page.getByRole('combobox', { name: 'Date range' })).toHaveValue('last_7_days');
