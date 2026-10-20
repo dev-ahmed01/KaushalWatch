@@ -2,7 +2,7 @@
  * Do not interpret these selected clips as independent accuracy, camera-hour
  * false alarm burden, or malicious interference ground truth.
  */
-import type {TraceSample, TraceClip} from './research-analysis';
+import type {TraceSample, TraceClip} from './research-analysis.ts';
 
 export type ChallengeCounts={
  samples:number;
