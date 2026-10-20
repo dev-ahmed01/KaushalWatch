@@ -39,6 +39,12 @@ def create_trace(selection_csv: Path, clip_dir: Path, *,
         raise ValueError("Use a pinned annotation sheet in the private clip folder")
     # Reuses existing full source-hash, annotation and MP4 checks.
     catalog=prepare(selection_csv,private_root)
+    frozen_path=private_root/"kw-research-replay.local.json"
+    if frozen_path.is_symlink() or not frozen_path.is_file() or frozen_path.stat().st_size>24_000:
+        raise ValueError("Source replay manifest missing or unsafe")
+    frozen=json.loads(frozen_path.read_text(encoding="utf-8"))
+    if frozen!=catalog:
+        raise ValueError("Source replay hashes or annotated intervals changed")
     if catalog["schema"]!="KW_RESEARCH_REPLAY_V1" or len(catalog["clips"])!=4:
         raise ValueError("Unexpected private research catalog")
     clips=[]
