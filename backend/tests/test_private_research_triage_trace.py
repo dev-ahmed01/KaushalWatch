@@ -19,7 +19,7 @@ from scripts.prepare_research_triage_trace import create_trace,write_once
 
 def private_fixture(tmp_path):
     home=tmp_path/"private-source-cache"
-    home.mkdir()
+    home.mkdir(parents=True)
     data=[
         ("covered_gentle_frame721_onset",1,"covered","gentle",721,1620,684,825),
         ("defocused_strong_frame166275_onset",2,"defocused","strong",166275,167183,166238,166379),
