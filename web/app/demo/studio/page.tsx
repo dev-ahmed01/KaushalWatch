@@ -22,6 +22,8 @@ type AssistantEntry = {question:string;answer:string};
 
 const surface='rounded-[20px] border border-[#DFE9F5] bg-white shadow-[0_3px_20px_rgba(31,65,109,.045)]';
 const accent='text-[#1C5BBC]';
+const PUBLIC_SHOWCASE=process.env.NEXT_PUBLIC_KAUSHALWATCH_PUBLIC_SHOWCASE==='true';
+const SHOWCASE_API=process.env.NEXT_PUBLIC_KAUSHALWATCH_SHOWCASE_API||'';
 const clock=(seconds:number)=>'00:'+Math.floor(Math.max(0,seconds)).toString().padStart(2,'0');
 
 export default function RecordedDemoStudio(){
@@ -31,6 +33,8 @@ export default function RecordedDemoStudio(){
   const [playing,setPlaying]=useState(false);
   const [catalog,setCatalog]=useState<ReplayCatalog|null>(null);
   const [sourceError,setSourceError]=useState('');
+  const [cloudVerified,setCloudVerified]=useState('');
+  const [apiHealth,setApiHealth]=useState<'checking'|'online'|'unavailable'>('checking');
   const [reviewed,setReviewed]=useState<Record<string,boolean>>({});
   const [chat,setChat]=useState<ChatEntry[]>([]);
   const [chatDraft,setChatDraft]=useState('');
@@ -45,7 +49,8 @@ export default function RecordedDemoStudio(){
   const source=useMemo(()=>catalog?.clips.find(item=>item.id===scene.clipId),[catalog,scene.clipId]);
   const admitted=catalog?.schema==='KW_SOURCE_LOCKED_REPLAY_V1'&&catalog.status==='ready'
     &&source?.status==='verified'&&source.source_url==='/camera-trust/'+scene.clipId+'.mp4'
-    &&Boolean(source.sha256?.match(/^[a-f0-9]{64}$/));
+    &&Boolean(source.sha256?.match(/^[a-f0-9]{64}$/))
+    &&(!PUBLIC_SHOWCASE||cloudVerified===scene.clipId+':'+source.sha256);
 
   useEffect(()=>{
     if(SECURE_PROXY)return;
@@ -58,6 +63,37 @@ export default function RecordedDemoStudio(){
       .then(data=>{if(active){setCatalog(data);setSourceError('');}})
       .catch(()=>{if(active){setCatalog(null);setSourceError('The recorded sample could not be verified. Playback is blocked.');}});
     return()=>{active=false;};
+  },[]);
+
+  useEffect(()=>{
+    if(!PUBLIC_SHOWCASE||!source?.source_url||!source.sha256)return;
+    let live=true;
+    setCloudVerified('');
+    // Vercel's CDN owns public media bytes; verify the actual delivered source
+    // in the browser before enabling playback or generating demo checkpoints.
+    fetch(source.source_url,{cache:'no-store'})
+      .then(async response=>{
+        if(!response.ok)throw new Error('Cannot load public sample media');
+        const content=await response.arrayBuffer();
+        if(content.byteLength<10000||content.byteLength>12_000_000)throw new Error('Invalid sample size');
+        const digest=await crypto.subtle.digest('SHA-256',content);
+        const hash=Array.from(new Uint8Array(digest)).map(v=>v.toString(16).padStart(2,'0')).join('');
+        if(hash!==source.sha256)throw new Error('Sample recording digest mismatch');
+        return hash;
+      })
+      .then(hash=>{if(live){setCloudVerified(scene.clipId+':'+hash);setSourceError('');}})
+      .catch(()=>{if(live){setCloudVerified('');setSourceError('Cloud recording verification failed. Playback blocked.');}});
+    return()=>{live=false;};
+  },[scene.clipId,source?.sha256,source?.source_url]);
+
+  useEffect(()=>{
+    if(!PUBLIC_SHOWCASE||!SHOWCASE_API)return;
+    let live=true;
+    fetch(SHOWCASE_API+'/healthz',{cache:'no-store'})
+      .then(response=>response.ok?response.json():Promise.reject(new Error('Read-only API unavailable')))
+      .then(data=>{if(live)setApiHealth(data?.simulation===true?'online':'unavailable');})
+      .catch(()=>{if(live)setApiHealth('unavailable');});
+    return()=>{live=false;};
   },[]);
 
   function selectScene(id:StudioSceneId){
@@ -110,11 +146,11 @@ export default function RecordedDemoStudio(){
   </div>;
 
   const iconFor=(id:StudioSceneId)=>id==='attendance'?<Users size={18}/>:id==='infrastructure'?<Wrench size={18}/>:<ShieldAlert size={18}/>;
-  return <div className="space-y-4 pb-7" aria-label="Recorded synthetic analysis studio">
+  return <div className={(PUBLIC_SHOWCASE?'mx-auto max-w-[1440px] px-3 py-5 sm:px-5 md:px-7 ':'')+'space-y-4 pb-7'} aria-label="Recorded synthetic analysis studio">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <Link href="/demo/mission" className="kw-focus inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#54718f]">
+      {PUBLIC_SHOWCASE?<span className="text-[12px] font-semibold text-[#415F88]">KaushalWatch OS · Recorded demo</span>:<Link href="/demo/mission" className="kw-focus inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#54718f]">
         <ChevronRight className="rotate-180" size={15}/> Guided mission
-      </Link>
+      </Link>}
       <span className="inline-flex items-center gap-2 rounded-full border border-[#BDD6F3] bg-[#EDF5FF] px-3 py-1.5 text-[11px] font-semibold text-[#245BA3]">
         <span className="h-2 w-2 rounded-full bg-[#2563EB]"/> Simulated demo · scripted analysis
       </span>
@@ -312,7 +348,7 @@ export default function RecordedDemoStudio(){
     </section>
     <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[10px] text-[#8999AB]">
       <span className="inline-flex items-center gap-1.5"><Clock3 size={13}/> Session-local simulation · recording time {clock(seconds)} · no real people evaluated</span>
-      <Link href="/demo/mission" className="kw-focus inline-flex items-center gap-1 font-semibold text-[#2F67B5]">View evidence mission <ArrowRight size={14}/></Link>
+      {PUBLIC_SHOWCASE?<span className="font-medium text-[#7890A6]">Read-only demo API: {apiHealth}</span>:<Link href="/demo/mission" className="kw-focus inline-flex items-center gap-1 font-semibold text-[#2F67B5]">View evidence mission <ArrowRight size={14}/></Link>}
     </div>
   </div>;
 }
