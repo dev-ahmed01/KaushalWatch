@@ -75,7 +75,10 @@ export default function MissionPage(){
   return <div className="space-y-3 pb-6">
     <header className="flex flex-wrap items-center justify-between gap-2">
       <Link className="kw-focus inline-flex items-center gap-1 text-[12px] text-[#667C94]" href="/"><ArrowLeft size={15}/> Overview</Link>
-      <span className="rounded-full border border-[#D8E6F6] bg-[#F2F7FE] px-3 py-1 text-[11px] font-semibold text-[#285F96]">Controlled SIH scenarios · simulated</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href="/demo/studio" className="kw-focus inline-flex items-center gap-1.5 rounded-full bg-[#2563EB] px-3 py-1.5 text-[11px] font-semibold text-white">Recorded demo studio <ArrowRight size={13}/></Link>
+        <span className="rounded-full border border-[#D8E6F6] bg-[#F2F7FE] px-3 py-1 text-[11px] font-semibold text-[#285F96]">Controlled SIH scenarios · simulated</span>
+      </div>
     </header>
     <section className="relative overflow-hidden rounded-[20px] bg-[#173456] px-5 py-5 text-white sm:px-7 sm:py-6">
       <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-white/10 bg-[#2E5889]/20"/>
