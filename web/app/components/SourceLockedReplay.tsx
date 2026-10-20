@@ -106,7 +106,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(210px,.65fr)]">
         <div className="min-w-0">
           <div className="relative aspect-video overflow-hidden rounded-xl bg-[#13233B]">
-            <video key={selected+'-'+sceneId} ref={player}
+            <video key={selected+'-'+sceneId+'-'+refresh} ref={player}
               className="h-full w-full object-contain"
               src={clip.source_url||undefined} preload="metadata" muted playsInline
               aria-label="Source-verified procedural recorded footage"
@@ -125,13 +125,25 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
                 {box.label} {(box.score*100).toFixed(0)}%
               </span>
             </div>)}
-            {!mediaReady&&<div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/40 text-[12px] text-white">
+            {!mediaReady&&!decoderFailed&&<div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/40 text-[12px] text-white">
               Preparing verified recording…
+            </div>}
+            {decoderFailed&&<div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/80 px-5 text-center text-[12px] font-medium text-white">
+              Playback unavailable. The scenario and officer evidence remain accessible below.
             </div>}
           </div>
           {decoderFailed&&<div role="alert" className="mt-3 rounded-lg border border-[#EFD7B4] bg-[#FFF9EF] p-3 text-[11px] text-[#8D5B1B]">
-            Source checksum matched, but this browser cannot decode or validate the recording format. Playback and detections are disabled. Try a browser with H.264 support or prepare a verified alternate encoding.
-          </div>}
+            Source checksum matched, but this browser cannot decode or validate the recording format. Playback and detections are disabled.
+            <div className="mt-2 flex flex-wrap gap-3">
+              <button type="button" className="kw-focus rounded-lg border border-[#DFC9A7] bg-white px-3 py-2 font-semibold"
+                onClick={()=>{setDecoderFailed(false);setMediaReady(false);setElapsed(0);setRefresh(n=>n+1);}}>
+                Retry recording
+              </button>
+              <a href="#kw-evidence-trail" className="kw-focus rounded-lg border border-[#DFC9A7] bg-white px-3 py-2 font-semibold">
+                Continue with evidence
+              </a>
+            </div>
+          </div>
           <div className="mt-3">
             <label className="block text-[11px] font-semibold text-[#526A86]" htmlFor="kw-replay-seek">
               Playback position · {time(elapsed)} / {time(clip.duration)}
