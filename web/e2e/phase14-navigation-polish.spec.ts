@@ -33,7 +33,7 @@ test('judge and saved-case views have relevant headers, no misleading date range
  await expect(page.getByRole('combobox',{name:'Date range'})).toHaveCount(0);
  await expect(page.getByRole('group',{name:'Date range'})).toHaveCount(0);
  await page.goto('/insights');
- await expect(page.getByRole('group',{name:'Date range'})).toBeVisible();
+ await expect(page.getByRole('combobox',{name:'Date range'})).toBeVisible();
 });
 
 test('direct deep centre section and horizontal tabs remain visible, keyboard-accessible at 320px',async({page})=>{

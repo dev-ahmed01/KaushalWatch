@@ -71,7 +71,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
     : NAV.find(item => item.href === active)?.label || 'Overview';
   // The global range control previously caused redundant controls and
   // network refreshes across unrelated modules. Insights owns the period.
-  const showDateRange = pathname === '/insights';
+  const showDateRange = false; // Range is owned by the one selector in Insights.
   const centreId = useMemo(
     () => pathname.match(/^\/centres\/([^/]+)/)?.[1] || 'DEMO-KA-104',
     [pathname],

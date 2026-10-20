@@ -73,6 +73,7 @@ test('browser disconnected from remote network still handles officer case and PD
 test('320px Insights heatmap scrolls in its own viewport, not the document',async({page})=>{
  await page.setViewportSize({width:320,height:680});
  await page.goto('/insights');
+ await page.getByText('Activity across the training day').click();
  const region=page.getByRole('region',{name:'Activity heatmap, horizontally scrollable'});
  await expect(region).toBeVisible();
  const before=await region.evaluate(el=>({

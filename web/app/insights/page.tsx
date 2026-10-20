@@ -1,395 +1,177 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  ArrowRight,
-  BarChart3,
-  Camera,
-  Download,
-  Sparkles,
-} from 'lucide-react';
-import type { CSSProperties } from 'react';
+import { ArrowRight, BarChart3, Download, ShieldCheck, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DataRetry } from '../components/NetworkStatus';
 import TrustScorecardPanel from '../components/TrustScorecardPanel';
+import { EmptyState, PageHeader, StatTile, StatusBadge } from '../components/WorkspaceUi';
 import { getNetworkInsights, reportPdfUrl } from '../lib/api';
-import { useBriefPeriod } from '../lib/period';
-import type { InsightState, NetworkInsights } from '../lib/types';
+import type { NetworkInsights } from '../lib/types';
+
+type Range = 'today' | 'last_7_days' | 'last_30_days';
+const RANGES: Array<{value: Range; label: string}> = [
+  { value: 'today', label: 'Today' },
+  { value: 'last_7_days', label: 'Last 7 days' },
+  { value: 'last_30_days', label: 'Last 1 month' },
+];
 
 export default function InsightsPage() {
-  const { period } = useBriefPeriod();
+  const [range, setRange] = useState<Range>('last_7_days');
   const [data, setData] = useState<NetworkInsights | null>(null);
   const [loading, setLoading] = useState(true);
-  const [retryKey,setRetryKey] = useState(0);
-  const [selectedReportId,setSelectedReportId] = useState('');
-
-  useEffect(()=>{
-    const requested=new URLSearchParams(window.location.search).get('centre');
-    if(requested)setSelectedReportId(requested);
-  },[]);
-
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const [reportId, setReportId] = useState('');
+  const [showTrust, setShowTrust] = useState(false);
   useEffect(() => {
-    let active = true;
+    setReportId(new URLSearchParams(window.location.search).get('centre') || '');
+  }, []);
+  useEffect(() => {
+    let live = true;
     setLoading(true);
-    setData(null);
-    getNetworkInsights(period)
-      .then(payload => {
-        if (active) setData(payload);
-      })
-      .catch(() => {
-        if (active) setData(null);
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [period,retryKey]);
+    setError('');
+    getNetworkInsights(range).then(payload => {
+      if (live) setData(payload);
+    }).catch(() => {
+      if (live) {
+        setData(null);
+        setError('Insights are unavailable for the selected period.');
+      }
+    }).finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [range, retry]);
 
-  if (!data) {
-    return (
-      <div>
-        <Header periodLabel="Selected period" simulated={false} />
-        {loading&&<div className="grid gap-5 md:grid-cols-3">
-          <div className="h-72 rounded-[18px] kw-skeleton" />
-          <div className="h-72 rounded-[18px] kw-skeleton md:col-span-2" />
-        </div>}
-        {!loading && (
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E4EAF2] bg-white px-5 py-4 text-[13px] text-[#667085]">
-            <span>Grounded insights are temporarily unavailable.</span>
-            <DataRetry onRetry={()=>setRetryKey(k=>k+1)} disabled={loading}/>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const attendanceMax = Math.max(1, ...(data?.attendance || []).flatMap(item => [item.reported || 0, item.observed || 0]));
+  const equipmentMax = Math.max(1, ...(data?.infrastructure || []).map(item => Math.max(item.missing_units, item.case_count)));
+  const selected = data?.report_centres.find(item => item.centre_id === reportId) || data?.report_centres[0];
+  const attendance = data?.attendance.find(item => item.centre_id === selected?.centre_id);
+  const infrastructure = data?.infrastructure.find(item => item.centre_id === selected?.centre_id);
+  const pdfPeriod = range === 'last_7_days' ? '7d' : range === 'last_30_days' ? '30d' : 'today';
 
-  const reportPeriod = data.period === 'last_7_days'
-    ? '7d'
-    : data.period === 'last_30_days'
-      ? '30d'
-      : data.period;
-  const selectedReport=data.report_centres.find(item=>item.centre_id===selectedReportId)||data.report_centres[0]||null;
-  const reportAttendance=selectedReport?data.attendance.find(item=>item.centre_id===selectedReport.centre_id):null;
-  const reportEquipment=selectedReport?data.infrastructure.find(item=>item.centre_id===selectedReport.centre_id):null;
-  const attendanceMax = Math.max(
-    1,
-    ...data.attendance.flatMap(item => [item.reported || 0, item.observed || 0]),
-  );
+  return <div className="space-y-4">
+    <PageHeader title="Insights" description={data ? data.period_label + ' · Verified source data and recorded comparisons' : 'Recorded centre patterns'}
+      action={<div className="flex items-center gap-2">
+        {data?.simulated && <StatusBadge label="Simulated demo data"/>}
+        <label htmlFor="insights-period" className="sr-only">Date range</label>
+        <select id="insights-period" aria-label="Date range" value={range} onChange={e => setRange(e.target.value as Range)}
+          className="kw-focus h-10 min-w-[135px] rounded-xl border border-[#dce5f1] bg-white px-3 text-[12px] font-semibold text-[#425570]">
+          {RANGES.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}
+        </select>
+      </div>}/>
+    {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#ead9bc] bg-[#fffbf4] p-3 text-[12px] text-[#885a24]">
+      {error}<DataRetry onRetry={() => setRetry(n => n+1)} disabled={loading}/></div>}
+    {loading && !data && <div role="status" className="grid gap-3 sm:grid-cols-4">{Array.from({length:4},(_,i)=><div key={i} className="h-28 rounded-xl kw-skeleton"/>)}</div>}
+    {data && <>
+      <section aria-label="Network verification statistics" className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+        <StatTile label="Verified centres" value={data.counts.verified} tone="green" icon={<ShieldCheck size={18}/>}/>
+        <StatTile label="Centres for review" value={data.counts.review} tone="amber" icon={<BarChart3 size={18}/>}/>
+        <StatTile label="Camera uncertain" value={data.counts.uncertain} tone="red" icon={<ShieldCheck size={18}/>}/>
+        <StatTile label="Analyses in period" value={data.counts.analysis_runs} tone="blue" icon={<BarChart3 size={18}/>}/>
+      </section>
+      <p className="text-[10px] text-[#8190a5]">Centre verification statuses are current recorded states; analysis totals and activity intervals use {data.period_label.toLowerCase()}. Missing data is not zero.</p>
 
-  return (
-    <div>
-      <Header periodLabel={data.period_label} simulated={data.simulated} />
-
-      <section className="grid gap-5 xl:grid-cols-[minmax(230px,.7fr)_minmax(0,1.5fr)_minmax(230px,.7fr)]">
-        <HealthRing data={data} />
-
-        <section className="kw-os-card min-w-0 p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Reported vs observed attendance</h2>
-              <p className="mt-1 text-[11px] text-[#98A2B3]">Recorded comparisons</p>
-            </div>
-            <div className="flex items-center gap-4 text-[10px] text-[#667085]">
-              <Legend swatch="bg-[#2563EB]" label="Reported" />
-              <Legend swatch="bg-[#AFC8EC]" label="Observed" />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="kw-os-card min-w-0 p-4 sm:p-5" aria-label="Attendance comparison chart">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-[15px] font-semibold">Reported vs observed attendance</h2>
+            <div className="flex items-center gap-3 text-[10px] text-[#7e8ca0]">
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-[#2563eb]"/>Reported</span>
+              <span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-[#a9c5ec]"/>Observed</span>
             </div>
           </div>
-
-          <div className="mt-7 grid h-[230px] grid-cols-5 items-end gap-1.5 sm:gap-4">
-            {data.attendance.map(item => (
-              <div key={item.centre_id} className="flex min-w-0 flex-col items-center">
-                <div className="mb-2 h-5 text-[10px] font-medium text-[#667085]">
-                  {item.available && item.difference ? 'Δ ' + item.difference : item.status === 'uncertain' ? 'UNCERTAIN' : ''}
-                </div>
-                <div className="flex h-[160px] items-end gap-1 sm:gap-1.5">
-                  {item.available ? (
-                    <>
-                      <div
-                        className="w-3 rounded-t-md bg-[#2563EB] sm:w-5"
-                        style={{ height: Math.max(8, ((item.reported || 0) / attendanceMax) * 100) + '%' }}
-                        title={'Reported ' + item.reported}
-                      />
-                      <div
-                        className="w-3 rounded-t-md bg-[#AFC8EC] sm:w-5"
-                        style={{ height: Math.max(8, ((item.observed || 0) / attendanceMax) * 100) + '%' }}
-                        title={'Observed ' + item.observed}
-                      />
-                    </>
-                  ) : (
-                    <div className="flex h-full w-7 items-center justify-center rounded-lg border border-dashed sm:w-12 border-[#D0D5DD] bg-[#F8FAFC] text-[10px] text-[#98A2B3]">—</div>
-                  )}
-                </div>
-                <div className="mt-2 truncate text-center text-[10px] text-[#667085]">{item.short_name}</div>
-              </div>
-            ))}
+          <p className="mt-1 text-[10px] text-[#8794a6]">Latest saved comparisons; not named attendance or shift completion</p>
+          <div className="mt-4 space-y-3">
+            {data.attendance.map(item => <div key={item.centre_id} className="grid min-w-0 grid-cols-[78px_minmax(0,1fr)_56px] items-center gap-3 sm:grid-cols-[94px_minmax(0,1fr)_62px]">
+              <Link href={'/centres/'+encodeURIComponent(item.centre_id)} className="kw-focus truncate text-[11px] font-medium text-[#52657f] hover:text-[#2563eb]">{item.short_name}</Link>
+              {item.available ? <div role="img" aria-label={item.short_name+': reported '+item.reported+', observed '+item.observed} className="space-y-1">
+                <div className="h-2 overflow-hidden rounded-full bg-[#edf1f6]"><div className="h-full rounded-full bg-[#2563eb]" style={{width:((item.reported||0)/attendanceMax*100)+'%'}}/></div>
+                <div className="h-2 overflow-hidden rounded-full bg-[#edf1f6]"><div className="h-full rounded-full bg-[#a9c5ec]" style={{width:((item.observed||0)/attendanceMax*100)+'%'}}/></div>
+              </div> : <div className="rounded-lg bg-[#f3f5f8] px-3 py-2 text-[10px] text-[#8996a6]">Not measured</div>}
+              <div className="text-right text-[11px] font-semibold text-[#50627b]">{item.available ? item.reported+' / '+item.observed : '—'}</div>
+            </div>)}
+            {!data.attendance.length && <EmptyState title="No attendance comparisons recorded"/>}
           </div>
         </section>
-
-        <aside className="kw-os-card min-w-0 p-5">
-          <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kw-accent-strong)]">
-            <Sparkles size={15} />
-            KaushalAI insights
+        <section className="kw-os-card min-w-0 p-4 sm:p-5" aria-label="Infrastructure exception chart">
+          <h2 className="text-[15px] font-semibold">Infrastructure exceptions</h2>
+          <p className="mt-1 text-[10px] text-[#8794a6]">Visible equipment gaps and saved exception cases; absence not proven</p>
+          <div className="mt-4 space-y-4">
+            {data.infrastructure.map(item => {
+              const value=Math.max(item.missing_units,item.case_count);
+              return <div key={item.centre_id} className="grid grid-cols-[78px_minmax(0,1fr)_34px] items-center gap-3 sm:grid-cols-[94px_minmax(0,1fr)_34px]">
+                <Link href={'/centres/'+encodeURIComponent(item.centre_id)+'/infrastructure'} className="kw-focus truncate text-[11px] text-[#52657f] hover:text-[#2563eb]">{item.short_name}</Link>
+                {item.status === 'uncertain' || item.status === 'unavailable' ?
+                  <div className="rounded-lg bg-[#f3f5f8] px-3 py-1.5 text-[10px] text-[#8996a6]">{item.status}</div> :
+                  <div className="h-3 overflow-hidden rounded-full bg-[#eef2f6]">
+                    <div className={'h-full rounded-full '+(item.status==='review'?'bg-[#e9a64e]':'bg-[#a7d6bc]')}
+                      style={{width:value?Math.max(6,value/equipmentMax*100)+'%':'0%'}}/></div>}
+                <span className="text-right text-[11px] font-semibold text-[#52627b]">{item.status==='uncertain'||item.status==='unavailable'?'—':value}</span>
+              </div>;
+            })}
+            {!data.infrastructure.length && <EmptyState title="No infrastructure evidence recorded"/>}
           </div>
-          <div className="mt-4 divide-y divide-[#EEF2F6]">
-            {data.insights.length ? data.insights.map((item, index) => (
-              <Link key={item.kind} href={item.href} className="kw-focus flex gap-3 rounded-md py-4">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EFF6FF] text-[11px] font-semibold text-[var(--kw-accent-strong)]">{index + 1}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[12px] font-semibold text-[var(--kw-text)]">{item.title}</div>
-                  <p className="mt-1 text-[11px] leading-5 text-[#667085]">{item.body}</p>
-                </div>
-                <ArrowRight size={13} className="mt-1 shrink-0 text-[#98A2B3]" />
-              </Link>
-            )) : (
-              <div className="py-5 text-[12px] leading-5 text-[#667085]">No evidence-backed priority insight is available for this period.</div>
-            )}
-          </div>
-        </aside>
-      </section>
-
-      <section className="mt-5 min-w-0 overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-4 py-6 shadow-[var(--kw-shadow)] sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Activity across the training day</h2>
-            <p className="mt-1 text-[11px] text-[#98A2B3]">Activity by recorded interval</p>
-          </div>
-          <div className="text-[11px] text-[#98A2B3]">{data.counts.analysis_runs} analyses in {data.period_label.toLowerCase()}</div>
-        </div>
-
-        <div className="mt-6 min-w-0 max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label="Activity heatmap, horizontally scrollable" tabIndex={0}>
-          <div className="min-w-[760px]">
-            <div className="grid grid-cols-[120px_repeat(7,1fr)] gap-2">
-              <div />
-              {data.activity_heatmap.hours.map(hour => (
-                <div key={hour} className="text-center text-[10px] text-[#98A2B3]">{hour}</div>
-              ))}
-
-              {data.activity_heatmap.rows.flatMap(row => [
-                <div key={row.centre_id + '-name'} className="flex items-center text-[11px] font-medium text-[#475467]">{row.short_name}</div>,
-                ...row.values.map((value, index) => (
-                  <div
-                    key={row.centre_id + '-' + index}
-                    className="flex h-10 items-center justify-center rounded-lg border border-[#EEF2F6] text-[10px] font-medium"
-                    style={heatStyle(value)}
-                    title={value == null ? 'No trusted activity value' : value + '% activity proxy'}
-                  >
-                    {value == null ? '—' : Math.round(value)}
-                  </div>
-                )),
-              ])}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <div className="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
-        <InfrastructureChart data={data} />
-        <TrustAndOutcomes data={data} />
+        </section>
       </div>
 
-      <TrustScorecardPanel/>
+      <section className="kw-os-card min-w-0 p-4 sm:p-5" aria-label="Source-backed insights">
+        <div className="flex items-center gap-2 text-[14px] font-semibold"><Sparkles size={16} className="text-[#2563eb]"/> Evidence insights</div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {data.insights.length ? data.insights.map(item=><Link key={item.kind} href={item.href}
+            className="kw-focus min-w-0 rounded-xl border border-[#e6edf5] bg-[#fbfdff] p-3.5 hover:bg-[#f5f9ff]">
+            <div className="flex justify-between gap-2"><h3 className="text-[12px] font-semibold">{item.title}</h3><ArrowRight size={14} className="shrink-0 text-[#7d8da2]"/></div>
+            <p className="mt-1 line-clamp-3 text-[11px] leading-5 text-[#6c7b91]">{item.body}</p>
+          </Link>) : <EmptyState title="No evidence insight in this period" detail="No trend is inferred without recorded observations."/>}
+        </div>
+        <p className="mt-3 text-[10px] text-[#8896a9]">Generated by the evidence rules engine; not a Gemini response.</p>
+      </section>
 
-      <section className="kw-os-card mt-5 px-5 py-5 sm:px-6" aria-label="Centre report workspace">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-[16px] font-semibold text-[#263B57]">Centre verification reports</h2>
-            <p className="mt-1 text-[11px] text-[#8290A5]">{data.period_label} · saved evidence and officer decisions</p>
+      <details className="kw-os-card p-4 sm:p-5">
+        <summary className="kw-focus cursor-pointer text-[13px] font-semibold">Activity across the training day</summary>
+        <p className="mt-2 text-[10px] text-[#7f90a5]">Observed activity proxy, only in trusted intervals. Blank means no trusted interval.</p>
+        <div role="region" aria-label="Activity heatmap, horizontally scrollable" tabIndex={0} className="kw-scrollbar mt-4 min-w-0 max-w-full overflow-x-auto overscroll-x-contain">
+          <div className="grid min-w-[680px] grid-cols-[110px_repeat(7,minmax(0,1fr))] gap-2">
+            <span/>{data.activity_heatmap.hours.map(hour=><span key={hour} className="text-center text-[10px] text-[#8795a7]">{hour}</span>)}
+            {data.activity_heatmap.rows.flatMap(row=>[
+              <Link key={row.centre_id+'-name'} href={'/centres/'+encodeURIComponent(row.centre_id)+'/practical'}
+                className="kw-focus flex items-center truncate text-[11px] font-medium text-[#4c617e]">{row.short_name}</Link>,
+              ...row.values.map((value,i)=><div key={row.centre_id+'-'+i} title={value===null?'No trusted reading':value+'% activity proxy'}
+                className="flex h-9 items-center justify-center rounded-lg border border-[#e8eef5] text-[10px] font-semibold text-[#405675]"
+                style={{backgroundColor:value===null?'#f3f5f8':`rgba(37,99,235,${0.09+Math.max(0,Math.min(100,value))/100*0.43})`}}>
+                {value===null?'—':Math.round(value)}</div>)
+            ])}
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-            <label className="sr-only" htmlFor="centre-report-picker">Report centre</label>
-            <select id="centre-report-picker" aria-label="Report centre"
-              value={selectedReport?.centre_id||''}
-              onChange={event=>setSelectedReportId(event.target.value)}
-              className="kw-focus h-10 min-w-0 rounded-xl border border-[#DCE5F0] bg-white px-3 text-[12px] text-[#445B75] sm:min-w-[205px]">
-              {data.report_centres.map(centre=><option key={centre.centre_id} value={centre.centre_id}>{centre.name}</option>)}
+        </div>
+      </details>
+
+      <section aria-label="Centre report workspace" className="kw-os-card p-4 sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-[15px] font-semibold">Centre verification reports</h2>
+          <p className="mt-1 text-[10px] text-[#8090a4]">Saved evidence and officer outcomes · {data.period_label}</p></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label htmlFor="centre-report-picker" className="sr-only">Report centre</label>
+            <select id="centre-report-picker" aria-label="Report centre" className="kw-focus h-10 max-w-[190px] rounded-xl border border-[#dce6f2] bg-white px-3 text-[11px]"
+              value={selected?.centre_id || ''} onChange={e=>setReportId(e.target.value)}>
+              {data.report_centres.map(c=><option key={c.centre_id} value={c.centre_id}>{c.name}</option>)}
             </select>
-            {selectedReport&&<a href={reportPdfUrl(selectedReport.centre_id,reportPeriod)} target="_blank" rel="noreferrer"
-              className="kw-focus inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-4 text-[12px] font-semibold text-white hover:bg-[#1D4ED8]">
-              <Download size={14}/> Download PDF
-            </a>}
+            {selected&&<a href={reportPdfUrl(selected.centre_id,pdfPeriod)} target="_blank" rel="noreferrer"
+              className="kw-focus inline-flex h-10 items-center gap-2 rounded-xl bg-[#2563eb] px-4 text-[11px] font-semibold text-white"><Download size={14}/> Download PDF</a>}
           </div>
         </div>
-        {selectedReport?<div className="mt-4 flex flex-col gap-4 rounded-xl bg-[#F8FAFD] p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap gap-x-7 gap-y-3">
-            <div><div className="text-[10px] text-[#8290A5]">Reported trainees</div>
-              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportAttendance?.available?reportAttendance.reported??'—':'—'}</strong></div>
-            <div><div className="text-[10px] text-[#8290A5]">Observed trainees</div>
-              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportAttendance?.available?reportAttendance.observed??'—':'—'}</strong></div>
-            <div><div className="text-[10px] text-[#8290A5]">Equipment gaps</div>
-              <strong className="kw-os-stat text-[22px] text-[#253B55]">{reportEquipment&&reportEquipment.status!=='uncertain'&&reportEquipment.status!=='unavailable'?reportEquipment.missing_units:'—'}</strong></div>
-            <div><div className="text-[10px] text-[#8290A5]">Centre status</div>
-              <strong className="mt-1 block text-[12px] font-semibold capitalize text-[#566C85]">{selectedReport.state.replaceAll('_',' ')}</strong></div>
-          </div>
-          <Link href={'/centres/'+encodeURIComponent(selectedReport.centre_id)}
-            className="kw-focus inline-flex shrink-0 items-center gap-1.5 text-[12px] font-semibold text-[#2563EB]">Open centre record <ArrowRight size={14}/></Link>
-        </div>:<div className="mt-4 rounded-xl bg-[#F8FAFD] p-4 text-[12px] text-[#718198]">No accessible centre reports.</div>}
+        {selected ? <div className="mt-3 grid grid-cols-2 gap-3 rounded-xl bg-[#f8fafd] p-4 sm:grid-cols-4">
+          {[['Reported trainees',attendance?.available?attendance.reported??'—':'—'],
+            ['Observed trainees',attendance?.available?attendance.observed??'—':'—'],
+            ['Equipment gaps',infrastructure && !['uncertain','unavailable'].includes(infrastructure.status)?infrastructure.missing_units:'—'],
+            ['Centre status',selected.state.replaceAll('_',' ')]].map(([name,value])=>
+            <div key={String(name)} className="min-w-0"><p className="text-[10px] text-[#8494a6]">{name}</p>
+              <strong className="kw-os-stat mt-1 block text-[17px] font-semibold capitalize text-[#344b68]">{value}</strong></div>)}
+          <Link href={'/centres/'+encodeURIComponent(selected.centre_id)} className="kw-focus col-span-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563eb] sm:col-span-4">Open centre record <ArrowRight size={13}/></Link>
+        </div> : <EmptyState title="No authorised centre reports"/>}
       </section>
-    </div>
-  );
-}
 
-function Header({ periodLabel, simulated }: { periodLabel: string; simulated: boolean }) {
-  return (
-    <header className="mb-7 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-      <div>
-        <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--kw-accent-strong)]">
-          <BarChart3 size={14} />
-          Visual intelligence
-        </div>
-        <h1 className="mt-2 text-[34px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">Insights</h1>
-        <p className="mt-1 text-[14px] text-[var(--kw-muted)]">Performance and verification patterns across five centres.</p>
-      </div>
-      <div className="flex items-center gap-2">
-        {simulated && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated demo data</span>}
-        <span className="text-[11px] text-[#98A2B3]">{periodLabel}</span>
-
-      </div>
-    </header>
-  );
-}
-
-function HealthRing({ data }: { data: NetworkInsights }) {
-  const total = Math.max(1, data.counts.total);
-  const verified = (data.counts.verified / total) * 100;
-  const review = (data.counts.review / total) * 100;
-  const uncertain = (data.counts.uncertain / total) * 100;
-  const reviewEnd = verified + review;
-  const uncertainEnd = reviewEnd + uncertain;
-  const background = 'conic-gradient(#12B76A 0 ' + verified + '%, #F79009 ' + verified + '% ' + reviewEnd + '%, #8CA7CC ' + reviewEnd + '% ' + uncertainEnd + '%, #D0D5DD ' + uncertainEnd + '% 100%)';
-
-  return (
-    <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
-      <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Centre health</h2>
-      <div className="mt-5 flex justify-center">
-        <div className="relative h-40 w-40 rounded-full" style={{ background }}>
-          <div className="absolute inset-7 flex flex-col items-center justify-center rounded-full bg-white">
-            <span className="text-[30px] font-semibold tracking-[-0.04em] text-[var(--kw-text)]">{data.counts.total}</span>
-            <span className="text-[11px] text-[#98A2B3]">centres</span>
-          </div>
-        </div>
-      </div>
-      <div className="mt-6 grid grid-cols-3 gap-2 text-center">
-        <HealthCount value={data.counts.verified} label="Verified" />
-        <HealthCount value={data.counts.review} label="Review" />
-        <HealthCount value={data.counts.uncertain} label="Uncertain" />
-      </div>
-    </section>
-  );
-}
-
-function InfrastructureChart({ data }: { data: NetworkInsights }) {
-  const max = Math.max(1, ...data.infrastructure.map(item => Math.max(item.missing_units, item.case_count)));
-  return (
-    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
-      <div>
-        <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Infrastructure exceptions</h2>
-        <p className="mt-1 text-[12px] text-[#98A2B3]">Current evidence-backed gaps by centre.</p>
-      </div>
-      <div className="mt-6 space-y-4">
-        {data.infrastructure.map(item => {
-          const magnitude = Math.max(item.missing_units, item.case_count);
-          return (
-            <div key={item.centre_id} className="grid grid-cols-[90px_1fr_42px] items-center gap-3">
-              <span className="truncate text-[11px] text-[#667085]">{item.short_name}</span>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#F2F4F7]">
-                <div
-                  className={item.status === 'review' ? 'h-full rounded-full bg-[#F4A340]' : item.status === 'uncertain' ? 'h-full rounded-full bg-[#9CB3D2]' : 'h-full rounded-full bg-[#B7DFC7]'}
-                  style={{ width: magnitude ? Math.max(8, (magnitude / max) * 100) + '%' : '0%' }}
-                />
-              </div>
-              <span className="text-right text-[11px] font-medium text-[#475467]">{item.missing_units || item.case_count || '—'}</span>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
-
-function TrustAndOutcomes({ data }: { data: NetworkInsights }) {
-  const outcomes = Object.entries(data.case_outcomes).filter(([, value]) => value > 0);
-  const totalOutcomes = Math.max(1, outcomes.reduce((sum, [, value]) => sum + value, 0));
-  return (
-    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
-      <div className="grid gap-6 sm:grid-cols-2">
-        <div>
-          <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kw-text)]"><Camera size={15} /> Camera trust</div>
-          <div className="mt-5 flex gap-2">
-            {data.camera_trust.map(item => (
-              <div key={item.centre_id} className="min-w-0 flex-1 text-center">
-                <div
-                  aria-hidden="true"
-                  className={'mx-auto h-10 w-full rounded-lg ' + stateBlock(item.state)}
-                  title={item.name + ' · ' + item.state}
-                />
-                <div className="mt-1.5 truncate text-[9px] text-[#98A2B3]">{item.short_name}</div>
-                <div className="mt-0.5 truncate text-[9px] font-medium capitalize text-[#667085]">{item.state.replaceAll('_', ' ')}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="border-t border-[#EEF2F6] pt-5 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
-          <div className="text-[14px] font-semibold text-[var(--kw-text)]">Case outcomes</div>
-          <div className="mt-5 flex h-4 overflow-hidden rounded-full bg-[#F2F4F7]">
-            {outcomes.map(([status, value]) => (
-              <div
-                key={status}
-                className={outcomeBlock(status)}
-                style={{ width: (value / totalOutcomes) * 100 + '%' }}
-                title={status.replaceAll('_', ' ') + ' · ' + value}
-              />
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2">
-            {outcomes.map(([status, value]) => (
-              <div key={status} className="flex items-center justify-between gap-2 text-[10px]">
-                <span className="truncate capitalize text-[#667085]">{status.replaceAll('_', ' ')}</span>
-                <span className="font-semibold text-[#475467]">{value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HealthCount({ value, label }: { value: number; label: string }) {
-  return (
-    <div>
-      <div className="text-[18px] font-semibold text-[var(--kw-text)]">{value}</div>
-      <div className="text-[9px] text-[#98A2B3]">{label}</div>
-    </div>
-  );
-}
-
-function Legend({ swatch, label }: { swatch: string; label: string }) {
-  return <span className="inline-flex items-center gap-1.5"><span className={'h-2 w-2 rounded-sm ' + swatch} />{label}</span>;
-}
-
-function heatStyle(value: number | null): CSSProperties {
-  if (value == null) return { background: '#F8FAFC', color: '#98A2B3' };
-  const alpha = 0.12 + (Math.min(100, Math.max(0, value)) / 100) * 0.7;
-  return {
-    backgroundColor: 'rgba(37, 99, 235, ' + alpha.toFixed(2) + ')',
-    color: value >= 60 ? '#FFFFFF' : '#36516F',
-  };
-}
-
-function stateBlock(state: InsightState) {
-  if (state === 'verified') return 'bg-[#B7DFC7]';
-  if (state === 'review') return 'bg-[#F4B866]';
-  if (state === 'uncertain') return 'bg-[#AFC3DE]';
-  return 'bg-[#E4E7EC]';
-}
-
-function outcomeBlock(status: string) {
-  if (status === 'confirmed') return 'bg-[#D96C5F]';
-  if (status === 'false_positive' || status === 'resolved') return 'bg-[#7DC49A]';
-  if (status === 'virtual_verification') return 'bg-[#89A8D0]';
-  if (status === 'under_review') return 'bg-[#F2B35D]';
-  return 'bg-[#C8D2DF]';
+      <details onToggle={e=>setShowTrust(e.currentTarget.open)} className="kw-os-card p-4">
+        <summary className="kw-focus cursor-pointer text-[12px] font-semibold">Detailed trust and verification scorecard</summary>
+        {showTrust && <TrustScorecardPanel/>}
+      </details>
+    </>}
+  </div>;
 }
