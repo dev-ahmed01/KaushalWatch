@@ -1,4 +1,4 @@
-import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights, CentreDeskResponse, CentreDeskTask } from './types';
+import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights, CentreDeskResponse, CentreDeskTask, ChatboxIndex, ChatMessage } from './types';
 
 // Explicit build-time switch. The local SIH demo keeps its existing direct
 // API path; protected deployments use the same-origin, cookie-authenticated BFF.
@@ -221,4 +221,30 @@ export async function updateCentreDeskTask(centreId: string, taskId: string, sta
   const payload = await response.json().catch(() => null);
   if (!response.ok) throw new Error(payload?.detail || 'Could not update operational task');
   return payload as {task: CentreDeskTask; audit: unknown[]};
+}
+
+export async function getChatboxThreads(actorId: string) {
+  const response = await officerFetch(API + '/api/chatbox/threads', {
+    cache: 'no-store', headers: {'X-KW-Demo-Actor': actorId},
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Chatbox unavailable');
+  return payload as ChatboxIndex;
+}
+export async function getChatboxMessages(threadId: string, actorId: string) {
+  const response = await officerFetch(API + '/api/chatbox/threads/' + encodeURIComponent(threadId) + '/messages', {
+    cache: 'no-store', headers: {'X-KW-Demo-Actor': actorId},
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Messages unavailable');
+  return payload as {messages: ChatMessage[]};
+}
+export async function sendChatboxMessage(threadId: string, actorId: string, body: string, idempotencyKey: string) {
+  const response = await officerFetch(API + '/api/chatbox/threads/' + encodeURIComponent(threadId) + '/messages', {
+    method: 'POST', headers: {'Content-Type':'application/json','X-KW-Demo-Actor':actorId},
+    body: JSON.stringify({body,idempotency_key:idempotencyKey}),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Message could not be saved');
+  return payload as {message: ChatMessage};
 }
