@@ -68,3 +68,25 @@ test('browser disconnected from remote network still handles officer case and PD
  expect((await pdf.body()).subarray(0,5).toString()).toBe('%PDF-');
  expect(external).toEqual([]);
 });
+
+
+test('320px Insights heatmap scrolls in its own viewport, not the document',async({page})=>{
+ await page.setViewportSize({width:320,height:680});
+ await page.goto('/insights');
+ const region=page.getByRole('region',{name:'Activity heatmap, horizontally scrollable'});
+ await expect(region).toBeVisible();
+ const before=await region.evaluate(el=>({
+   width:el.clientWidth,contentWidth:el.scrollWidth,
+   docWidth:document.documentElement.scrollWidth,
+   viewport:document.documentElement.clientWidth,
+ }));
+ expect(before.contentWidth).toBeGreaterThan(before.width);
+ expect(before.docWidth-before.viewport).toBeLessThanOrEqual(1);
+ await region.evaluate(el=>el.scrollLeft=el.scrollWidth);
+ const after=await region.evaluate(el=>({
+   left:el.scrollLeft,docWidth:document.documentElement.scrollWidth,
+   viewport:document.documentElement.clientWidth,
+ }));
+ expect(after.left).toBeGreaterThan(0);
+ expect(after.docWidth-after.viewport).toBeLessThanOrEqual(1);
+});
