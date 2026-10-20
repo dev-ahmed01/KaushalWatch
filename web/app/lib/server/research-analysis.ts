@@ -76,7 +76,7 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
      ||!plain(sourceClip.counts))
      throw new Error('Trace not aligned to source');
    const samples:TraceSample[]=[];
-   let previous=-1;
+   let previous=-3;
    for(const item of sourceClip.samples){
      if(!plain(item)||!Number.isSafeInteger(item.frame0)
        ||item.frame0!==previous+3
