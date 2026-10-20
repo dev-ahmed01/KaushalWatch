@@ -24,16 +24,17 @@ export default function CentreTabs({ centreId }: { centreId: string }) {
     if (!nav || !active) return;
     // Keep the selected section discoverable on a small viewport without
     // scrolling the entire document or changing the user's reading position.
-    const activeLeft = active.offsetLeft - nav.offsetLeft;
+    const activeLeft =
+      active.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft;
     const margin = 12;
     const visibleLeft = nav.scrollLeft;
     const visibleRight = visibleLeft + nav.clientWidth;
     if (activeLeft < visibleLeft + margin) {
-      nav.scrollTo({left: Math.max(0, activeLeft - margin), behavior: 'instant'});
+      nav.scrollTo({left: Math.max(0, activeLeft - margin), behavior: 'auto'});
     } else if (activeLeft + active.offsetWidth > visibleRight - margin) {
       nav.scrollTo({
         left: activeLeft + active.offsetWidth - nav.clientWidth + margin,
-        behavior: 'instant',
+        behavior: 'auto',
       });
     }
   }, [pathname]);
