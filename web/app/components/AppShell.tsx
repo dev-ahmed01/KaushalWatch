@@ -57,7 +57,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const [signOutError, setSignOutError] = useState('');
   const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
-  const activeLabel = NAV.find(item => item.href === active)?.label || 'KaushalAI';
+  const activeLabel = pathname === '/demo/mission'
+    ? 'Proof of Training'
+    : NAV.find(item => item.href === active)?.label || 'KaushalAI';
+  const showDateRange = pathname !== '/demo/mission'
+    && !pathname.startsWith('/cases/')
+    && pathname !== '/cases';
   const centreId = useMemo(
     () => pathname.match(/^\/centres\/([^/]+)/)?.[1] || 'DEMO-KA-104',
     [pathname],
@@ -148,14 +153,14 @@ function AppShellContent({ children }: { children: ReactNode }) {
       </aside>
 
       <div className={cn('kw-os-page min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[224px]')}>
-        <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-[#E5EAF2] bg-[#FFFFFF]/92 px-4 backdrop-blur-xl md:h-[78px] md:px-8">
-          <div>
+        <header className="sticky top-0 z-20 flex min-h-[62px] items-center justify-between gap-2 border-b border-[#E5EAF2] bg-[#FFFFFF]/92 px-4 py-2 backdrop-blur-xl md:min-h-[78px] md:px-8">
+          <div className="min-w-0">
             <div className="hidden text-[10px] font-semibold uppercase tracking-[.14em] text-[#95A2B6] sm:block">Training centre operations</div>
-            <div className="kw-brand-title text-[16px] font-semibold text-[#253F61] sm:mt-0.5">{activeLabel}</div>
+            <div className="kw-brand-title truncate text-[16px] font-semibold text-[#253F61] sm:mt-0.5">{activeLabel}</div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="md:hidden">
+          <div className="flex shrink-0 items-center gap-2">
+            {showDateRange && <label className="md:hidden">
               <span className="sr-only">Date range</span>
               <select
                 aria-label="Date range"
@@ -167,8 +172,8 @@ function AppShellContent({ children }: { children: ReactNode }) {
                 <option value="last_7_days">7 days</option>
                 <option value="last_30_days">30 days</option>
               </select>
-            </label>
-            <div role="group" className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
+            </label>}
+            {showDateRange && <div role="group" className="hidden rounded-xl border border-[#E4EAF2] bg-white p-1 md:flex" aria-label="Date range">
               {[
                 ['Yesterday', 'yesterday'],
                 ['7 days', 'last_7_days'],
@@ -192,7 +197,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
                   </button>
                 );
               })}
-            </div>
+            </div>}
             {signOutError && <span role="alert" className="text-[11px] text-[#B42318]">{signOutError}</span>}
             {SECURE_PROXY && (
               <button type="button" aria-label="Sign out of officer session"
