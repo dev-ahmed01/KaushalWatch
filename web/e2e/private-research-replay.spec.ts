@@ -60,7 +60,7 @@ test('research replay labels supplied annotations without fake AI counts',async(
  await expect(panel.getByText(/Source-matched numeric heuristic/)).toBeVisible();
  await expect(panel.locator('video')).toHaveAttribute('src',/quality-covered\/media/);
  await panel.getByRole('button',{name:'Examine normal control'}).click();
- await expect(panel.getByRole('button',{name:'Normal control'})).toHaveAttribute('aria-pressed','true');
+ await expect(panel.getByRole('button',{name:'Normal control',exact:true})).toHaveAttribute('aria-pressed','true');
  await expect(panel.getByText('No incident annotated')).toBeVisible();
  await expect(panel.getByText(/No inferred attendance/)).toBeVisible();
 });
