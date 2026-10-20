@@ -15,7 +15,7 @@ test('device offline status is explicit, reversible and does not claim live data
 
 test('read-only overview modules offer an explicit retry after network failure',async ({page})=>{
   const items=[
-    {route:'/',source:'**/api/kaushalai/brief**',failure:'Live grounded briefing is unavailable.',ready:'Centres at a glance'},
+    {route:'/',source:'**/api/kaushalai/brief**',failure:'Some authorised records could not be loaded.',ready:'Training centre status'},
     {route:'/centres',source:'**/api/centres',failure:'Live centre records are unavailable.',ready:'Centres ('},
     {route:'/actions',source:'**/api/actions**',failure:'The grounded action queue is temporarily unavailable.',ready:'Action queue'},
     {route:'/insights',source:'**/api/insights**',failure:'Grounded insights are temporarily unavailable.',ready:'Centre verification reports'},

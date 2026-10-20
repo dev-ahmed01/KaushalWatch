@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 test('prepared SIH demo stays deterministic and auditable after AI-first restructure', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'KaushalAI' })).toBeVisible();
-  await expect(page.getByText('Centres at a glance')).toBeVisible();
-  await expect(page.getByText('Bengaluru TC-04').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Training centre status' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Priority issues' })).toBeVisible();
 
   await page.goto('/centres/DEMO-KA-104');
   await expect(page.getByRole('heading', { name: 'Bengaluru TC-04' })).toBeVisible();

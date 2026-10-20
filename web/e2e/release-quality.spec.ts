@@ -135,8 +135,9 @@ test('API failures never present simulated fallbacks as live evidence', async ({
   await page.route('**/api/kaushalai/brief**', route => route.abort());
   await page.goto('/');
 
-  await expect(page.getByRole('alert').filter({ hasText: 'simulated demo fallback data' })).toBeVisible();
-  await expect(page.getByText('Simulated fallback')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: 'Some authorised records could not be loaded.' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Training centre status' })).toBeVisible();
+  await expect(page.getByText('Simulated fallback')).toHaveCount(0);
 
   await page.unroute('**/api/kaushalai/brief**');
   await page.route('**/api/centres', route => route.abort());
