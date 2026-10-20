@@ -70,7 +70,11 @@ test('mobile shell stays usable without document-level horizontal overflow', asy
   for (const route of routes) {
     await page.goto(route);
     await expect(page.getByRole('navigation', { name: 'Mobile primary navigation' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Date range' })).toBeVisible();
+    if (route.startsWith('/cases/')) {
+      await expect(page.getByRole('combobox', { name: 'Date range' })).toHaveCount(0);
+    } else {
+      await expect(page.getByRole('combobox', { name: 'Date range' })).toBeVisible();
+    }
     await expectNoDocumentOverflow(page);
   }
 

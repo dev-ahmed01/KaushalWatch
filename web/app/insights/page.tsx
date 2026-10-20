@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
-import { Button } from '../components/ui/button';
 import { DataRetry } from '../components/NetworkStatus';
 import TrustScorecardPanel from '../components/TrustScorecardPanel';
 import { getNetworkInsights, reportPdfUrl } from '../lib/api';
@@ -245,10 +244,7 @@ function Header({ periodLabel, simulated }: { periodLabel: string; simulated: bo
       <div className="flex items-center gap-2">
         {simulated && <span className="rounded-full bg-[#F2F4F7] px-2.5 py-1 text-[10px] font-medium text-[#667085]">Simulated demo data</span>}
         <span className="text-[11px] text-[#98A2B3]">{periodLabel}</span>
-        <Button variant="ghost" onClick={() => window.dispatchEvent(new Event('kaushalwatch:assistant'))}>
-          <Sparkles size={15} />
-          Ask KaushalAI
-        </Button>
+
       </div>
     </header>
   );
