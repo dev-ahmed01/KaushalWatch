@@ -36,6 +36,8 @@ test('recording decoder failure does not trap mission and does not invent infere
  await page.route('**/camera-trust/*.mp4',async route=>route.abort());
  await page.goto('/demo/mission');
  const replay=page.getByRole('region',{name:'Source-locked replay'});
+ await expect(replay.getByRole('button',{name:'Load verified recording'})).toBeVisible();
+ await replay.getByRole('button',{name:'Load verified recording'}).click();
  await expect(replay.getByRole('alert')).toContainText('Playback and detections are disabled');
  await expect(replay.getByRole('button',{name:'Retry recording'})).toBeVisible();
  await expect(replay.getByRole('link',{name:'Continue with evidence'})).toHaveAttribute('href','#kw-evidence-trail');

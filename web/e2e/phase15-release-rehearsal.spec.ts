@@ -68,6 +68,7 @@ test.describe('Phase 15 controlled release rehearsal',()=>{
   await expect(page.getByText('Withheld · not zero')).toBeVisible();
   await quick.getByRole('button',{name:'Next cue'}).click();
   await expect(page.getByRole('heading',{name:'Equipment visibility'})).toBeVisible();
+  await page.getByText('Why the evidence quality gate matters').click();
   await expect(page.getByText(/Not visible is not proven absent/)).toBeVisible();
   await quick.getByRole('button',{name:'Next cue'}).click();
   await expect(page.getByRole('heading',{name:'No exception needed'})).toBeVisible();
