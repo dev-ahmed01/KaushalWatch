@@ -326,9 +326,9 @@ function PriorityBar({
 
 function QueueFact({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-[#667085]">{label}</span>
-      <span className="font-semibold text-[#475467]">{value}</span>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-[10px] text-[#667085]">{label}</span>
+      <span className="min-w-0 break-words text-[11px] font-semibold leading-4 text-[#475467]">{value}</span>
     </div>
   );
 }
