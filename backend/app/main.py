@@ -53,6 +53,7 @@ from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
 from app.services.centre_desk import centre_day, change_task, fixture_tasks, task_history
+from app.services.local_chat import list_threads as demo_chat_threads, list_messages as demo_chat_messages, send_text as demo_chat_send, member_by_id as demo_chat_actor
 from app.services.review_access import LOCAL_ENVS
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
@@ -1650,3 +1651,42 @@ def update_centre_desk_task(centre_id: str, task_id: str, request: Request, payl
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"task": task, "audit": task_history(DATA / "centre_desk_demo.sqlite3", centre_id, task_id)}
+
+
+def _controlled_chat_actor(request: Request) -> str:
+    if os.getenv("KAUSHALWATCH_ENV", "development").strip().lower() not in LOCAL_ENVS:
+        raise HTTPException(status_code=503, detail="Chatbox needs provisioned staff authentication in protected mode")
+    actor=request.headers.get("X-KW-Demo-Actor", "").strip()
+    if not actor or not demo_chat_actor(actor):
+        raise HTTPException(status_code=403, detail="A recognised synthetic demo role is required")
+    return actor
+
+@app.get("/api/chatbox/threads")
+def chatbox_threads(request: Request):
+    actor=_controlled_chat_actor(request)
+    try:
+        return demo_chat_threads(DATA / "chatbox_demo.sqlite3",actor)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Conversations not found") from None
+
+@app.get("/api/chatbox/threads/{thread_id}/messages")
+def chatbox_messages(thread_id: str, request: Request, limit: int = 75):
+    actor=_controlled_chat_actor(request)
+    try:
+        return {"messages": demo_chat_messages(DATA / "chatbox_demo.sqlite3",thread_id,actor,limit)}
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Conversation not found") from None
+
+@app.post("/api/chatbox/threads/{thread_id}/messages")
+def chatbox_send_text(thread_id: str, request: Request, payload: dict = Body(...)):
+    actor=_controlled_chat_actor(request)
+    if set(payload)!={"body","idempotency_key"} or not all(isinstance(x,str) for x in payload.values()):
+        raise HTTPException(status_code=422, detail="Text and idempotency key required")
+    try:
+        message=demo_chat_send(DATA / "chatbox_demo.sqlite3",thread_id,actor,
+                               payload["body"],payload["idempotency_key"])
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Conversation not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"message":message}
