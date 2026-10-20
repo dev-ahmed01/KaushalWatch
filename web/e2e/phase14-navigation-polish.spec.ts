@@ -4,7 +4,7 @@ test('all five modules share one active primary navigation and one assistant act
  const routes:[
   string,string,string
  ][]=[
-   ['/','Overview','Overview'],
+   ['/','Overview','KaushalAI'],
    ['/issues','Issues','Actions'],
    ['/insights','Insights','Insights'],
    ['/centre-desk','Centre Desk','Centre Desk'],
