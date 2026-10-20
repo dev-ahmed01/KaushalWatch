@@ -30,7 +30,7 @@ test('R12 recording playback checkpoints drive all five synthetic module views a
   await tabs.getByRole('tab',{name:'Chatbox'}).click();
   await page.getByRole('textbox',{name:'Compose simulated message'}).fill('Please share the training register.');
   await page.getByRole('button',{name:'Send simulated message'}).click();
-  await expect(page.getByRole('region',{name:'Demo conversation history'})).toContainText('Please share the training register.');
+  await expect(page.getByLabel('Demo conversation history')).toContainText('Please share the training register.');
   await page.getByRole('button',{name:'Why is this flagged?'}).click();
   await expect(page.getByLabel('Scripted AI conversation')).toContainText('28 reported trainees');
   await expect(page.getByLabel('Scripted AI conversation')).toContainText('not proof of absence');
