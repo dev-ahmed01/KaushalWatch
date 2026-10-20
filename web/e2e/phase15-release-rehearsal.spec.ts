@@ -88,7 +88,7 @@ test.describe('Phase 15 controlled release rehearsal',()=>{
   await shell.getByRole('link',{name:'Insights'}).click();
   await expect(page.getByRole('region',{name:'Centre report workspace'})).toBeVisible();
   await shell.getByRole('link',{name:'Issues'}).click();
-  await expect(page.getByRole('region',{name:'Selected work item'})).toBeVisible();
+  await expect(page.getByRole('region',{name:'Selected issue details'})).toBeVisible();
   expect(writes).toHaveLength(0);
  });
 

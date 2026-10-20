@@ -15,7 +15,7 @@ test('R1 five-module primary shell and backwards routes', async ({ page }) => {
   await page.goto('/actions');
   await expect(page.getByRole('heading', { name: 'Action queue' })).toBeVisible();
   await page.goto('/issues');
-  await expect(page.getByRole('heading', { name: 'Action queue' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Issues', exact: true })).toBeVisible();
 });
 
 test('R1 stays inside a 320px mobile viewport', async ({ page }) => {

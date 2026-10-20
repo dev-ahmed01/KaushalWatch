@@ -5,7 +5,7 @@ test('all five modules share one active primary navigation and one assistant act
   string,string,string
  ][]=[
    ['/','Overview','Overview'],
-   ['/issues','Issues','Actions'],
+   ['/issues','Issues','Issues'],
    ['/insights','Insights','Insights'],
    ['/centre-desk','Centre Desk','Centre Desk'],
    ['/chatbox','Chatbox','Chatbox'],
