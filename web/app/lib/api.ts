@@ -1,4 +1,4 @@
-import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights } from './types';
+import type { ActionQueue, ActivityIntelligence, AssistantReply, AssistantStatus, CaseRecord, Centre, KaushalBrief, CentreIntelligence, EvidenceReviewPack, NetworkInsights, CentreDeskResponse, CentreDeskTask } from './types';
 
 // Explicit build-time switch. The local SIH demo keeps its existing direct
 // API path; protected deployments use the same-origin, cookie-authenticated BFF.
@@ -203,4 +203,22 @@ export async function logoutOfficer(): Promise<void> {
     headers: { 'X-KaushalWatch-CSRF': body.csrfToken },
   });
   if (!response.ok) throw new Error('Could not sign out.');
+}
+
+export async function getCentreDeskDay(centreId?: string) {
+  const query = centreId ? '?centre_id=' + encodeURIComponent(centreId) : '';
+  const response = await officerFetch(API + '/api/centre-desk' + query, { cache: 'no-store' });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Centre Desk unavailable');
+  return payload as CentreDeskResponse;
+}
+export async function updateCentreDeskTask(centreId: string, taskId: string, status: CentreDeskTask['status']) {
+  const response = await officerFetch(API + '/api/centre-desk/' + encodeURIComponent(centreId) +
+    '/tasks/' + encodeURIComponent(taskId) + '/status', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || 'Could not update operational task');
+  return payload as {task: CentreDeskTask; audit: unknown[]};
 }

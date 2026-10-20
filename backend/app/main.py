@@ -52,6 +52,8 @@ from app.services.activity_intelligence import build_activity_intelligence, acti
 from app.services.evidence_review import build_evidence_review_pack
 from app.services.network_insights import build_network_insights
 from app.services.action_queue import build_action_queue
+from app.services.centre_desk import centre_day, change_task, fixture_tasks, task_history
+from app.services.review_access import LOCAL_ENVS
 from app.services.review_access import review_access_status, resolve_review_actor
 from app.services.protected_access import protected_read_boundary
 from app.services.officer_permissions import require_centre, visible, request_principal
@@ -1613,3 +1615,38 @@ def _edge_sync_execute(request: EdgeSyncRequest, edge_actor: str):
 # Camera Trust is an isolated shadow workflow; protected_read_boundary is reused.
 from app.camera_trust_api import router as camera_trust_router
 app.include_router(camera_trust_router)
+
+
+# Centre Desk fixtures are confined to the synthetic controlled workspace.
+# Protected users must not mistake seeded staff schedules for real rosters.
+def _require_controlled_centre_desk(request: Request, centre_id: str | None = None) -> dict:
+    if os.getenv("KAUSHALWATCH_ENV", "development").strip().lower() not in LOCAL_ENVS:
+        raise HTTPException(status_code=503, detail="Centre Desk needs a provisioned staff/schedule integration in protected mode")
+    options = visible(request, provisioned_centres())
+    requested = centre_id or (options[0]["centre_id"] if options else "")
+    centre = next((row for row in options if row["centre_id"] == requested), None)
+    if not centre:
+        raise HTTPException(status_code=404, detail="Centre not found")
+    return centre
+
+
+@app.get("/api/centre-desk")
+def get_centre_desk(request: Request, centre_id: str | None = None):
+    centre = _require_controlled_centre_desk(request, centre_id)
+    return {"centres": [{"centre_id": item["centre_id"], "name": item["name"]}
+                         for item in visible(request, provisioned_centres())],
+            "day": centre_day(DATA / "centre_desk_demo.sqlite3", centre)}
+
+
+@app.post("/api/centre-desk/{centre_id}/tasks/{task_id}/status")
+def update_centre_desk_task(centre_id: str, task_id: str, request: Request, payload: dict = Body(...)):
+    _require_controlled_centre_desk(request, centre_id)
+    if set(payload) != {"status"} or not isinstance(payload.get("status"), str):
+        raise HTTPException(status_code=422, detail="Expected task status")
+    try:
+        task = change_task(DATA / "centre_desk_demo.sqlite3", centre_id, task_id, payload["status"])
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Task not found") from None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"task": task, "audit": task_history(DATA / "centre_desk_demo.sqlite3", centre_id, task_id)}
