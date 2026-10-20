@@ -5,7 +5,8 @@ import { usePathname } from 'next/navigation';
 import {
   BarChart3,
   Building2,
-  CheckSquare2,
+  MessageCircle,
+  ClipboardList,
   Home,
   PanelLeftClose,
   PanelLeftOpen,
@@ -24,16 +25,18 @@ import { SECURE_PROXY, logoutOfficer, getReviewAccess } from '../lib/api';
 import { Button } from './ui/button';
 
 const NAV = [
-  { href: '/', label: 'KaushalAI', icon: Home },
-  { href: '/centres', label: 'Centres', icon: Building2 },
+  { href: '/', label: 'Overview', icon: Home },
+  { href: '/issues', label: 'Issues', icon: ClipboardList },
   { href: '/insights', label: 'Insights', icon: BarChart3 },
-  { href: '/actions', label: 'Actions', icon: CheckSquare2 },
+  { href: '/centre-desk', label: 'Centre Desk', icon: Building2 },
+  { href: '/chatbox', label: 'Chatbox', icon: MessageCircle },
 ] as const;
 
 function primarySection(pathname: string) {
-  if (pathname.startsWith('/centres')) return '/centres';
+  if (pathname.startsWith('/centre-desk') || pathname.startsWith('/centres')) return '/centre-desk';
+  if (pathname.startsWith('/chatbox')) return '/chatbox';
   if (pathname.startsWith('/insights') || pathname.startsWith('/reports') || pathname.startsWith('/analytics')) return '/insights';
-  if (pathname.startsWith('/actions') || pathname.startsWith('/cases') || pathname.startsWith('/escalations')) return '/actions';
+  if (pathname.startsWith('/issues') || pathname.startsWith('/actions') || pathname.startsWith('/cases') || pathname.startsWith('/escalations')) return '/issues';
   return '/';
 }
 
@@ -55,14 +58,20 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantAllowed, setAssistantAllowed] = useState(!SECURE_PROXY);
   const [signOutError, setSignOutError] = useState('');
+  const [todayIst, setTodayIst] = useState('Today · IST');
+  const isLogin = pathname === '/login';
+
+  useEffect(() => {
+    setTodayIst('Today, ' + new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date()));
+  }, []);
   const { period, setPeriod } = useBriefPeriod();
   const active = primarySection(pathname);
   const activeLabel = pathname === '/demo/mission'
     ? 'Proof of Training'
-    : NAV.find(item => item.href === active)?.label || 'KaushalAI';
-  const showDateRange = pathname !== '/demo/mission'
-    && !pathname.startsWith('/cases/')
-    && pathname !== '/cases';
+    : NAV.find(item => item.href === active)?.label || 'Overview';
+  // The global range control previously caused redundant controls and
+  // network refreshes across unrelated modules. Insights owns the period.
+  const showDateRange = pathname === '/insights';
   const centreId = useMemo(
     () => pathname.match(/^\/centres\/([^/]+)/)?.[1] || 'DEMO-KA-104',
     [pathname],
@@ -71,7 +80,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
   useEffect(() => {
     // The login page is public: polling officer context before authentication
     // would trigger the API client's 401 redirect back to /login indefinitely.
-    if (!SECURE_PROXY || pathname === '/login') return;
+    if (!SECURE_PROXY || isLogin) return;
     let active = true;
     getReviewAccess()
       .then(policy => {
@@ -79,7 +88,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
       })
       .catch(() => { if (active) setAssistantAllowed(false); });
     return () => { active = false; };
-  }, [pathname]);
+  }, [isLogin]);
 
   useEffect(() => {
     const open = () => { if (assistantAllowed) setAssistantOpen(true); };
@@ -88,7 +97,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('kaushalwatch:assistant', open);
   }, [assistantAllowed]);
 
-  if (SECURE_PROXY && pathname === '/login') return <>{children}</>;
+  if (SECURE_PROXY && isLogin) return <>{children}</>;
 
   return (
     <div className="min-h-screen bg-[var(--kw-page)]">
@@ -96,7 +105,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-[#E7EDF5] bg-[#FCFDFF] transition-[width] duration-200 md:flex',
-          collapsed ? 'w-[72px]' : 'w-[224px]',
+          collapsed ? 'w-[72px]' : 'w-[252px]',
         )}
       >
         <div className={cn('flex h-[78px] items-center border-b border-[#EEF2F6]', collapsed ? 'justify-center px-3' : 'justify-between px-4')}>
@@ -104,7 +113,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#E9F1FF] text-[#1E4EA3]">
               <ShieldCheck size={19} />
             </span>
-            {!collapsed && <span className="min-w-0"><strong className="kw-brand-title block truncate text-[18px] font-bold leading-[1.2] text-[#142841]">KaushalWatch</strong><small className="mt-1 block text-[9px] font-semibold uppercase tracking-[.17em] text-[#8A9BB1]">OPERATIONS OS</small></span>}
+            {!collapsed && <span className="min-w-0"><strong className="kw-brand-title block truncate text-[18px] font-bold leading-[1.2] text-[#142841]">KaushalWatch</strong><small className="mt-1 block text-[9px] font-semibold uppercase tracking-[.17em] text-[#8A9BB1]">TRAINING CENTRE OPERATIONS</small></span>}
           </Link>
           {!collapsed && (
             <Button variant="ghost" size="icon" onClick={() => setCollapsed(true)} aria-label="Collapse navigation">
@@ -152,14 +161,15 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className={cn('kw-os-page min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[224px]')}>
-        <header className="sticky top-0 z-20 flex min-h-[62px] items-center justify-between gap-2 border-b border-[#E5EAF2] bg-[#FFFFFF]/92 px-4 py-2 backdrop-blur-xl md:min-h-[78px] md:px-8">
+      <div className={cn('kw-os-page min-h-screen transition-[padding] duration-200', collapsed ? 'md:pl-[72px]' : 'md:pl-[252px]')}>
+        <header className="sticky top-0 z-20 flex min-h-[62px] items-center justify-between gap-2 border-b border-[#E5EAF2] bg-white/95 px-3 py-2 backdrop-blur-xl sm:px-4 md:min-h-[74px] md:px-7">
           <div className="min-w-0">
-            <div className="hidden text-[10px] font-semibold uppercase tracking-[.14em] text-[#95A2B6] sm:block">Training centre operations</div>
+            <div className="hidden text-[10px] font-semibold uppercase tracking-[.14em] text-[#95A2B6] sm:block">KaushalWatch OS</div>
             <div className="kw-brand-title truncate text-[16px] font-semibold text-[#253F61] sm:mt-0.5">{activeLabel}</div>
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <span aria-label="Current date in India Standard Time" className="hidden whitespace-nowrap rounded-lg border border-[#E5EAF2] bg-white px-3 py-2 text-[11px] font-medium text-[#667085] lg:inline-flex">{todayIst}</span>
             {showDateRange && <label className="md:hidden">
               <span className="sr-only">Date range</span>
               <select
@@ -221,10 +231,10 @@ function AppShellContent({ children }: { children: ReactNode }) {
         </header>
         <NetworkStatus/>
 
-        <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1280px] px-4 py-6 pb-24 sm:px-6 md:px-9 md:py-8 md:pb-10">{children}</main>
+        <main id="main-content" tabIndex={-1} className="focus:outline-none mx-auto w-full max-w-[1440px] px-3 py-5 pb-24 sm:px-5 md:px-7 md:py-7 md:pb-10">{children}</main>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-[#E6EAF0] bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden" aria-label="Mobile primary navigation">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-[#E6EAF0] bg-white/96 px-2 pb-[max(env(safe-area-inset-bottom),8px)] pt-2 backdrop-blur md:hidden" aria-label="Mobile primary navigation">
         {NAV.map(item => {
           const Icon = item.icon;
           const selected = active === item.href;
@@ -234,12 +244,12 @@ function AppShellContent({ children }: { children: ReactNode }) {
               href={item.href}
               aria-current={selected ? 'page' : undefined}
               className={cn(
-                'kw-focus flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl text-[10px] font-medium',
+                'kw-focus flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl text-[9px] font-medium',
                 selected ? 'bg-[var(--kw-accent-soft)] text-[var(--kw-accent-strong)]' : 'text-[#667085]',
               )}
             >
               <Icon size={17} strokeWidth={1.8} />
-              <span>{item.label}</span>
+              <span className="max-w-full truncate px-0.5">{item.label}</span>
             </Link>
           );
         })}

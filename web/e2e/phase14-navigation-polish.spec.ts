@@ -1,13 +1,14 @@
 import {expect,test} from '@playwright/test';
 
-test('all four modules share one active primary navigation and one assistant action',async({page})=>{
+test('all five modules share one active primary navigation and one assistant action',async({page})=>{
  const routes:[
   string,string,string
  ][]=[
-   ['/','KaushalAI','KaushalAI'],
-   ['/centres','Centres','Centres'],
+   ['/','Overview','Overview'],
+   ['/issues','Issues','Actions'],
    ['/insights','Insights','Insights'],
-   ['/actions','Actions','Actions'],
+   ['/centre-desk','Centre Desk','Centre Desk'],
+   ['/chatbox','Chatbox','Chatbox'],
  ];
  await page.goto('/');
  for(const [path,navLabel,heading] of routes){

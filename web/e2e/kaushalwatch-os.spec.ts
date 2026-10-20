@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
-test('OS navigation exposes four focused workflows and keyboard-active centre tabs',async ({page})=>{
+test('OS navigation exposes five focused workflows and keyboard-active centre tabs',async ({page})=>{
   await page.goto('/');
   const nav=page.getByRole('navigation',{name:'Primary navigation'});
-  await expect(nav.getByRole('link')).toHaveCount(4);
-  for(const label of ['KaushalAI','Centres','Insights','Actions'])
+  await expect(nav.getByRole('link')).toHaveCount(5);
+  for(const label of ['Overview','Issues','Insights','Centre Desk','Chatbox'])
     await expect(nav.getByRole('link',{name:label})).toBeAttached();
   await page.goto('/centres/DEMO-KA-104');
   const centreNav=page.getByRole('navigation',{name:'Centre sections'});
