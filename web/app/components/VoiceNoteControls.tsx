@@ -87,7 +87,7 @@ export function VoiceNoteControls({ threadId, actorId, onSent }: {
     } finally { setBusy(false); }
   }
 
-  return <div className="border-t border-[#e7edf5] bg-white px-3 py-2" aria-label="Voice note composer">
+  return <section className="border-t border-[#e7edf5] bg-white px-3 py-2" aria-label="Voice note composer">
     <div className="flex flex-wrap items-center gap-2">
       {!clip && !recording && <button type="button" onClick={() => void start()} disabled={busy}
         aria-label="Record voice note" className="kw-focus flex items-center gap-1.5 rounded-lg border border-[#d7e5f6] px-3 py-2 text-[11px] font-semibold text-[#275fae]"><Mic size={15}/> Voice note</button>}
@@ -106,7 +106,7 @@ export function VoiceNoteControls({ threadId, actorId, onSent }: {
       <span className="text-[10px] text-[#8494aa]">Voice is shared only after Send audio</span>
     </div>
     {error && <p role="alert" className="mt-1 text-[10px] text-[#b42318]">{error}</p>}
-  </div>;
+  </section>;
 }
 
 export function VoiceNotePlayer({ messageId, actorId, durationMs }: {

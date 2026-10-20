@@ -1,6 +1,11 @@
 import {expect,test} from '@playwright/test';
 
 test('R6 voice-note composer is explicit and never sends on microphone denial', async ({page}) => {
+  await page.addInitScript(() => {
+    if (navigator.mediaDevices) Object.defineProperty(navigator.mediaDevices, 'getUserMedia', {
+      configurable: true, value: () => Promise.reject(new DOMException('Permission denied', 'NotAllowedError')),
+    });
+  });
   await page.goto('/chatbox?centre=DEMO-KA-104&person=demo-head-DEMO-KA-104');
   await expect(page.getByRole('region',{name:'Chatbox workspace'})).toBeVisible();
   const voice=page.getByRole('region',{name:'Voice note composer'});
