@@ -190,6 +190,9 @@ jobs:
       - name: Test private numeric research trace
         working-directory: web
         run: node --experimental-strip-types --test app/lib/server/research-analysis.test.mjs
+      - name: Test normal challenge burden and timestamp isolation
+        working-directory: web
+        run: node --experimental-strip-types --test app/lib/server/research-challenge.test.mjs
       - name: Verify role-specific controlled equipment fixtures
         run: node --experimental-strip-types --test app/lib/server/trade-proof.test.mjs
       - name: Verify private model-to-source admission and denials
