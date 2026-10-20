@@ -5,12 +5,14 @@
   -PreflightOnly is read-only.
   -ResetSimulatedState is explicit and guarded against real/non-demo data.
   -CalibratedModel requires a separately installed authoritative detector.
+  -RunRehearsal runs a read-only Chromium journey and stops just this command's servers.
 #>
 [CmdletBinding()]
 param(
   [switch]$PreflightOnly,
   [switch]$ResetSimulatedState,
   [switch]$CalibratedModel,
+  [switch]$RunRehearsal,
   [ValidateRange(1024,65535)][int]$ApiPort=8000,
   [ValidateRange(1024,65535)][int]$WebPort=3000
 )
@@ -19,6 +21,8 @@ Set-StrictMode -Version Latest
 $root=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location $root
 if($ApiPort -eq $WebPort){throw 'API and web ports cannot be identical.'}
+if($PreflightOnly -and $RunRehearsal){throw '-PreflightOnly and -RunRehearsal cannot be combined.'}
+if($RunRehearsal -and $CalibratedModel){throw 'Controlled rehearsal is the frozen synthetic path; use -CalibratedModel separately.'}
 $mode="$env:KAUSHALWATCH_ENV".ToLowerInvariant()
 if($mode -and @('development','local','test') -notcontains $mode){
   throw 'Protected environment selected; controlled judge launcher refuses to run.'
@@ -106,7 +110,44 @@ try{
   Write-Host "Insights: http://127.0.0.1:$WebPort/insights"
   Write-Host "Logs: $logRoot"
   Write-Host 'Videos are procedural; seeded records synthetic. Institutional accuracy remains unqualified.'
-  Write-Host "To stop: Stop-Process -Id $($api.Id),$($web.Id) (only while these exact processes remain active)"
+  if($RunRehearsal){
+    # Browser tests are read-only, never submit officer review changes.
+    # CI runs the same test file against a real Next/FastAPI stack.
+    $playwrightCli=Join-Path $root 'web/node_modules/playwright/cli.js'
+    if(-not (Test-Path $playwrightCli)){
+      throw 'Playwright CLI not installed: run npm ci inside the web folder.'
+    }
+    $previousE2EBase=$env:E2E_BASE_URL
+    $previousApiBase=$env:E2E_API_BASE_URL
+    try{
+      $env:E2E_BASE_URL="http://127.0.0.1:$WebPort"
+      $env:E2E_API_BASE_URL="http://127.0.0.1:$ApiPort"
+      Push-Location (Join-Path $root 'web')
+      try{
+        & $node $playwrightCli test 'e2e/phase15-release-rehearsal.spec.ts' '--project=chromium' '--workers=1' '--reporter=line'
+        if($LASTEXITCODE -ne 0){
+          throw 'Controlled end-to-end browser rehearsal FAILED. Check Playwright output, browser installation and temporary service logs.'
+        }
+      }finally{
+        Pop-Location
+      }
+      & $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --once
+      if($LASTEXITCODE -ne 0){
+        throw 'Rehearsal browser passed but final service integrity check FAILED.'
+      }
+      Write-Host 'REHEARSAL PASSED: actual UI journey, case provenance, source manifest, real PDF and recovery.'
+      Write-Host 'This is a local synthetic controlled demonstration, NOT institutional field qualification.'
+    }finally{
+      $env:E2E_BASE_URL=$previousE2EBase
+      $env:E2E_API_BASE_URL=$previousApiBase
+      # Always stop only the service processes this invocation created.
+      if($web -and -not $web.HasExited){Stop-Process -Id $web.Id -Force}
+      if($api -and -not $api.HasExited){Stop-Process -Id $api.Id -Force}
+      Write-Host 'Rehearsal services launched by this command have been stopped.'
+    }
+  }else{
+    Write-Host "To stop: Stop-Process -Id $($api.Id),$($web.Id) (only while these exact processes remain active)"
+  }
 }catch{
   if($web -and -not $web.HasExited){Stop-Process -Id $web.Id -Force}
   if(-not $api.HasExited){Stop-Process -Id $api.Id -Force}
