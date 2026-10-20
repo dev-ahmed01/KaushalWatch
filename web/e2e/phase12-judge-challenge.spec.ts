@@ -10,6 +10,7 @@ test('controlled judge route ends with correct quiet decision, not a fabricated 
  await expect(page.getByText('Withheld · not zero')).toBeVisible();
  await rail.getByRole('button',{name:'Next cue'}).click();
  await expect(page.getByRole('heading',{name:'Equipment visibility'})).toBeVisible();
+ await page.getByText('Why the evidence quality gate matters').click();
  await expect(page.getByText('Not visible is not proven absent',{exact:false})).toBeVisible();
  await rail.getByRole('button',{name:'Next cue'}).click();
  await expect(page.getByRole('heading',{name:'No exception needed'})).toBeVisible();

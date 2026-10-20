@@ -12,7 +12,8 @@ test('controlled evidence journey has four explainable scenarios',async({page})=
   await page.getByRole('button',{name:'Observed'}).click();
   await expect(page.getByRole('region',{name:'Selected evidence step'})).toContainText('Evidence unavailable');
   await page.getByRole('button',{name:/Equipment visibility/}).click();
-  await expect(page.getByText('Not visible is not proven absent',{exact:false})).toBeVisible();
+  await page.getByText('Why the evidence quality gate matters').click();
+ await expect(page.getByText('Not visible is not proven absent',{exact:false})).toBeVisible();
   await page.getByRole('button',{name:/No exception needed/}).click();
   await expect(page.getByText('No exception in this scenario').first()).toBeVisible();
   await expect(page.getByText('Fraud confirmed')).toHaveCount(0);
