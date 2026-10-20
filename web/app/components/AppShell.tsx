@@ -66,7 +66,7 @@ function AppShellContent({ children }: { children: ReactNode }) {
     setTodayIst('Today, ' + new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(new Date()));
   }, []);
   const { period, setPeriod } = useBriefPeriod();
-  const active = primarySection(pathname);
+  const active = pathname.startsWith('/demo/') ? '' : primarySection(pathname);
   const activeLabel = pathname === '/demo/studio' ? 'Recorded demo studio'
     : pathname === '/demo/mission' ? 'Proof of Training'
     : NAV.find(item => item.href === active)?.label || 'Overview';
