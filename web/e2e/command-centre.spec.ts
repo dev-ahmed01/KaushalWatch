@@ -44,17 +44,12 @@ test('AI-first restructure exposes the five-item navigation and core routes', as
 
   await page.goto('/insights');
   await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
-  await expect(page.getByText('Centre health')).toBeVisible();
-  await expect(page.getByText('Reported vs observed attendance')).toBeVisible();
-  await expect(page.getByText('Activity across the training day')).toBeVisible();
-  await expect(page.getByText('Infrastructure exceptions')).toBeVisible();
-  await expect(page.getByText('Camera trust', { exact: true })).toBeVisible();
-  await expect(page.getByText('Case outcomes')).toBeVisible();
-  await expect(page.getByText('Bengaluru attendance variance')).toBeVisible();
-  await expect(page.getByText('Hubballi infrastructure')).toBeVisible();
-  await expect(page.getByText('Tumakuru camera trust')).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Date range' })).toHaveCount(1);
+  await expect(page.getByRole('region', { name: 'Attendance comparison chart' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Infrastructure exception chart' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Source-backed insights' })).toBeVisible();
   await expect(page.getByText('Centre verification reports')).toBeVisible();
-  await expect(page.getByText('91').first()).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Report centre' })).toBeVisible();
 
   await page.goto('/actions');
   await expect(page.getByRole('heading', { name: 'Actions', exact: true })).toBeVisible();

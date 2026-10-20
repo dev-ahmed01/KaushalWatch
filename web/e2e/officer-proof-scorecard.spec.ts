@@ -45,6 +45,7 @@ test('failed evidence pack cannot be replaced by an authored scenario status',as
 
 test('insights confidence panel does not invent unreviewed model accuracy',async({page})=>{
  await page.goto('/insights');
+ await page.getByText('Detailed trust and verification scorecard').click();
  const panel=page.getByRole('region',{name:'Proof of Training qualification scorecard'});
  await expect(panel.getByRole('heading',{name:'Evidence qualification'})).toBeVisible();
  await expect(panel.getByText('No field certification')).toBeVisible();
