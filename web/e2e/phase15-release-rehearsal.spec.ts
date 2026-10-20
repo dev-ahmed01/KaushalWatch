@@ -76,7 +76,8 @@ test.describe('Phase 15 controlled release rehearsal',()=>{
   await expect(page.getByText('Fraud confirmed')).toHaveCount(0);
   await expect(quick.getByRole('button',{name:'Next cue'})).toBeDisabled();
 
-  await shell.getByRole('link',{name:'Centres'}).click();
+  // The old centre directory remains available by deep link, not in the new five-module sidebar.
+  await page.goto('/centres');
   await expect(page.getByRole('heading',{name:'Centres',exact:true})).toBeVisible();
   await page.getByRole('textbox',{name:'Search centres'}).fill('Bengaluru');
   await expect(page.getByRole('link',{name:'View',exact:true})).toHaveCount(1);
@@ -86,7 +87,7 @@ test.describe('Phase 15 controlled release rehearsal',()=>{
     .toHaveAttribute('aria-current','page');
   await shell.getByRole('link',{name:'Insights'}).click();
   await expect(page.getByRole('region',{name:'Centre report workspace'})).toBeVisible();
-  await shell.getByRole('link',{name:'Actions'}).click();
+  await shell.getByRole('link',{name:'Issues'}).click();
   await expect(page.getByRole('region',{name:'Selected work item'})).toBeVisible();
   expect(writes).toHaveLength(0);
  });
