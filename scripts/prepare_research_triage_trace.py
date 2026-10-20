@@ -6,6 +6,7 @@ Evaluates sparse frames against each video's own UNVERIFIED first frame only.
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import os
@@ -37,6 +38,27 @@ def create_trace(selection_csv: Path, clip_dir: Path, *,
         raise ValueError("Private research cannot be analyzed inside checkout")
     if selection_csv.resolve().parent != private_root:
         raise ValueError("Use a pinned annotation sheet in the private clip folder")
+    # Research stratum/class metadata must agree with the named intervention
+    # even when the original importer only uses labels and event frame offsets.
+    with selection_csv.open("r",encoding="utf-8-sig",newline="") as stream:
+        annotation_rows=list(csv.DictReader(stream))
+    for row in annotation_rows:
+        name=row.get("name","")
+        if name.startswith("normal_control_"):
+            expected_class,expected_stratum="0","normal"
+        else:
+            event=name.split("_",1)[0]
+            expected_class={"covered":"1","defocused":"2","moved":"3"}.get(event)
+            expected_stratum=(
+                "strong" if "_strong_" in name else
+                "gentle" if "_gentle_" in name else None
+            )
+        if (expected_class is None or expected_stratum is None
+            or row.get("class")!=expected_class
+            or row.get("selection")!=expected_stratum
+            or row.get("label")!=
+                {"0":"normal","1":"covered","2":"defocused","3":"moved"}[expected_class]):
+            raise ValueError("Research annotation classification or stratum changed")
     # Reuses existing full source-hash, annotation and MP4 checks.
     catalog=prepare(selection_csv,private_root)
     frozen_path=private_root/"kw-research-replay.local.json"
@@ -140,7 +162,7 @@ def main() -> int:
     try:
         result=create_trace(csv,folder,environment=os.getenv("KAUSHALWATCH_ENV","development"))
         write_once(output,result)
-    except (OSError,ValueError,KeyError,TypeError,cv2.error,json.JSONDecodeError):
+    except (OSError,ValueError,KeyError,TypeError,cv2.error,csv.Error,json.JSONDecodeError):
         print(json.dumps({"schema":SCHEMA,"status":"BLOCKED_OR_NOT_PREPARED",
                           "field_accuracy_qualified":False}))
         return 2
