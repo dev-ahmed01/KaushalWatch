@@ -11,7 +11,7 @@ test('R1 five-module primary shell and backwards routes', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Centre Desk' }).first()).toBeVisible();
   await nav.getByRole('link', { name: 'Chatbox' }).click();
   await expect(page).toHaveURL(/\/chatbox$/);
-  await expect(page.getByText('Messaging setup in progress')).toBeVisible();
+  await expect(page.getByRole('region',{name:'Chatbox workspace'})).toBeVisible();
   await page.goto('/actions');
   await expect(page.getByRole('heading', { name: 'Action queue' })).toBeVisible();
   await page.goto('/issues');
