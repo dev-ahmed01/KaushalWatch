@@ -5,7 +5,7 @@ test('camera recordings are preloaded and monitor has working review controls', 
   await expect(page.getByRole('heading',{name:'Camera Trust'})).toBeVisible();
   await expect(page.getByRole('navigation',{name:'Centre sections'}).getByRole('link',{name:'Camera Trust'}))
     .toHaveAttribute('aria-current','page');
-  await expect(page.getByText('3 sources ready')).toBeVisible();
+  await expect(page.getByText('3 recorded samples')).toBeVisible();
   await expect(page.getByText('PLAYBACK')).toBeVisible();
   const video=page.locator('video[aria-label*="recorded footage"]');
   await expect(video).toHaveAttribute('src',/training-bay\.mp4/);
@@ -14,6 +14,10 @@ test('camera recordings are preloaded and monitor has working review controls', 
   await expect(video).toHaveAttribute('src',/workshop-floor\.mp4/);
   await page.getByRole('button',{name:'Inspect'}).click();
   await expect(page.getByText('Visibility change').first()).toBeVisible();
+  await expect(page.getByText('Evidence usability')).toBeVisible();
+  await expect(page.getByText('Scene interference')).toBeVisible();
+  await expect(page.getByText('Authored sample cue, not an AI prediction.')).toBeVisible();
+  await expect(page.getByText('Scene people')).toHaveCount(0);
   await page.getByRole('button',{name:'Mark reviewed'}).click();
   await expect(page.getByRole('button',{name:/Reviewed — undo/})).toBeVisible();
   await expect(page.getByRole('button',{name:'Export'})).toBeVisible();
