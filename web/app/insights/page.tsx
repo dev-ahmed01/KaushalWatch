@@ -184,7 +184,7 @@ export default function InsightsPage() {
         </div>
       </section>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
         <InfrastructureChart data={data} />
         <TrustAndOutcomes data={data} />
       </div>
@@ -282,7 +282,7 @@ function HealthRing({ data }: { data: NetworkInsights }) {
 function InfrastructureChart({ data }: { data: NetworkInsights }) {
   const max = Math.max(1, ...data.infrastructure.map(item => Math.max(item.missing_units, item.case_count)));
   return (
-    <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
       <div>
         <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Infrastructure exceptions</h2>
         <p className="mt-1 text-[12px] text-[#98A2B3]">Current evidence-backed gaps by centre.</p>
@@ -312,7 +312,7 @@ function TrustAndOutcomes({ data }: { data: NetworkInsights }) {
   const outcomes = Object.entries(data.case_outcomes).filter(([, value]) => value > 0);
   const totalOutcomes = Math.max(1, outcomes.reduce((sum, [, value]) => sum + value, 0));
   return (
-    <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
           <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kw-text)]"><Camera size={15} /> Camera trust</div>
