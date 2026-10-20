@@ -42,6 +42,8 @@ function primarySection(pathname: string) {
 }
 
 export default function AppShell({ children }: { children: ReactNode }) {
+  // The public showcase is a standalone, intentionally unprivileged experience.
+  if (process.env.NEXT_PUBLIC_KAUSHALWATCH_PUBLIC_SHOWCASE === 'true') return <>{children}</>;
   return (
     <MotionConfig reducedMotion="user">
       <PeriodProvider>
