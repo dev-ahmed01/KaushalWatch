@@ -143,7 +143,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
                 Continue with evidence
               </a>
             </div>
-          </div>
+          </div>}
           <div className="mt-3">
             <label className="block text-[11px] font-semibold text-[#526A86]" htmlFor="kw-replay-seek">
               Playback position · {time(elapsed)} / {time(clip.duration)}
