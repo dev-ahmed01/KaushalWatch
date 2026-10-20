@@ -78,6 +78,20 @@ def analyze_video(path: Path, job: dict, reference, heartbeat=None) -> dict:
                 "failed_positions":failed,"source_frame_count_reported":total,
                 "fps_reported":fps,"sampling":"SPARSE_RANDOM_ACCESS_NOT_FULL_VIDEO_DECODE",
                 "possible_review_samples":sum(bool(x["candidate_for_human_review"]) for x in results),
+                "evidence_triage_schema":"KW_CAMERA_EVIDENCE_TRIAGE_V1",
+                "evidence_unusable_samples":sum(
+                    x["evidence_triage"]["usability"]=="NOT_USABLE_FOR_VISUAL_VERIFICATION"
+                    for x in results),
+                "evidence_unknown_or_alignment_review_samples":sum(
+                    x["evidence_triage"]["usability"] in {
+                        "UNKNOWN_NO_REFERENCE", "UNKNOWN_SCENE_REGISTRATION",
+                        "REVIEW_REQUIRED_SCENE_ALIGNMENT",
+                    } for x in results),
+                "possible_interference_samples":sum(
+                    x["evidence_triage"]["interference_review"]==
+                    "POSSIBLE_SCENE_INTERFERENCE_REVIEW" for x in results),
+                "interference_proven":False,
+                "source_is_continuously_monitored":False,
                 "physical_camera_health":"UNKNOWN",
                 "production_qualified":False,"auto_incident_mutations":0,
                 "frame_images_or_video_exported":False,"samples":results}

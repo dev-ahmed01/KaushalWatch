@@ -5,11 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Activity, Camera, Check, Download, Pause, Play, RotateCcw } from 'lucide-react';
 import CentreTabs from './CentreTabs';
 
-type Feed={id:string;name:string;area:string;file:string;people:number;start:number;end:number;cue:string};
+type Feed={id:string;name:string;area:string;file:string;start:number;end:number;cue:string};
 const FEEDS:Feed[]=[
-  {id:'CAM-01',name:'Training bay',area:'Practical lab',file:'training-bay.mp4',people:3,start:8,end:13,cue:'Focus variation'},
-  {id:'CAM-02',name:'Workshop floor',area:'Equipment zone',file:'workshop-floor.mp4',people:3,start:9,end:15,cue:'Visibility change'},
-  {id:'CAM-03',name:'East corridor',area:'Entry passage',file:'east-corridor.mp4',people:2,start:7,end:13,cue:'Scene alignment'},
+  {id:'CAM-01',name:'Training bay',area:'Practical lab',file:'training-bay.mp4',start:8,end:13,cue:'Focus variation'},
+  {id:'CAM-02',name:'Workshop floor',area:'Equipment zone',file:'workshop-floor.mp4',start:9,end:15,cue:'Visibility change'},
+  {id:'CAM-03',name:'East corridor',area:'Entry passage',file:'east-corridor.mp4',start:7,end:13,cue:'Scene alignment'},
 ];
 const PANEL='rounded-2xl border border-[#E3EAF3] bg-white shadow-[0_1px_3px_rgba(16,24,40,0.04)]';
 const BTN='kw-focus inline-flex min-h-9 items-center justify-center gap-2 rounded-xl border border-[#D9E2ED] bg-white px-3 text-[12px] font-medium text-[#344054] hover:bg-[#F6F9FC]';
@@ -30,6 +30,8 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
   const feed=FEEDS[selected];
   const active=elapsed>=feed.start&&elapsed<feed.end;
   const detected=elapsed>=feed.start;
+  const usability=active?'REVIEW_VISUAL_EVIDENCE':'NO_ACTIVE_CUE';
+  const interference=active&&feed.id==='CAM-03'?'POSSIBLE_ALIGNMENT_CHANGE':'NOT_ESTABLISHED';
   const frame=Math.min(240,Math.floor(elapsed*12));
   const reviewedCount=FEEDS.filter(f=>reviewed[f.id]).length;
   useEffect(()=>{
@@ -67,7 +69,12 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
       source:'preloaded synthetic recording',camera:feed.id,
       time_seconds:Number(elapsed.toFixed(2)),frames_played:frame,
       quality_marker:feed.cue,marker_reached:detected,
+      cue_origin:'AUTHOR_WRITTEN_PROCEDURAL_VIDEO_NOT_MODEL_INFERENCE',
+      evidence_usability_cue:usability,
+      suspected_interference_cue:interference,
+      evidence_quality_and_interference_are_distinct:true,
       reviewed:!!reviewed[feed.id],camera_health_certified:false,
+      physical_tampering_proven:false,automatic_enforcement_authorized:false,
       exported_at:new Date().toISOString(),
     };
     const blob=new Blob([JSON.stringify(receipt,null,2)],{type:'application/json'});
@@ -84,7 +91,7 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
         <h1 className="mt-1 text-[28px] font-semibold tracking-tight">Camera Trust</h1>
       </div>
       <span className="inline-flex items-center gap-2 text-[11px] font-medium text-[#667085]">
-        <span className="h-2 w-2 rounded-full bg-[#14835A]"/>3 sources ready
+        <span className="h-2 w-2 rounded-full bg-[#14835A]"/>3 recorded samples
       </span>
     </header>
     <CentreTabs centreId={centreId}/>
@@ -183,13 +190,26 @@ export default function CameraTrustShowcase({centreId}:{centreId:string}){
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-xl bg-[#F8FAFC] p-3">
-              <span className="text-[10px] text-[#667085]">Scene people</span>
-              <strong className="mt-1 block text-[23px] tabular-nums">{feed.people}</strong>
+              <span className="text-[10px] text-[#667085]">Cue window</span>
+              <strong className="mt-1 block text-[23px] tabular-nums">{feed.end-feed.start}s</strong>
             </div>
             <div className="rounded-xl bg-[#F8FAFC] p-3">
               <span className="text-[10px] text-[#667085]">Recording FPS</span>
               <strong className="mt-1 block text-[23px] tabular-nums">12</strong>
             </div>
+          </div>
+          <div className="mt-3 grid gap-2" aria-label="Camera evidence split review">
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-[#F0E4D2] bg-[#FFFBF6] px-3 py-2">
+              <span className="text-[11px] font-medium text-[#785B33]">Evidence usability</span>
+              <strong className="text-[11px] text-[#76512D]">{active?'Review required':'No active cue'}</strong>
+            </div>
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-[#DFE9F1] bg-[#F8FAFD] px-3 py-2">
+              <span className="text-[11px] font-medium text-[#42617D]">Scene interference</span>
+              <strong className="text-[11px] text-[#365A7B]">
+                {active&&feed.id==='CAM-03'?'Possible change':'Not established'}
+              </strong>
+            </div>
+            <span className="text-[10px] text-[#84919F]">Authored sample cue, not an AI prediction.</span>
           </div>
           <div className="mt-3 flex items-center justify-between rounded-xl border border-[#E6EAF0] p-3">
             <div>

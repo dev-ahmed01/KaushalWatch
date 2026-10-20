@@ -39,6 +39,17 @@ def test_sparse_frames_use_actual_decode_positions_and_no_media_export(tmp_path)
     assert report["possible_review_samples"] <= 12
     assert all(row["physical_camera_health"]=="UNKNOWN" for row in report["samples"])
     assert all(row["geometry"]["state"]=="UNKNOWN_NO_APPROVED_REFERENCE" for row in report["samples"])
+    assert report["evidence_triage_schema"] == "KW_CAMERA_EVIDENCE_TRIAGE_V1"
+    assert report["interference_proven"] is False
+    assert report["source_is_continuously_monitored"] is False
+    assert report["possible_interference_samples"] == 0
+    assert report["evidence_unusable_samples"] + report["evidence_unknown_or_alignment_review_samples"] <= 12
+    for item in report["samples"]:
+        triage = item["evidence_triage"]
+        assert triage["interference_review"] == "UNKNOWN_NO_REFERENCE"
+        assert triage["physical_camera_health"] == "UNKNOWN"
+        assert triage["malicious_tampering_proven"] is False
+        assert triage["enforcement_authorized"] is False
     assert all(abs(row["decoded_frame0"]-row["requested_frame0"])<=1 for row in report["samples"])
     assert all("frame_pixels" not in row for row in report["samples"])
 
