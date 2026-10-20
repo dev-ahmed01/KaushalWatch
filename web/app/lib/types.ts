@@ -522,3 +522,13 @@ export type CentreDeskResponse = {
   centres: Array<{centre_id: string;name: string}>;
   day: CentreDeskDay;
 };
+
+
+export type ChatPerson = { id: string; centre_id: string; name: string; role: string; simulated: boolean };
+export type ChatMessage = { id: string; thread_id: string; sender_id: string; kind: 'text' | 'voice';
+  body: string | null; created_at_utc: string; duration_ms: number | null; byte_size: number | null;
+  content_type: string | null; sha256: string | null; simulated: boolean };
+export type ChatThread = { id: string; centre_id: string; participant_ids: string[]; topic: string;
+  simulated: boolean; peer: ChatPerson; last_message: ChatMessage | null; unread_count: number | null };
+export type ChatboxIndex = { actor: ChatPerson; people: ChatPerson[]; roles: ChatPerson[];
+  threads: ChatThread[]; centre_id: string; simulated: boolean };
