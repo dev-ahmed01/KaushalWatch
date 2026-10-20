@@ -45,6 +45,7 @@ test('research replay labels supplied annotations without fake AI counts',async(
   })
  }));
  await page.goto('/demo/mission');
+ await page.getByRole('button',{name:'Open optional research diagnostics'}).click();
  const panel=page.getByRole('region',{name:'Private research replay'});
  await expect(panel.getByRole('heading',{name:'Annotated camera-quality study'})).toBeVisible();
  await expect(panel.getByText('covered interval')).toBeVisible();

@@ -21,11 +21,13 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
   const [decoderFailed,setDecoderFailed]=useState(false);
   const [mediaReady,setMediaReady]=useState(false);
   const [playing,setPlaying]=useState(false);
+  const [mediaRequested,setMediaRequested]=useState(false);
+  const [showResearch,setShowResearch]=useState(false);
   const [elapsed,setElapsed]=useState(0);
   const [refresh,setRefresh]=useState(0);
 
   useEffect(()=>{
-    setSelected(CLIP_BY_SCENE[sceneId]);setMediaReady(false);setPlaying(false);setElapsed(0);setFailed(false);setDecoderFailed(false);
+    setSelected(CLIP_BY_SCENE[sceneId]);setMediaReady(false);setMediaRequested(false);setPlaying(false);setElapsed(0);setFailed(false);setDecoderFailed(false);
   },[sceneId]);
 
   useEffect(()=>{
@@ -52,7 +54,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
   const blocked=failed||!loading&&!verified;
 
   function selectClip(id:string){
-    setSelected(id);setElapsed(0);setMediaReady(false);setPlaying(false);setDecoderFailed(false);
+    setSelected(id);setElapsed(0);setMediaReady(false);setMediaRequested(false);setPlaying(false);setDecoderFailed(false);
   }
   function seek(second:number){
     if(!player.current||!mediaReady||!clip)return;
@@ -108,16 +110,24 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
           <div className="relative aspect-video overflow-hidden rounded-xl bg-[#13233B]">
             <video key={selected+'-'+sceneId+'-'+refresh} ref={player}
               className="h-full w-full object-contain"
-              src={clip.source_url||undefined} preload="metadata" muted playsInline
+              src={mediaRequested ? clip.source_url || undefined : undefined} preload={mediaRequested ? 'metadata' : 'none'} muted playsInline
               aria-label="Source-verified procedural recorded footage"
               onLoadedMetadata={verifyMetadata} onError={()=>{setDecoderFailed(true);setMediaReady(false);}}
               onTimeUpdate={event=>setElapsed(event.currentTarget.currentTime)}
               onSeeked={event=>setElapsed(event.currentTarget.currentTime)}
               onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}/>
+            {!mediaRequested && <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#13233B] px-5 text-center">
+              <p className="text-[12px] font-medium text-white">Recording verified · playback not loaded</p>
+              <p className="max-w-[300px] text-[10px] leading-5 text-[#cad8ea]">Synthetic camera-quality video. Scenario values are not inferred from these pixels.</p>
+              <button type="button" onClick={() => setMediaRequested(true)}
+                className="kw-focus inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2.5 text-[12px] font-semibold text-[#214D80]">
+                <Play size={14}/> Load verified recording
+              </button>
+            </div>}
             <div className="pointer-events-none absolute left-3 top-3 rounded-md bg-[#0E2339]/85 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
               Recorded · synthetic
             </div>
-            {model&&sample?.boxes.map((box,i)=><div key={sample.frame+'-'+i}
+            {mediaRequested&&model&&sample?.boxes.map((box,i)=><div key={sample.frame+'-'+i}
               className="pointer-events-none absolute border-2 border-[#64E3AE] text-white"
               style={{left:(box.x*100)+'%',top:(box.y*100)+'%',
                 width:(box.width*100)+'%',height:(box.height*100)+'%'}}>
@@ -125,7 +135,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
                 {box.label} {(box.score*100).toFixed(0)}%
               </span>
             </div>)}
-            {!mediaReady&&!decoderFailed&&<div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/40 text-[12px] text-white">
+            {mediaRequested&&!mediaReady&&!decoderFailed&&<div role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/40 text-[12px] text-white">
               Preparing verified recording…
             </div>}
             {decoderFailed&&<div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#13233B]/80 px-5 text-center text-[12px] font-medium text-white">
@@ -136,7 +146,7 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
             Source checksum matched, but this browser cannot decode or validate the recording format. Playback and detections are disabled.
             <div className="mt-2 flex flex-wrap gap-3">
               <button type="button" className="kw-focus rounded-lg border border-[#DFC9A7] bg-white px-3 py-2 font-semibold"
-                onClick={()=>{setDecoderFailed(false);setMediaReady(false);setElapsed(0);setRefresh(n=>n+1);}}>
+                onClick={()=>{setDecoderFailed(false);setMediaReady(false);setMediaRequested(false);setElapsed(0);setRefresh(n=>n+1);}}>
                 Retry recording
               </button>
               <a href="#kw-evidence-trail" className="kw-focus rounded-lg border border-[#DFC9A7] bg-white px-3 py-2 font-semibold">
@@ -195,6 +205,10 @@ export default function SourceLockedReplay({sceneId}:{sceneId:SceneId}){
         </aside>
       </div>
     </>}
-    <ResearchReplayPanel/>
+    <div className="mt-3 border-t border-[#e7eef7] pt-3">
+      <button type="button" aria-expanded={showResearch} onClick={() => setShowResearch(x => !x)}
+        className="kw-focus text-[11px] font-semibold text-[#2563eb]">{showResearch ? 'Hide' : 'Open'} optional research diagnostics</button>
+      {showResearch && <ResearchReplayPanel/>}
+    </div>
   </section>;
 }

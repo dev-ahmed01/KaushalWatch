@@ -72,18 +72,18 @@ export default function MissionPage(){
   </div>;
 
   function select(id:SceneId){setSceneId(id);setStep(0);}
-  return <div className="space-y-5 pb-8">
+  return <div className="space-y-3 pb-6">
     <header className="flex flex-wrap items-center justify-between gap-2">
-      <Link className="kw-focus inline-flex items-center gap-1 text-[12px] text-[#667C94]" href="/"><ArrowLeft size={15}/> KaushalAI</Link>
+      <Link className="kw-focus inline-flex items-center gap-1 text-[12px] text-[#667C94]" href="/"><ArrowLeft size={15}/> Overview</Link>
       <span className="rounded-full border border-[#D8E6F6] bg-[#F2F7FE] px-3 py-1 text-[11px] font-semibold text-[#285F96]">Controlled SIH scenarios · simulated</span>
     </header>
-    <section className="relative overflow-hidden rounded-[24px] bg-[#173456] px-6 py-8 text-white sm:px-9 sm:py-10">
+    <section className="relative overflow-hidden rounded-[20px] bg-[#173456] px-5 py-5 text-white sm:px-7 sm:py-6">
       <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full border border-white/10 bg-[#2E5889]/20"/>
       <div className="relative">
         <div className="text-[11px] font-bold uppercase tracking-[.18em] text-[#AAC8EB]">KaushalWatch · Proof of Training</div>
-        <h1 className="mt-3 max-w-[750px] text-[clamp(28px,4vw,44px)] font-bold leading-tight tracking-[-.045em]">A centre reports. Evidence responds. An officer decides.</h1>
-        <p className="mt-4 max-w-[620px] text-[13px] leading-6 text-[#D4E1F0]">Not just another people counter. Follow four controlled inspection scenarios to see how trust changes the outcome.</p>
-        <div className="mt-5 flex flex-wrap gap-4 text-[11px] text-[#D4E1F0]">
+        <h1 className="mt-2 max-w-[750px] text-[clamp(24px,3vw,34px)] font-bold leading-tight tracking-[-.045em]">A centre reports. Evidence responds. An officer decides.</h1>
+        <p className="mt-2 max-w-[620px] text-[11px] leading-6 text-[#D4E1F0]">Not just another people counter. Follow four controlled inspection scenarios to see how trust changes the outcome.</p>
+        <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-[#D4E1F0]">
           <span className="inline-flex items-center gap-2"><Camera size={15}/> Anonymous observation</span>
           <span className="inline-flex items-center gap-2"><ShieldCheck size={15}/> Evidence quality gate</span>
           <span className="inline-flex items-center gap-2"><FileSearch size={15}/> Human review</span>
@@ -91,7 +91,7 @@ export default function MissionPage(){
       </div>
     </section>
     <JudgeRehearsal sceneId={scene.id} onScene={select}/>
-    <div className="grid gap-5 xl:grid-cols-[270px_minmax(0,1fr)]">
+    <div className="grid gap-3 xl:grid-cols-[230px_minmax(0,1fr)]">
       <nav className={surface+' h-fit p-3'} aria-label="Controlled scenarios">
         <div className="px-3 pb-3 pt-2 text-[14px] font-bold text-[#283E5A]">Four proof scenarios</div>
         {DEMO_SCENES.map((item,i)=><button type="button" key={item.id}
@@ -105,7 +105,7 @@ export default function MissionPage(){
           </button>)}
         <Link href="/centres" className="kw-focus mx-3 mt-3 inline-flex items-center gap-1 text-[12px] font-semibold text-[#275D9D]">Explore centres <ArrowRight size={13}/></Link>
       </nav>
-      <article className={surface+' min-w-0 p-5 sm:p-7'} aria-label="Controlled scenario inspection">
+      <article className={surface+' min-w-0 p-4 sm:p-5'} aria-label="Controlled scenario inspection">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div><p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[#6B85A3]">{scene.subtitle}</p>
             <h2 className="mt-1 text-[26px] font-bold tracking-[-.035em] text-[#263D57]">{scene.title}</h2>
@@ -113,7 +113,7 @@ export default function MissionPage(){
           <span className={'rounded-full px-3 py-1.5 text-[11px] font-semibold '+
             (scene.id==='camera'?'bg-[#ECF2FA] text-[#405C80]':scene.id==='normal'?'bg-[#EAF7F0] text-[#216D4C]':'bg-[#FFF3E4] text-[#956018]')}>{decision}</span>
         </div>
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-[#F4F8FC] p-4"><div className="text-[11px] text-[#7389A1]">Reported</div>
             <strong className="mt-1 block text-[30px] font-bold tabular-nums text-[#234367]">{reported??'—'}</strong><div className="text-[11px] text-[#8192A8]">{scene.unit}</div></div>
           <div className="rounded-xl bg-[#F4F8FC] p-4"><div className="text-[11px] text-[#7389A1]">Observed</div>
@@ -153,13 +153,14 @@ export default function MissionPage(){
               {step===3?'Next scenario':'Next evidence step'} <ArrowRight size={14}/></button>
           </div>
         </div>
-        <div className="mt-7 grid gap-3 md:grid-cols-2">
+        <details className="mt-4 rounded-xl border border-[#e6edf6] p-3"><summary className="kw-focus cursor-pointer text-[12px] font-semibold">Why the evidence quality gate matters</summary><div className="mt-3 grid gap-3 md:grid-cols-2">
           <div className="rounded-xl border border-[#F1E5D9] bg-[#FFFBF6] p-4"><p className="text-[11px] font-semibold text-[#A36B31]">Simplistic approach</p>
             <p className="mt-2 text-[12px] leading-5 text-[#775635]">{scene.compare}</p></div>
           <div className="rounded-xl border border-[#D8EAE0] bg-[#F4FBF7] p-4"><p className="text-[11px] font-semibold text-[#2B7151]">KaushalWatch</p>
             <p className="mt-2 text-[12px] leading-5 text-[#37624E]">{scene.conclusion}</p></div>
         </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#ECF0F5] pt-5">
+        </details>
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[#ECF0F5] pt-4">
           <Link href={scene.href} className="kw-focus inline-flex items-center gap-2 rounded-xl bg-[#EAF3FC] px-4 py-2.5 text-[12px] font-semibold text-[#245B96]">
             Open centre evidence <ArrowRight size={14}/></Link>
           {caseRecord&&<Link href={caseHrefWithReturn(caseRecord.case_id,{scene:scene.id,step})}

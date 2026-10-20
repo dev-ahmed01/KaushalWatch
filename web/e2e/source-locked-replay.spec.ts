@@ -22,6 +22,8 @@ test('source-locked recorded replay and cue navigation work',async({page})=>{
   const replay=page.getByRole('region',{name:'Source-locked replay'});
   await expect(replay.getByText('Manifest hash matched')).toBeVisible();
   const video=replay.locator('video');
+  await expect(video).not.toHaveAttribute('src',/./);
+  await replay.getByRole('button',{name:'Load verified recording'}).click();
   await expect(video).toHaveAttribute('src',/training-bay\.mp4/);
   const inspect=replay.getByRole('button',{name:'Inspect quality event'});
   const decoderProblem=replay.getByText(/this browser cannot decode or validate/i);
@@ -41,6 +43,8 @@ test('source-locked recorded replay and cue navigation work',async({page})=>{
     expect(elapsed).toBeLessThan(10);
   }
   await replay.getByRole('button',{name:'Workshop floor'}).click();
+  await expect(video).not.toHaveAttribute('src',/./);
+  await replay.getByRole('button',{name:'Load verified recording'}).click();
   await expect(video).toHaveAttribute('src',/workshop-floor\.mp4/);
   await expect(replay.getByText('Visibility change')).toBeVisible();
   await expect(replay.getByText(/No matching model receipt/)).toBeVisible();
