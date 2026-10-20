@@ -1,7 +1,7 @@
 /** Private source-bound numeric camera cue trace, never field accuracy. */
 import {lstat,readFile,realpath} from 'node:fs/promises';
 import path from 'node:path';
-import {checkedResearchClips} from './research-replay';
+import {checkedResearchClips} from './research-replay.ts';
 
 const SHA=/^[a-f0-9]{64}$/;
 const IDS=['quality-covered','quality-defocused','quality-moved','quality-normal'];
