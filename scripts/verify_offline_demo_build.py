@@ -67,6 +67,10 @@ def verify(root: Path, commit: str, api_port: int) -> dict:
         raise OfflineBuildError("Procedural source manifest missing")
     try:
         payload = json.loads(receipt_bytes, object_pairs_hook=_unique_pairs)
+    except OfflineBuildError:
+        # A duplicate key is an explicit integrity violation; preserve its
+        # diagnosis instead of obscuring it as generic malformed JSON.
+        raise
     except (ValueError, UnicodeDecodeError) as exc:
         raise OfflineBuildError("Invalid offline release receipt") from exc
     if not isinstance(payload, dict) or set(payload) != REQUIRED:
