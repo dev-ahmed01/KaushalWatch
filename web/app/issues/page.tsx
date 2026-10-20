@@ -210,7 +210,7 @@ export default function IssuesPage() {
             {tab === 'communication' && <section>
               <div className="rounded-xl border border-[#dbe6f3] bg-[#f7faff] p-4">
                 <div className="flex items-center gap-2"><MessageCircle size={17} className="text-[#2563eb]"/><h3 className="text-[13px] font-semibold">Contact the centre</h3></div>
-                <p className="mt-2 text-[11px] leading-5 text-[#667085]">Open the dedicated Chatbox with this issue context. Only authorised participants will be selectable after the messaging service is enabled.</p>
+                <p className="mt-2 text-[11px] leading-5 text-[#667085]">Open the local Chatbox with this issue attached. Conversations are limited to eligible demo participants; no external message delivery is implied.</p>
                 <Link href={'/chatbox?centre=' + encodeURIComponent(selected.centre_id) + '&issue=' + encodeURIComponent(selected.action_id)}
                   className="kw-focus mt-4 inline-flex items-center gap-1 rounded-lg bg-[#2563eb] px-3 py-2 text-[11px] font-semibold text-white">Open in Chatbox <ArrowRight size={13}/></Link>
               </div></section>}
