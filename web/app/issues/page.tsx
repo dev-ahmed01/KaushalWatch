@@ -5,6 +5,7 @@ import { AlertCircle, ArrowLeft, ArrowRight, Camera, ClipboardList, Clock3, Down
 import { useEffect, useMemo, useState } from 'react';
 import { DataRetry } from '../components/NetworkStatus';
 import { DetailWindow, EmptyState, PageHeader, StatusBadge } from '../components/WorkspaceUi';
+import EvidenceCopilot from '../components/EvidenceCopilot';
 import { getActionQueue, getCases, getEvidencePack, reportPdfUrl } from '../lib/api';
 import { useBriefPeriod } from '../lib/period';
 import type { ActionQueue, ActionQueueItem, CaseRecord, EvidenceReviewPack } from '../lib/types';
@@ -159,6 +160,9 @@ export default function IssuesPage() {
               <section className="rounded-xl bg-[#f1f6ff] p-4"><div className="flex items-center gap-2 text-[12px] font-semibold text-[#2454a6]"><ShieldAlert size={16}/> Operational summary</div>
                 <p className="mt-2 text-[12px] leading-6 text-[#4a607d]">{selected.reason}</p>
                 <p className="mt-2 text-[11px] font-medium text-[#526b8a]">Recommended officer action: {selected.cta}. Review the saved evidence before deciding.</p></section>
+              <EvidenceCopilot centreId={selected.centre_id} fallback={selected.reason}
+                question={'Explain the recorded ' + selected.kind + ' issue for ' + selected.centre_name + '. Distinguish uncertainty, evidence sources and what an officer should check. Do not make an automatic decision.'}
+                sourceHref={selected.href} compact/>
               {selected.kind === 'attendance' && relatedCase && <section aria-label="Attendance comparison">
                 <h3 className="text-[13px] font-semibold">Reported versus observed presence</h3>
                 <div className="mt-2 grid grid-cols-3 gap-2">
@@ -206,7 +210,7 @@ export default function IssuesPage() {
             {tab === 'communication' && <section>
               <div className="rounded-xl border border-[#dbe6f3] bg-[#f7faff] p-4">
                 <div className="flex items-center gap-2"><MessageCircle size={17} className="text-[#2563eb]"/><h3 className="text-[13px] font-semibold">Contact the centre</h3></div>
-                <p className="mt-2 text-[11px] leading-5 text-[#667085]">Open the dedicated Chatbox with this issue context. Only authorised participants will be selectable after the messaging service is enabled.</p>
+                <p className="mt-2 text-[11px] leading-5 text-[#667085]">Open the local Chatbox with this issue attached. Conversations are limited to eligible demo participants; no external message delivery is implied.</p>
                 <Link href={'/chatbox?centre=' + encodeURIComponent(selected.centre_id) + '&issue=' + encodeURIComponent(selected.action_id)}
                   className="kw-focus mt-4 inline-flex items-center gap-1 rounded-lg bg-[#2563eb] px-3 py-2 text-[11px] font-semibold text-white">Open in Chatbox <ArrowRight size={13}/></Link>
               </div></section>}
