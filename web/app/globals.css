@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Poppins:wght@400;500;600&display=swap');
 @import "tailwindcss";
 
 :root {
   --kw-page: #f6f8fc;
-  --kw-heading-font: "Bricolage Grotesque", "Trebuchet MS", ui-sans-serif, system-ui, sans-serif;
-  --kw-body-font: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  --kw-heading-font: var(--kw-loaded-heading), "Trebuchet MS", ui-sans-serif, system-ui, sans-serif;
+  --kw-body-font: var(--kw-loaded-body), "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --kw-surface: #ffffff;
   --kw-subtle: #fbfcfe;
   --kw-text: #152238;

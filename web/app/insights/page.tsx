@@ -97,28 +97,28 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="mt-7 grid h-[230px] grid-cols-5 items-end gap-4">
+          <div className="mt-7 grid h-[230px] grid-cols-5 items-end gap-1.5 sm:gap-4">
             {data.attendance.map(item => (
               <div key={item.centre_id} className="flex min-w-0 flex-col items-center">
                 <div className="mb-2 h-5 text-[10px] font-medium text-[#667085]">
                   {item.available && item.difference ? 'Δ ' + item.difference : item.status === 'uncertain' ? 'UNCERTAIN' : ''}
                 </div>
-                <div className="flex h-[160px] items-end gap-1.5">
+                <div className="flex h-[160px] items-end gap-1 sm:gap-1.5">
                   {item.available ? (
                     <>
                       <div
-                        className="w-5 rounded-t-md bg-[#2563EB]"
+                        className="w-3 rounded-t-md bg-[#2563EB] sm:w-5"
                         style={{ height: Math.max(8, ((item.reported || 0) / attendanceMax) * 100) + '%' }}
                         title={'Reported ' + item.reported}
                       />
                       <div
-                        className="w-5 rounded-t-md bg-[#AFC8EC]"
+                        className="w-3 rounded-t-md bg-[#AFC8EC] sm:w-5"
                         style={{ height: Math.max(8, ((item.observed || 0) / attendanceMax) * 100) + '%' }}
                         title={'Observed ' + item.observed}
                       />
                     </>
                   ) : (
-                    <div className="flex h-full w-12 items-center justify-center rounded-lg border border-dashed border-[#D0D5DD] bg-[#F8FAFC] text-[10px] text-[#98A2B3]">—</div>
+                    <div className="flex h-full w-7 items-center justify-center rounded-lg border border-dashed sm:w-12 border-[#D0D5DD] bg-[#F8FAFC] text-[10px] text-[#98A2B3]">—</div>
                   )}
                 </div>
                 <div className="mt-2 truncate text-center text-[10px] text-[#667085]">{item.short_name}</div>
@@ -149,7 +149,7 @@ export default function InsightsPage() {
         </aside>
       </section>
 
-      <section className="mt-5 rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+      <section className="mt-5 min-w-0 overflow-hidden rounded-[18px] border border-[var(--kw-border)] bg-white px-4 py-6 shadow-[var(--kw-shadow)] sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Activity across the training day</h2>
@@ -158,7 +158,7 @@ export default function InsightsPage() {
           <div className="text-[11px] text-[#98A2B3]">{data.counts.analysis_runs} analyses in {data.period_label.toLowerCase()}</div>
         </div>
 
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6 min-w-0 max-w-full overflow-x-auto overscroll-x-contain" role="region" aria-label="Activity heatmap, horizontally scrollable" tabIndex={0}>
           <div className="min-w-[760px]">
             <div className="grid grid-cols-[120px_repeat(7,1fr)] gap-2">
               <div />
@@ -184,7 +184,7 @@ export default function InsightsPage() {
         </div>
       </section>
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-2">
+      <div className="mt-5 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
         <InfrastructureChart data={data} />
         <TrustAndOutcomes data={data} />
       </div>
@@ -282,7 +282,7 @@ function HealthRing({ data }: { data: NetworkInsights }) {
 function InfrastructureChart({ data }: { data: NetworkInsights }) {
   const max = Math.max(1, ...data.infrastructure.map(item => Math.max(item.missing_units, item.case_count)));
   return (
-    <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
       <div>
         <h2 className="text-[17px] font-semibold text-[var(--kw-text)]">Infrastructure exceptions</h2>
         <p className="mt-1 text-[12px] text-[#98A2B3]">Current evidence-backed gaps by centre.</p>
@@ -312,7 +312,7 @@ function TrustAndOutcomes({ data }: { data: NetworkInsights }) {
   const outcomes = Object.entries(data.case_outcomes).filter(([, value]) => value > 0);
   const totalOutcomes = Math.max(1, outcomes.reduce((sum, [, value]) => sum + value, 0));
   return (
-    <section className="rounded-[18px] border border-[var(--kw-border)] bg-white p-6 shadow-[var(--kw-shadow)]">
+    <section className="min-w-0 rounded-[18px] border border-[var(--kw-border)] bg-white p-4 shadow-[var(--kw-shadow)] sm:p-6">
       <div className="grid gap-6 sm:grid-cols-2">
         <div>
           <div className="flex items-center gap-2 text-[14px] font-semibold text-[var(--kw-text)]"><Camera size={15} /> Camera trust</div>
