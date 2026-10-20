@@ -5,6 +5,7 @@ import { ArrowRight, Bell, CalendarDays, Check, ClipboardList, HardHat, MessageC
 import { useCallback, useEffect, useState } from 'react';
 import { getCentreDeskDay, updateCentreDeskTask } from '../lib/api';
 import { EmptyState, PageHeader, StatTile, StatusBadge } from '../components/WorkspaceUi';
+import EvidenceCopilot from '../components/EvidenceCopilot';
 import type { CentreDeskResponse, CentreDeskTask } from '../lib/types';
 
 function lastUpdate(value: string) {
@@ -122,6 +123,7 @@ export default function CentreDeskPage() {
             <div className="flex items-center gap-2"><Sparkles size={16} className="text-[#2563eb]"/><h2 className="text-[13px] font-semibold">Operational priorities</h2></div>
             <p className="mt-2 text-[11px] leading-5 text-[#526887]">{day.tasks.find(t=>t.status!=='resolved')?.title || 'No open fixture tasks.'}</p>
             <p className="mt-2 text-[10px] text-[#7d90ab]">Rule-based task summary · not an AI-generated assessment</p>
+            <div className="mt-3"><EvidenceCopilot centreId={day.centre_id} compact fallback={day.tasks.find(t=>t.status!=='resolved')?.title || 'No open fixture tasks.'} question={'Review the recorded centre intelligence for '+day.centre_name+'. Explain evidence-backed follow-ups only. Batch, roster and task fixtures are local demo data, not measurements.'}/></div>
           </section>
         </aside>
       </div>

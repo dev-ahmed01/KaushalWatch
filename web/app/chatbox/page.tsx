@@ -7,6 +7,7 @@ import { getChatboxThreads, getChatboxMessages, sendChatboxMessage } from '../li
 import { EmptyState, PageHeader, StatusBadge } from '../components/WorkspaceUi';
 import type { ChatThread, ChatMessage, ChatboxIndex } from '../lib/types';
 import { VoiceNoteControls, VoiceNotePlayer } from '../components/VoiceNoteControls';
+import EvidenceCopilot from '../components/EvidenceCopilot';
 
 const initialCentre = 'DEMO-KA-104';
 const demoActor = (centreId: string) => 'demo-officer-' + centreId;
@@ -167,7 +168,11 @@ export default function ChatboxPage() {
         <div className="mt-4 space-y-2 text-[11px] text-[#708198]"><p>{centreId}</p><p>Private local demo transport</p>
           <p>Role and centre membership checked on each request. Message receipts are not fabricated.</p></div>
         {issueLink && <Link href={'/issues?issue='+encodeURIComponent(issueLink)} className="kw-focus mt-4 inline-flex items-center gap-1 text-[11px] font-semibold text-[#2563eb]">Open linked issue <ArrowRight size={13}/></Link>}
-        <div className="mt-5 flex items-start gap-2 border-t border-[#e8eef5] pt-4 text-[10px] leading-5 text-[#8a98a9]"><MessageCircle size={15} className="shrink-0"/> AI conversation summaries require a separately authorised source-grounded integration.</div>
+        {messages.length > 0 && <div className="mt-4"><EvidenceCopilot compact centreId={centreId}
+          fallback={messages.filter(m=>m.kind==='text').slice(-2).map(m=>m.body).filter(Boolean).join(' · ') || 'Voice notes saved without speech-to-text.'}
+          question={'These are SYNTHETIC, authorised demo messages only. Summarise the text and any open follow-up, without inventing read receipts or interpreting voice notes: '+
+            messages.slice(-8).map(m=>m.kind==='text'?(m.sender_id+': '+(m.body||'')):'Voice note (not transcribed)').join('\n').slice(0,2600)}/></div>}
+        <p className="mt-4 border-t border-[#e8eef5] pt-4 text-[10px] leading-5 text-[#8a98a9]">Chat summaries are generated only after explicit request; a configured Gemini provider receives the synthetic text then.</p>
       </aside>
     </section>}
   </div>;
