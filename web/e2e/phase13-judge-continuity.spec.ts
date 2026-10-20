@@ -52,7 +52,7 @@ test('case record failure has retry and safe walkthrough fallback, never endless
   else await route.continue();
  });
  await page.goto('/cases/SIM-KA-104-ATT?from=mission&scene=attendance&step=2');
- await expect(page.getByRole('alert')).toContainText('Case evidence unavailable');
+ await expect(page.getByRole('heading',{name:'Case evidence unavailable'})).toBeVisible();
  await expect(page.getByRole('button',{name:'Retry saved case'})).toBeVisible();
  await expect(page.getByRole('link',{name:'Open walkthrough'})).toHaveAttribute('href','/demo/mission');
  await expect(page.getByLabel('Loading saved case')).toHaveCount(0);
