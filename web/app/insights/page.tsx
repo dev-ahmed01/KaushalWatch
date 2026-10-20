@@ -97,28 +97,28 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="mt-7 grid h-[230px] grid-cols-5 items-end gap-4">
+          <div className="mt-7 grid h-[230px] grid-cols-5 items-end gap-1.5 sm:gap-4">
             {data.attendance.map(item => (
               <div key={item.centre_id} className="flex min-w-0 flex-col items-center">
                 <div className="mb-2 h-5 text-[10px] font-medium text-[#667085]">
                   {item.available && item.difference ? 'Δ ' + item.difference : item.status === 'uncertain' ? 'UNCERTAIN' : ''}
                 </div>
-                <div className="flex h-[160px] items-end gap-1.5">
+                <div className="flex h-[160px] items-end gap-1 sm:gap-1.5">
                   {item.available ? (
                     <>
                       <div
-                        className="w-5 rounded-t-md bg-[#2563EB]"
+                        className="w-3 rounded-t-md bg-[#2563EB] sm:w-5"
                         style={{ height: Math.max(8, ((item.reported || 0) / attendanceMax) * 100) + '%' }}
                         title={'Reported ' + item.reported}
                       />
                       <div
-                        className="w-5 rounded-t-md bg-[#AFC8EC]"
+                        className="w-3 rounded-t-md bg-[#AFC8EC] sm:w-5"
                         style={{ height: Math.max(8, ((item.observed || 0) / attendanceMax) * 100) + '%' }}
                         title={'Observed ' + item.observed}
                       />
                     </>
                   ) : (
-                    <div className="flex h-full w-12 items-center justify-center rounded-lg border border-dashed border-[#D0D5DD] bg-[#F8FAFC] text-[10px] text-[#98A2B3]">—</div>
+                    <div className="flex h-full w-7 items-center justify-center rounded-lg border border-dashed sm:w-12 border-[#D0D5DD] bg-[#F8FAFC] text-[10px] text-[#98A2B3]">—</div>
                   )}
                 </div>
                 <div className="mt-2 truncate text-center text-[10px] text-[#667085]">{item.short_name}</div>
