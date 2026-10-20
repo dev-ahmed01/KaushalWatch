@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, MessageCircle, RefreshCw, Search, Send, ShieldCheck, UserCircle2 } from 'lucide-react';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { getChatboxThreads, getChatboxMessages, sendChatboxMessage } from '../lib/api';
 import { EmptyState, PageHeader, StatusBadge } from '../components/WorkspaceUi';
 import type { ChatThread, ChatMessage, ChatboxIndex } from '../lib/types';
@@ -32,6 +32,12 @@ export default function ChatboxPage() {
   const [loading,setLoading] = useState(true);
   const [mobileThread,setMobileThread] = useState(false);
   const [refresh,setRefresh] = useState(0);
+  const actorRef=useRef(actorId);
+  const activeThreadRef=useRef(actorId+':'+selected);
+  useEffect(()=>{
+    actorRef.current=actorId;
+    activeThreadRef.current=actorId+':'+selected;
+  },[actorId,selected]);
 
   useEffect(()=>{
     const params=new URLSearchParams(window.location.search);
@@ -46,6 +52,7 @@ export default function ChatboxPage() {
     let live=true;
     setLoading(true);
     setMessages([]);
+    setIndex(null); // Do not display a previous actor's conversation list during role changes.
     getChatboxThreads(actorId).then(result=>{
       if (!live) return;
       setIndex(result);
@@ -60,11 +67,22 @@ export default function ChatboxPage() {
 
   const updateMessages=useCallback(async()=>{
     if (!selected) {setMessages([]);return;}
+    const key=actorId+':'+selected;
     const response=await getChatboxMessages(selected,actorId);
-    setMessages(response.messages);
+    if (activeThreadRef.current===key) setMessages(response.messages);
   },[selected,actorId]);
 
+  const refreshThreadSummary=useCallback(async(actor: string)=>{
+    try {
+      const result=await getChatboxThreads(actor);
+      if (actorRef.current===actor) setIndex(result);
+    } catch {
+      // A successful send remains saved even if the sidebar preview cannot refresh.
+    }
+  },[]);
+
   useEffect(()=>{
+    setMessages([]); // Never show messages from a previously selected thread or actor.
     if (!selected) return;
     let live=true;
     getChatboxMessages(selected,actorId).then(response=>{if(live)setMessages(response.messages);})
@@ -85,8 +103,8 @@ export default function ChatboxPage() {
     try {
       await sendChatboxMessage(selected,actorId,clean,idem);
       setDraft('');
-      await updateMessages();
-      setRefresh(x=>x+1);
+      void updateMessages().catch(()=>setError('Message saved, but history could not refresh. Use Refresh.'));
+      void refreshThreadSummary(actorId);
     } catch (err) {setError(err instanceof Error?err.message:'Message could not be saved');}
     finally {setSending(false);}
   }
@@ -108,7 +126,7 @@ export default function ChatboxPage() {
     {index && <section aria-label="Chatbox workspace" className="grid min-w-0 overflow-hidden rounded-2xl border border-[#e2eaf5] bg-white shadow-[var(--kw-shadow)] md:grid-cols-[minmax(210px,280px)_minmax(0,1fr)] xl:grid-cols-[minmax(210px,280px)_minmax(0,1fr)_220px]">
       <aside aria-label="Conversations" className={'min-w-0 border-r border-[#e8eef6] p-3 sm:p-4 '+(mobileThread?'hidden md:block':'block')}>
         <label htmlFor="chat-actor" className="text-[10px] font-semibold text-[#8797aa]">Demo role (local only)</label>
-        <select id="chat-actor" aria-label="Demo role" value={actorId} onChange={e=>{setActorId(e.target.value);setPersonLink('');setMobileThread(false);}}
+        <select id="chat-actor" aria-label="Demo role" value={actorId} onChange={e=>{setIndex(null);setMessages([]);setActorId(e.target.value);setPersonLink('');setMobileThread(false);}}
           className="kw-focus mt-1 h-10 w-full min-w-0 rounded-lg border border-[#dae5f2] bg-white px-2 text-[11px]">
           {index.roles.map(p=><option key={p.id} value={p.id}>{p.name} · {p.role.replaceAll('_',' ')}</option>)}
         </select>
@@ -120,7 +138,7 @@ export default function ChatboxPage() {
             className={'kw-focus shrink-0 rounded-lg px-2 py-1.5 text-[10px] font-medium '+(filter===value?'bg-[#eaf2ff] text-[#215bb2]':'bg-[#f7f9fc] text-[#667085]')}>{value==='all'?'All':value.replaceAll('_',' ')}</button>)}
         </div>
         <div className="mt-2 space-y-1" aria-label="Permitted threads">
-          {visible.map(t=><button key={t.id} type="button" aria-pressed={selected===t.id} onClick={()=>{setSelected(t.id);setMobileThread(true);}}
+          {visible.map(t=><button key={t.id} type="button" aria-pressed={selected===t.id} onClick={()=>{setMessages([]);setSelected(t.id);setMobileThread(true);}}
             className={'kw-focus flex w-full items-center gap-2.5 rounded-xl p-2.5 text-left '+(selected===t.id?'bg-[#edf5ff]':'hover:bg-[#f8faff]')}>
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dceafd] text-[11px] font-semibold text-[#2563eb]">{personInitial(t.peer.name)}</span>
             <span className="min-w-0 flex-1"><strong className="block truncate text-[11px]">{t.peer.name}</strong>
@@ -150,7 +168,7 @@ export default function ChatboxPage() {
               </div>
             </div>)}
           </div>
-          <VoiceNoteControls key={selected + actorId} threadId={selected} actorId={actorId} onSent={() => { void updateMessages(); setRefresh(x => x + 1); }}/>
+          <VoiceNoteControls key={selected + actorId} threadId={selected} actorId={actorId} onSent={() => { void updateMessages().catch(()=>setError('Voice note saved, but history could not refresh. Use Refresh.')); void refreshThreadSummary(actorId); }}/>
           <form onSubmit={send} className="flex min-w-0 items-end gap-2 border-t border-[#e7edf5] bg-white p-3">
             <label htmlFor="chat-draft" className="sr-only">Type a text message</label>
             <textarea id="chat-draft" rows={2} maxLength={2000} value={draft} onChange={e=>setDraft(e.target.value)}
