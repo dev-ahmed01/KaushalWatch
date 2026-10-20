@@ -70,8 +70,13 @@ export default function RecordedDemoStudio(){
     catch{setSourceError('Playback could not start on this device. Try the native video controls.');}
   }
   function jump(time:number){
-    if(!admitted||!player.current)return;
-    player.current.currentTime=time;
+    if(!admitted)return;
+    // A supported decoder seeks the actual video. On a browser that cannot
+    // decode this procedural MP4, checkpoint preview remains script-only.
+    if(player.current && player.current.readyState>0){
+      try {player.current.currentTime=time;}
+      catch {setSourceError('Video seeking is unsupported here; showing the scripted checkpoint only.');}
+    }
     setSeconds(time);
   }
   function reset(){
@@ -158,7 +163,7 @@ export default function RecordedDemoStudio(){
               onTimeUpdate={event=>setSeconds(event.currentTarget.currentTime)}
               onSeeked={event=>setSeconds(event.currentTarget.currentTime)}
               onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)} onEnded={()=>setPlaying(false)}
-              onError={()=>setSourceError('The verified recording could not be decoded by this browser.')}/>:
+              onError={()=>setSourceError('The verified recording cannot be decoded in this browser. Scripted checkpoints remain available, but no video playback is claimed.')}/>:
               <div role="status" className="flex h-full items-center justify-center px-6 text-center text-[13px] text-[#D4E0EF]">
                 {sourceError||'Checking the recorded source…'}
               </div>}
