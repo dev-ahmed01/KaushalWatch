@@ -144,6 +144,16 @@ def assemble(manifest: Path, expected_commit: str) -> dict:
         or not isinstance(receipt.get("checks"), dict)):
         raise ValueError("Unsupported or falsely authorizing pilot preflight receipt")
 
+    if set(receipt) != {
+        "schema", "software_preflight", "field_evidence",
+        "eligible_to_request_external_pilot_signoff",
+        "real_site_deployment_independently_verified",
+        "external_operator_approval_recorded", "autonomous_enforcement_authorized",
+        "pilot_activation", "physical_camera_health", "checks",
+        "blocking_check_names", "external_evidence_not_independently_verified",
+        "operator_actions_remaining", "secrets_or_source_identifiers_emitted",
+    }:
+        raise ValueError("Unexpected pilot preflight schema")
     checks = receipt["checks"]
     if not REQUIRED_CHECKS <= checks.keys():
         raise ValueError("Pilot preflight is incomplete")
@@ -154,6 +164,13 @@ def assemble(manifest: Path, expected_commit: str) -> dict:
     # Only this known exception may be left for external field approval.
     technical = {k:v for k,v in checks.items() if k != "external_custody_and_field_accuracy"}
     expected_green = all(value == "PASS" for value in technical.values())
+    if (receipt.get("field_evidence") != (
+        FIELD_READY if checks["signed_independent_field_dossier"] == "PASS"
+        else "BLOCKED_OR_NOT_SUBMITTED"
+    ) or receipt.get("blocking_check_names") != sorted(
+        name for name, state in technical.items() if state != "PASS"
+    )):
+        raise ValueError("Pilot receipt blocklist or field status contradicts checks")
     if ((receipt["software_preflight"] == "CHECKS_PASS") != expected_green
         or receipt["eligible_to_request_external_pilot_signoff"] != expected_green):
         raise ValueError("Contradictory technical acceptance receipt")
