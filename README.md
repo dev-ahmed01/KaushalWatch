@@ -82,6 +82,8 @@ It starts the actual API and Next.js UI on localhost and displays the path to **
 
 For Linux or other non-Windows workstations, prepare a dedicated disposable synthetic data workspace and follow [Phase 6 submission runbook](docs/release/PHASE6_SUBMISSION_JUDGE_RUNBOOK.md); do not silently run the unguarded seed command on existing records. The automated preflight/source verifier is `python scripts/verify_judge_sources.py` followed by `python scripts/check_release_readiness.py`. Real footage still has its separate `scripts/check_demo_readiness.py --video <exact-video> --final` gate.
 
+For an actual running workstation, a positive PID is not sufficient: run `python scripts/check_judge_runtime.py --once` to verify the real localhost backend, seeded case, evidence pack, PDF and mission HTML. The Windows launcher now runs this same probe before reporting success. See [judge runtime readiness](docs/release/PHASE7_JUDGE_RUNTIME_READINESS.md).
+
 The [60-second guide](docs/demo/command-centre-60s.md) is synchronized with the current mission; the [Phase 6 release runbook](docs/release/PHASE6_SUBMISSION_JUDGE_RUNBOOK.md) is the authoritative judge-day workflow. Source integrity hashes are not human annotations or field certification.
 
 ## Verified attendance benchmark

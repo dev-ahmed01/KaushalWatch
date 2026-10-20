@@ -252,6 +252,8 @@ jobs:
           done
           cat /tmp/kaushalwatch-web.log
           exit 1
+      - name: Verify real judge mission readiness before browser suite
+        run: python scripts/check_judge_runtime.py --api-port 8000 --web-port 3000 --timeout-seconds 60
       - name: Run browser vertical slice
         working-directory: web
         env:

@@ -42,6 +42,10 @@ if($PreflightOnly){
   Write-Host 'Read-only preflight passed. No services started and no demo records reset.'
   exit 0
 }
+# Check ports BEFORE any destructive synthetic reset. Never accidentally
+# connect the presentation browser to a stale API or Next process.
+& $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --check-ports-free
+if($LASTEXITCODE -ne 0){throw 'Judge ports are occupied; stop old services rather than accepting stale case data.'}
 $data=Join-Path $root 'data'
 if($ResetSimulatedState){
   if(-not (Test-Path $data)){New-Item -ItemType Directory -Path $data | Out-Null}
@@ -58,6 +62,11 @@ if($LASTEXITCODE -ne 0){throw 'Non-demo state detected; refusing to launch contr
 if(-not (Test-Path (Join-Path $root 'web/node_modules'))){
   throw 'Web dependencies missing: run npm ci from the web folder before launch.'
 }
+# Run Next directly under node rather than npm.cmd: process ID belongs
+# to the actual web server rather than an intermediary shell wrapper.
+$node=(Get-Command node -ErrorAction Stop).Source
+$nextCli=Join-Path $root 'web/node_modules/next/dist/bin/next'
+if(-not (Test-Path $nextCli)){throw 'Next.js CLI missing: run npm ci inside web.'}
 $logRoot=Join-Path ([IO.Path]::GetTempPath()) 'kaushalwatch-judge'
 if(-not (Test-Path $logRoot)){New-Item -ItemType Directory -Path $logRoot | Out-Null}
 $env:KAUSHALWATCH_ENV='development'
@@ -81,17 +90,23 @@ $webErr=Join-Path $logRoot 'web.stderr.log'
 $api=Start-Process -FilePath $python -ArgumentList $backendArgs -WorkingDirectory $root -PassThru -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr
 $web=$null
 try{
-  $web=Start-Process -FilePath $npm -ArgumentList @('run','dev','--','--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
-  Start-Sleep -Seconds 2
+  # Start-Process joins ArgumentList into one command line on Windows. Quote
+  # an installed Next CLI path that may live under a directory with spaces.
+  $quotedNextCli='"' + $nextCli + '"'
+  $web=Start-Process -FilePath $node -ArgumentList @($quotedNextCli,'dev','--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
+  # A living PID does not establish startup. Verify real API source cases,
+  # a saved evidence pack, PDF bytes and the served judge mission HTML.
+  & $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --timeout-seconds 75
+  if($LASTEXITCODE -ne 0){throw 'Judge runtime failed real HTTP readiness. See temporary service logs.'}
   $api.Refresh()
   $web.Refresh()
-  if($api.HasExited -or $web.HasExited){throw 'Service exited during launch; inspect temporary judge logs.'}
+  if($api.HasExited -or $web.HasExited){throw 'A verified service exited unexpectedly; inspect temporary judge logs.'}
   Write-Host "API: http://127.0.0.1:$ApiPort"
   Write-Host "Web: http://127.0.0.1:$WebPort/demo/mission"
   Write-Host "Insights: http://127.0.0.1:$WebPort/insights"
   Write-Host "Logs: $logRoot"
   Write-Host 'Videos are procedural; seeded records synthetic. Institutional accuracy remains unqualified.'
-  Write-Host "To stop: Stop-Process -Id $($api.Id),$($web.Id)"
+  Write-Host "To stop: Stop-Process -Id $($api.Id),$($web.Id) (only while these exact processes remain active)"
 }catch{
   if($web -and -not $web.HasExited){Stop-Process -Id $web.Id -Force}
   if(-not $api.HasExited){Stop-Process -Id $api.Id -Force}
