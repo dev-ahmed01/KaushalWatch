@@ -143,9 +143,16 @@ try{
       $env:E2E_API_BASE_URL="http://127.0.0.1:$ApiPort"
       Push-Location (Join-Path $root 'web')
       try{
-        & $node $playwrightCli test 'e2e/phase15-release-rehearsal.spec.ts' '--project=chromium' '--workers=1' '--reporter=line'
+        # The offline checks are mandatory when demonstrating the frozen
+        # production site. Phase 15 alone does not prove fonts or egress work
+        # with the internet disconnected on the actual judge workstation.
+        $rehearsalSpecs=@('e2e/phase15-release-rehearsal.spec.ts')
+        if($ProductionWeb){
+          $rehearsalSpecs+= 'e2e/phase16-offline-branded.spec.ts'
+        }
+        & $node $playwrightCli test @rehearsalSpecs '--project=chromium' '--workers=1' '--reporter=line'
         if($LASTEXITCODE -ne 0){
-          throw 'Controlled end-to-end browser rehearsal FAILED. Check Playwright output, browser installation and temporary service logs.'
+          throw 'Controlled browser rehearsal FAILED (journey or offline-branded checks). Check Playwright traces, browser installation and temporary service logs.'
         }
       }finally{
         Pop-Location
@@ -155,6 +162,9 @@ try{
         throw 'Rehearsal browser passed but final service integrity check FAILED.'
       }
       Write-Host 'REHEARSAL PASSED: actual UI journey, case provenance, source manifest, real PDF and recovery.'
+      if($ProductionWeb){
+        Write-Host 'OFFLINE BROWSER PASSED: loopback-only requests, local branded fonts, saved case and PDF.'
+      }
       Write-Host 'This is a local synthetic controlled demonstration, NOT institutional field qualification.'
     }finally{
       $env:E2E_BASE_URL=$previousE2EBase
