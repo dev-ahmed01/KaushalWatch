@@ -90,7 +90,10 @@ $webErr=Join-Path $logRoot 'web.stderr.log'
 $api=Start-Process -FilePath $python -ArgumentList $backendArgs -WorkingDirectory $root -PassThru -RedirectStandardOutput $apiLog -RedirectStandardError $apiErr
 $web=$null
 try{
-  $web=Start-Process -FilePath $node -ArgumentList @($nextCli,'dev','--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
+  # Start-Process joins ArgumentList into one command line on Windows. Quote
+  # an installed Next CLI path that may live under a directory with spaces.
+  $quotedNextCli='"' + $nextCli + '"'
+  $web=Start-Process -FilePath $node -ArgumentList @($quotedNextCli,'dev','--hostname','127.0.0.1','--port',"$WebPort") -WorkingDirectory (Join-Path $root 'web') -PassThru -RedirectStandardOutput $webLog -RedirectStandardError $webErr
   # A living PID does not establish startup. Verify real API source cases,
   # a saved evidence pack, PDF bytes and the served judge mission HTML.
   & $python (Join-Path $root 'scripts/check_judge_runtime.py') --api-port $ApiPort --web-port $WebPort --timeout-seconds 75
