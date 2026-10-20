@@ -40,6 +40,17 @@ jobs:
       - name: Windows launcher read-only PowerShell preflight
         shell: pwsh
         run: ./scripts/Start-KaushalWatch-Judge.ps1 -PreflightOnly
+      - name: Fail closed if rehearsal and read-only preflight flags are combined
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          try {
+            ./scripts/Start-KaushalWatch-Judge.ps1 -PreflightOnly -RunRehearsal
+            throw 'Invalid combination incorrectly accepted'
+          } catch {
+            if ($_.Exception.Message -notmatch 'cannot be combined') { throw }
+            Write-Host 'Fail-closed rehearsal flag contract verified.'
+          }
       - name: Check frontend/backend officer API contracts
         run: python scripts/check_frontend_api_contracts.py
       - run: pytest -q backend/tests
@@ -272,6 +283,12 @@ jobs:
           exit 1
       - name: Verify real judge mission readiness before browser suite
         run: python scripts/check_judge_runtime.py --api-port 8000 --web-port 3000 --timeout-seconds 60
+      - name: Phase 15 judge-release rehearsal against running API and browser
+        working-directory: web
+        env:
+          E2E_BASE_URL: http://127.0.0.1:3000
+          E2E_API_BASE_URL: http://127.0.0.1:8000
+        run: npx playwright test e2e/phase15-release-rehearsal.spec.ts --project chromium --workers 1
       - name: Run browser vertical slice
         working-directory: web
         env:
