@@ -43,6 +43,15 @@ jobs:
       - name: Check frontend/backend officer API contracts
         run: python scripts/check_frontend_api_contracts.py
       - run: pytest -q backend/tests
+      - name: Verify pilot handoff denies a missing private receipt without credential disclosure
+        run: |
+          set +e
+          python scripts/assemble_pilot_handoff.py --manifest /tmp/kw-no-real-pilot-handoff.json --expected-commit aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa --out /tmp/kw-blocked-handoff.json > /tmp/kw-handoff-status.json
+          outcome=$?
+          set -e
+          test "$outcome" -eq 2
+          test ! -e /tmp/kw-blocked-handoff.json
+          python -c 'import json; x=json.load(open("/tmp/kw-handoff-status.json")); assert x["pilot_activation"]=="BLOCKED_PENDING_EXTERNAL_AUTHORIZATION" and x["status"]=="BLOCKED_INVALID_PRIVATE_EVIDENCE"'
       - name: Measure real loopback offline cut, durable retry and HTTP body bytes
         run: |
           python scripts/rehearse_offline_transport.py --out /tmp/kw-phase4-offline.json
