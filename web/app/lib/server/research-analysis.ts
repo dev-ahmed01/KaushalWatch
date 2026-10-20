@@ -81,7 +81,7 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
    const samples:TraceSample[]=[];
    let previous=-3;
    for(const item of sourceClip.samples){
-     if(!plain(item)||!Number.isSafeInteger(item.frame0)
+     if(!plain(item)||typeof item.frame0!=='number'||!Number.isSafeInteger(item.frame0)
        ||item.frame0!==previous+3
        ||item.frame0<0||item.frame0>=frameCount
        ||!finite(item.second)
@@ -111,7 +111,7 @@ export async function researchTrace(root:string):Promise<TraceCatalog>{
      possible_interference:samples.filter(s=>s.interference_review==='POSSIBLE_SCENE_INTERFERENCE_REVIEW').length,
      annotation_event_samples:samples.filter(s=>s.annotation_in_event).length,
    };
-   if(Object.keys(sourceClip.counts).length!==3
+   if(Object.keys(suppliedCounts).length!==3
      ||Object.entries(counts).some(([k,v])=>suppliedCounts[k]!==v))
       throw new Error('Inconsistent trace summary');
    clips.push({id:c.visible.id,source_sha256:c.visible.source_sha256,
